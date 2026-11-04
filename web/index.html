@@ -120,6 +120,17 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* Copying from the chat: select any text with the mouse, or use a message's Copy button */
+body{user-select:none;-webkit-user-select:none}
+.log,.log *,input,.htext,.hlist,td,.holo-rows,.row span:last-child{user-select:text;-webkit-user-select:text}
+::selection{background:rgba(var(--rgb),.35);color:#fff}
+.msg{position:relative}
+.copy{position:absolute;top:-2px;right:0;font-size:9px;padding:2px 6px;letter-spacing:.15em;border-color:var(--line);color:var(--mute);
+  opacity:0;transition:opacity .15s;user-select:none}
+.msg.you .copy{right:auto;left:0}
+.msg:hover .copy,.copy:focus-visible{opacity:1}
+.copy.done{color:var(--cyan);border-color:var(--cyan)}
+@media (hover:none){.copy{opacity:.6}}
 /* Sending Jarvis a photo */
 .attach{position:relative;display:flex;align-items:center;gap:10px;width:100%;max-width:640px;box-sizing:border-box;padding:6px 34px 6px 6px;
   border:1px solid var(--cyan-dim);background:rgba(var(--rgb),.06);color:var(--mute);font-size:11px;letter-spacing:.08em}
@@ -402,7 +413,16 @@ draw();
 const states={idle:'Standing by',listening:'Listening',thinking:'Processing',speaking:'Responding',hold:'On hold'};
 const setMode=m=>{if(m==='thinking'&&mode!=='thinking')sfx('think');mode=m;$('state').textContent=states[m];api()?.core(m)};  // the mini core mirrors this
 let userLabel='YOU';  // the user's name once setup is done
-function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}</b>`;sp.textContent=text;d.append(sp);$('log').append(d);$('log').scrollTop=1e9;return sp}
+// A Copy button on every message (the clipboard API needs a secure page; the phone over Wi-Fi uses the fallback)
+function copyText(t){
+  if(navigator.clipboard&&isSecureContext)return navigator.clipboard.writeText(t);
+  const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0';document.body.append(ta);ta.select();
+  try{document.execCommand('copy')}finally{ta.remove()}return Promise.resolve();
+}
+function copyBtn(sp){const b=document.createElement('button');b.type='button';b.className='copy';b.textContent='Copy';b.setAttribute('aria-label','Copy this message');
+  b.onclick=async()=>{try{await copyText(sp.textContent.trim());b.textContent='Copied';b.classList.add('done')}catch(e){b.textContent='Failed'}
+    setTimeout(()=>{b.textContent='Copy';b.classList.remove('done')},1500)};return b}
+function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}</b>`;sp.textContent=text;d.append(sp,copyBtn(sp));$('log').append(d);$('log').scrollTop=1e9;return sp}
 // Jarvis's voice: each sentence is sent off to the neural voice as soon as it is written, the clips
 // play back-to-back with no gap, and the core follows the real loudness of the audio.
 let actx=null,analyser=null,abuf=null,voiceOn=false,voiceGen=0,aborter=null;

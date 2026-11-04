@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.8.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.8.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1236,7 +1236,7 @@ if __name__ == "__main__":
                     voice.hold()
 
         main = webview.create_window("JARVIS", url, width=1440, height=900, min_size=(420, 600),
-                                     background_color="#03070c", js_api=Api())
+                                     background_color="#03070c", js_api=Api(), text_select=True)
         main.events.minimized += lambda: mini.send("show")
         main.events.closed += lambda: mini.send("quit")  # closing the main window quits
         mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)

@@ -1,4 +1,4 @@
 {
- "version": "1.8.0",
- "notes": "Your own panels and additions now live in custom/ and survive every update."
+ "version": "1.8.1",
+ "notes": "Select and copy text from the chat, or use a message's Copy button."
 }

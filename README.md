@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.8.0** (shown at the bottom right of the HUD)
+**Version 1.8.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -186,6 +186,7 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.8.1** (5 Nov 2026): select and copy text from the chat, or use the Copy button on any message.
 - **1.8.0** (5 Nov 2026): your own additions survive updates. Anything Jarvis builds into himself now goes in
   the `custom/` folder (panels, stats, tools, styles), which updates never touch. Fixes updates being skipped
   after Jarvis had edited his own files.
