@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.7.1** (shown at the bottom right of the HUD)
+**Version 1.8.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -171,6 +171,13 @@ He switches by himself when the Claude limit is hit, and tries Claude again an h
 "switch to ChatGPT", "use Claude" or "auto mode". (Background jobs like PC fixes, dev jobs and the learning
 pass still need Claude.)
 
+## Your own additions (kept through updates)
+
+Ask Jarvis to build something into himself ("create an expanded systems panel", "add a battery panel") and he
+builds it in the `custom/` folder. Updates never touch that folder, so your additions carry over to every
+version. Close a custom panel with its x and say "show the <panel name>" to bring it back. To build your own by
+hand, see CUSTOM.md.
+
 ## Updating
 
 When a new version is out, an **Update to vX** button appears at the bottom right of the HUD. Click it and
@@ -179,6 +186,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.8.0** (5 Nov 2026): your own additions survive updates. Anything Jarvis builds into himself now goes in
+  the `custom/` folder (panels, stats, tools, styles), which updates never touch. Fixes updates being skipped
+  after Jarvis had edited his own files.
 - **1.7.1** (5 Nov 2026): the HUD scales with the window. Make the window bigger (or full screen) and the side
   panels move out to the edges while the core, text, panels and charts grow, with Jarvis kept in the centre.
 - **1.7.0** (5 Nov 2026): send Jarvis photos. Press Photo (opens the camera on a phone), paste one, or drag it

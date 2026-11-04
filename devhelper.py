@@ -38,7 +38,8 @@ DEFAULT_PROJECTS = {}  # add your own: "add my project X at C:\\..."
 
 
 def list_projects():
-    return _load("projects.json", DEFAULT_PROJECTS)
+    # Jarvis himself is always a project: changes to him go into custom/ (see CUSTOM.md) and survive updates
+    return {**_load("projects.json", DEFAULT_PROJECTS), "jarvis": str(Path(__file__).resolve().parent)}
 
 
 def add_project(name, path):
@@ -115,6 +116,19 @@ PC_PROMPT = ("You are Jarvis's hands on {USER}'s Windows PC. He asked for the jo
              "or found, and anything left for him to do.\n\nThe job: ")
 
 
+SELF_RULE = ("\n\nIMPORTANT: Jarvis's own program lives in {HERE}. Its core files (*.py, web/index.html, updater, "
+             "README) are replaced by every update, so NEVER edit them. To change or add to Jarvis (new panels, "
+             "stats, tools, looks), write files only in {HERE}\\custom, following {HERE}\\CUSTOM.md: read it first. "
+             "Things built there are kept through every update.\n\n")
+
+
+def _self_rule(job):
+    """Jobs that could touch Jarvis himself get the custom/ rule, so updates keep working."""
+    here = str(Path(__file__).resolve().parent)
+    touches = job.get("kind") == "pc" or Path(job["path"]).resolve() == Path(here)
+    return SELF_RULE.replace("{HERE}", here) if touches else ""
+
+
 def run_job(job, claude):
     """Run one background job with Claude Code. Returns the spoken summary.
 
@@ -128,7 +142,7 @@ def run_job(job, claude):
         cmd, prompt = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep",
                               "--disallowedTools", "Bash,PowerShell,WebFetch,WebSearch"], DEV_PROMPT
     try:
-        r = subprocess.run(cmd, input=features.personal(prompt) + job["request"], capture_output=True, text=True, encoding="utf-8",
+        r = subprocess.run(cmd, input=features.personal(prompt) + _self_rule(job) + job["request"], capture_output=True, text=True, encoding="utf-8",
                            cwd=job["path"], timeout=1800, creationflags=NO_WINDOW)
         out = json.loads(r.stdout)
         text = out.get("result", "").strip() or "It finished but didn't say anything."

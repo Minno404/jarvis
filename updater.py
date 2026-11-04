@@ -16,7 +16,8 @@ from pathlib import Path
 REPO = "Minno404/jarvis"
 HERE = Path(__file__).resolve().parent
 KEEP = {"settings.json", "memory.json", "state.json", "projects.json", "config.yaml", "tokens.json",
-        "phone_key.txt"}  # never overwritten, even if one ever lands in the repo by mistake
+        "phone_key.txt", "dev_jobs.json"}  # never overwritten, even if one ever lands in the repo by mistake
+KEEP_DIRS = {"custom", "backups", "conversations", "uploads", "images", "reviews", "screens", "mt5 reports"}
 
 
 def _get(url, timeout=10, **headers):
@@ -50,13 +51,16 @@ def install(data=None, dest=HERE):
     written = []
     for info in z.infolist():
         rel = Path(*Path(info.filename).parts[1:])  # drop the "jarvis-main/" top folder
-        if info.is_dir() or not rel.parts or rel.name in KEEP or ".." in rel.parts:
+        if info.is_dir() or not rel.parts or rel.name in KEEP or ".." in rel.parts or rel.parts[0] in KEEP_DIRS:
             continue
         out = dest / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         with z.open(info) as src, open(out, "wb") as f:
             shutil.copyfileobj(src, f)
         written.append(str(rel))
+    for leftover in [*dest.rglob("*.upstream"), dest / ".update_base.json"]:  # from an older updater
+        if leftover.is_file() and "custom" not in leftover.parts:
+            leftover.unlink()
     return written
 
 
@@ -77,10 +81,15 @@ def selftest():
         z.writestr("jarvis-main/web/index.html", "<html>")
         z.writestr("jarvis-main/settings.json", "{}")
         z.writestr("jarvis-main/web/", "")
+        z.writestr("jarvis-main/custom/panel.js", "from the repo")
     d = Path(tempfile.mkdtemp())
     (d / "settings.json").write_text('{"name": "Halen"}')
+    (d / "custom").mkdir()
+    (d / "custom" / "panel.js").write_text("mine")
+    (d / "server.py.upstream").write_text("old leftover")
     assert sorted(install(buf.getvalue(), d)) == ["server.py", str(Path("web/index.html"))]
     assert (d / "server.py").read_text() == "new code" and "Halen" in (d / "settings.json").read_text()
+    assert (d / "custom" / "panel.js").read_text() == "mine" and not (d / "server.py.upstream").exists()
     shutil.rmtree(d)
     print("updater self-test passed")
 

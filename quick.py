@@ -35,6 +35,15 @@ def _ok(result, line=None):
     return line or random.choice(DONE)
 
 
+def custom_panels():
+    """Titles and ids of panels that custom/ add-ons create, so 'show the task manager' works instantly."""
+    names = set()
+    for f in (features.HERE / "custom").glob("*.js"):
+        for m in re.finditer(r"addPanel\(\s*\{([^}]*)\}", f.read_text(encoding="utf-8", errors="replace")):
+            names |= {v.lower() for v in re.findall(r"(?:id|title)\s*:\s*['\"]([^'\"]+)['\"]", m.group(1))}
+    return names
+
+
 def quick(text):
     """A spoken reply if this was an everyday command that's now been done, else None (ask Claude)."""
     R, t = features.REGISTRY, _clean(text)
@@ -82,7 +91,7 @@ def quick(text):
     # --- the HUD's side panels ---
     m = re.fullmatch(r"(close|hide|remove|get rid of|open|show|reopen|bring up|bring back|restore) (?:the )?"
                      r"([a-z0-9 ]+?)(?: panels?)?", t)
-    if m and m.group(2) in hud.PANELS:
+    if m and (m.group(2) in hud.PANELS or m.group(2) in custom_panels()):
         show = m.group(1) in ("open", "show", "reopen", "bring up", "bring back", "restore")
         r = R["hud_panel"](m.group(2), show)
         return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))

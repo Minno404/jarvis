@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.7.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.8.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -58,7 +58,8 @@ Money questions ("how much did I spend on food?") use spending and spending_tips
 When numbers or a chart would help, show_panel puts a holographic panel beside you on his screen; then just
 summarise in a sentence. Protocols ("night protocol", "house party protocol") are routines; he can create his
 own ("make a movie protocol that..."). "What have you learned about me?" lists memories marked learned.
-Coding work on his projects goes to dev_task, which runs in the background and reports back later.
+Coding work on his projects goes to dev_task, which runs in the background and reports back later. When he asks you to build something into yourself (a new or expanded panel, a stat, a tool, a look),
+that's dev_task with project "jarvis": it's built in your custom/ folder, which every update keeps.
 Never say you can't do something on his PC: if none of your tools fit, hand it to pc_task, which can do
 anything he'd ask Claude to do in chat (install things, sort files, fix problems, research, scripts).
 His Hisense TV ("{USER}'s TV") is controlled with the tv_ tools: power, inputs, channels, volume, apps.
@@ -566,7 +567,10 @@ import quick      # everyday commands done without Claude (see quick.py)
 import updater    # updates from GitHub (see updater.py)
 import hud        # HUD colour and pictures from the web (see hud.py)
 import gpt_brain  # ChatGPT as the backup brain (see gpt_brain.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud):
+import custom_loader  # your own add-ons in custom/, kept through updates (see CUSTOM.md)
+for m in (features, trading, spending, devhelper, learn, tv, hud, *custom_loader.load()):
+    if not hasattr(m, "FUNCS"):
+        continue
     FUNCS.update(m.FUNCS)
     TOOLS += m.TOOLS
 FUNCS["set_brain"] = lambda brain: set_brain(brain)
@@ -979,11 +983,22 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/api/custom":  # add-on files for the HUD to load (custom/*.js, *.css)
+            return self.send_json({"files": custom_loader.web_files(), "errors": custom_loader.errors})
+        if self.path.startswith("/custom/"):
+            got = custom_loader.file(self.path.split("?")[0].rsplit("/", 1)[-1])
+            if not got:
+                return self.send_error(404)
+            self.send_response(200)
+            self.send_header("Content-Type", got[1] + "; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            return self.wfile.write(got[0])
         if self.path == "/api/update":  # is there a newer version on GitHub?
             return self.send_json(updater.check(VERSION) if self.local() else {"update": False})
         if self.path == "/api/stats":
             try:
-                return self.send_json(features.pc_stats())
+                return self.send_json({**features.pc_stats(), **custom_loader.stats()})
             except ImportError:
                 return self.send_json({})
         if self.path == "/api/journal":

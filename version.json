@@ -1,4 +1,4 @@
 {
- "version": "1.7.1",
- "notes": "The HUD now grows to fill bigger windows, with Jarvis kept in the centre."
+ "version": "1.8.0",
+ "notes": "Your own panels and additions now live in custom/ and survive every update."
 }

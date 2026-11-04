@@ -141,10 +141,11 @@ PANELS = {"time": "time", "clock": "time", "local time": "time", "systems": "sys
 
 def hud_panel(panel, show=True):
     """Close or bring back one of the HUD's side panels (or all of them)."""
-    pid = PANELS.get(panel.lower().replace(" panel", "").strip())
+    name = panel.lower().replace(" panel", "").strip()
+    pid = PANELS.get(name) or re.sub(r"[^a-z0-9]+", "-", name).strip("-")  # custom panels go by their own id/title
     if not pid:
-        return {"error": f"Unknown panel '{panel}'", "panels": ["time", "systems", "protocols", "mt5 journal",
-                                                                  "voice journal", "journal report", "all"]}
+        return {"error": "Which panel?", "panels": ["time", "systems", "protocols", "mt5 journal", "voice journal",
+                                                    "journal report", "all", "or any custom panel by its title"]}
     PUSH({"type": "hud_panel", "panel": pid, "show": bool(show)})
     return {"panel": pid, "shown": bool(show)}
 
@@ -155,7 +156,7 @@ TOOLS = [
      "orange, green, teal, purple, pink, white, silver, or any hex code. It stays until changed.",
      "input_schema": {"type": "object", "required": ["colour"], "properties": {"colour": {"type": "string"}}}},
     {"name": "hud_panel", "description": "Close or reopen one of the HUD's side panels: time, systems, protocols, "
-     "mt5 journal, voice journal, journal report, or all. show false to close.",
+     "mt5 journal, voice journal, journal report, any custom panel by its title, or all. show false to close.",
      "input_schema": {"type": "object", "required": ["panel"], "properties": {"panel": {"type": "string"},
                                                                                "show": {"type": "boolean"}}}},
     {"name": "show_image", "description": "Show pictures on his HUD (and phone) as a holographic panel. ALWAYS use "

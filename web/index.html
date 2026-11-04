@@ -278,12 +278,14 @@ addEventListener('pywebviewready',()=>{$('mic').hidden=false});
 $('mic').onclick=()=>{audio();$('mic').textContent='Mic';api()?.listen()};
 // Clock
 const tick=()=>{const d=new Date();$('clock').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});$('date').textContent=d.toLocaleDateString([], {weekday:'long',day:'numeric',month:'short'})};tick();setInterval(tick,1000);
+const statHooks=[];  // add-ons in custom/ react to live stats (JarvisHUD.onStats)
 // Live PC stats from the server (every 2 s; GPU only shows on NVIDIA cards)
 async function stats(){
   try{const d=await (await fetch('/api/stats')).json();
     if(d.cpu_percent==null)throw 0;
     $('cpu').textContent=Math.round(d.cpu_percent)+'%';$('cpuBar').style.width=d.cpu_percent+'%';
     $('mem').textContent=Math.round(d.ram_percent)+'%';$('memBar').style.width=d.ram_percent+'%';
+    for(const fn of statHooks)try{fn(d)}catch(err){console.warn('custom stats hook',err)}
     if(d.gpu_percent!=null){$('gpuRow').hidden=$('gpuBarWrap').hidden=false;$('gpu').textContent=`${Math.round(d.gpu_percent)}% · ${Math.round(d.gpu_temp_c)}°C`;$('gpuBar').style.width=d.gpu_percent+'%'}
   }catch(e){$('cpu').textContent=$('mem').textContent='–'}
 }
@@ -534,7 +536,8 @@ document.querySelectorAll('.panel[data-id]').forEach(p=>movable(p,p.dataset.id))
 let closedSet=new Set();try{closedSet=new Set(JSON.parse(localStorage.getItem('jarvis-closed')||'[]'))}catch(e){}
 function setPanel(id,show){
   const ids=id==='all'?[...document.querySelectorAll('.panel[data-id]')].map(p=>p.dataset.id):[id];
-  for(const i of ids){const p=document.querySelector(`.panel[data-id="${i}"]`);if(!p)continue;
+  for(let i of ids){const p=document.querySelector(`.panel[data-id="${i}"]`)||[...document.querySelectorAll('.panel[data-id]')]
+      .find(x=>x.querySelector('h2')?.firstChild?.textContent.trim().toLowerCase()===String(i).replace(/-/g,' '));if(!p)continue;i=p.dataset.id;
     p.classList.toggle('closed',!show);show?closedSet.delete(i):closedSet.add(i);
     if(show){p.classList.remove('flash');void p.offsetWidth;p.classList.add('flash')}}
   sfx(show?'panel':'close');try{localStorage.setItem('jarvis-closed',JSON.stringify([...closedSet]))}catch(e){}
@@ -691,4 +694,30 @@ $('coreWrap').addEventListener('click',()=>{if(voiceOn||busy){stopSpeaking();set
 function followUp(on){if(on)setMode('listening');else if(mode==='listening')setMode('idle')}  // listening for a reply
   // Show the mini window while the main one is in the background
   addEventListener('blur',()=>api()?.mini(true));addEventListener('focus',()=>api()?.mini(false));
+
+// ---------- Add-ons: your own panels and tweaks in the custom/ folder, kept through every update ----------
+// A custom/*.js file can use:
+//   JarvisHUD.addPanel({id, title, side:'left'|'right', html}) -> the panel element (movable, closable, remembered)
+//   JarvisHUD.onStats(fn)   fn(stats) every 2 s with the PC stats (plus anything custom/*.py STATS() adds)
+//   JarvisHUD.panel(id)     an existing panel ('systems', 'time', 'mt5', ...) to add rows to
+//   JarvisHUD.row(label, id) a ready-made label/value row; JarvisHUD.esc(text) for safe text
+window.JarvisHUD={
+  addPanel({id,title,side='right',html=''}){
+    if(document.querySelector(`.panel[data-id="${id}"]`))return document.querySelector(`.panel[data-id="${id}"]`);
+    const p=document.createElement('div');p.className='panel';p.dataset.id=id;
+    p.innerHTML=`<h2>${esc(title)}</h2>`+html;document.querySelectorAll('.col')[side==='left'?0:1].append(p);
+    movable(p,id);const x=document.createElement('button');x.className='holo-x';x.type='button';x.textContent='\u00d7';
+    x.setAttribute('aria-label','Close panel');x.onclick=()=>setPanel(id,false);p.prepend(x);
+    if(closedSet.has(id))p.classList.add('closed');return p},
+  onStats(fn){statHooks.push(fn)},
+  panel:id=>document.querySelector(`.panel[data-id="${id}"]`),
+  row(label,id){const r=document.createElement('div');r.className='row';r.innerHTML=`<span>${esc(label)}</span><span${id?` id="${id}"`:''}>--</span>`;return r},
+  esc,
+};
+(async()=>{let c={files:[]};try{c=await (await fetch('/api/custom')).json()}catch(e){return}
+  for(const f of c.files){
+    if(f.endsWith('.css')){const l=document.createElement('link');l.rel='stylesheet';l.href='/custom/'+f;document.head.append(l)}
+    else{const sc=document.createElement('script');sc.src='/custom/'+f;sc.onerror=()=>console.warn('custom add-on failed',f);document.body.append(sc)}}
+  for(const [f,e] of Object.entries(c.errors||{}))console.warn('custom add-on skipped',f,e);
+})();
 </script>
