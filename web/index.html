@@ -459,6 +459,7 @@ function setTheme(hex){
   r.setProperty('--line',h(mix(.3)));r.setProperty('--line-rgb',mix(.3).join(','));
   r.setProperty('--bg-glow',h(mix(.12)));r.setProperty('--text',h(rgb.map(v=>Math.round(205+(v-205)*.25))));
   r.setProperty('--win',rgb[0]>180&&rgb[1]<130&&rgb[2]<140?'#4dff9a':'#'+m[1]);  // wins stay readable against red losses
+  try{api()?.theme('#'+m[1])}catch(e){}  // the floating mini core follows
   accent=rgb.join(',');document.querySelector('meta[name=theme-color]')?.setAttribute('content',h(mix(.04)));
 }
 // Movable panels (on the PC): drag a panel by its title, resize it from the bottom-right corner. Where you put

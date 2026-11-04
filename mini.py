@@ -14,6 +14,14 @@ KEY = "#010203"  # this exact colour is see-through and click-through
 CYAN, DIM, AMBER, AMBER_DIM = "#5fe3ff", "#2a8fb0", "#ffb347", "#a8742c"
 GLOW = ["#0b3a4a", "#145f75", "#1f8aa6", "#3bbfe0"]  # inner glow, outside in
 GLOW_AMBER = ["#4a320b", "#755014", "#a6721f", "#e0a03b"]
+
+
+def palette(hexc):
+    """(bright, dim, glow steps) for the HUD's accent colour, so the mini core matches the main window."""
+    h = hexc.lstrip("#")
+    rgb = [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+    mix = lambda k: "#" + "".join(f"{max(4, round(v * k)):02x}" for v in rgb)  # never the see-through key colour
+    return "#" + h.lower(), mix(.5), [mix(k) for k in (.19, .33, .55, .78)]
 RINGS = [(110, 10, 6, 1, .7), (170, 3, 3, -.6, .85), (230, 14, 24, .35, .5),
          (300, 2, 2, -.25, .9), (350, 6, 60, .15, .35), (395, 1.5, 1, 0, 1)]  # radius, width, arcs, speed, fill
 
@@ -41,7 +49,7 @@ def _run(on_ask, on_open, size):
     root.configure(bg=KEY)
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
     st = {"size": size, "mode": "idle", "t": 0.0, "level": 0.0, "target": 0.0, "next": 0.0,
-          "x": sw - size - 40, "y": sh - size - 110, "drag": None, "moved": False}
+          "colours": (CYAN, DIM, GLOW), "x": sw - size - 40, "y": sh - size - 110, "drag": None, "moved": False}
     cv = tk.Canvas(root, bg=KEY, highlightthickness=0, bd=0)
     cv.pack(fill="both", expand=True)
     entry = tk.Entry(root, bg="#03070c", fg="#cdeefb", insertbackground="#5fe3ff", relief="flat",
@@ -118,7 +126,7 @@ def _run(on_ask, on_open, size):
             st["target"] = 0
         st["level"] += (st["target"] - st["level"]) * .25
         lv, t, k, c = st["level"], st["t"], s / 840, s / 2
-        bright, dim, glow = (AMBER, AMBER_DIM, GLOW_AMBER) if mode == "thinking" else (CYAN, DIM, GLOW)
+        bright, dim, glow = (AMBER, AMBER_DIM, GLOW_AMBER) if mode == "thinking" else st["colours"]
         pulse = lv * 70 + math.sin(t * 2) * 6
         cv.delete("all")
         for i, col in enumerate(glow):  # soft centre, as stepped discs
@@ -149,6 +157,12 @@ def _run(on_ask, on_open, size):
                     show(False)
                 elif cmd == "mode":
                     st["mode"] = args[0] if args[0] in ("thinking", "speaking", "listening") else "idle"
+                elif cmd == "colour":
+                    try:
+                        st["colours"] = palette(args[0])
+                        entry.configure(insertbackground=st["colours"][0], highlightcolor=st["colours"][0])
+                    except (ValueError, IndexError, AttributeError):
+                        pass  # not a colour: keep the current one
                 elif cmd == "quit":
                     root.destroy()
                     return

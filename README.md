@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.5.0** (shown at the bottom right of the HUD)
+**Version 1.5.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -165,6 +165,7 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.5.1** (5 Nov 2026): the floating mini core now matches the HUD's colour.
 - **1.5.0** (5 Nov 2026): fresher greetings (around 50, by time of day and weekday, no repeats in a row).
   Close any side panel with its x and ask Jarvis to bring it back ("show the MT5 journal", "show all panels").
   New holographic panel types: line charts, donut charts, progress bars (budgets, goals), lists (agenda,

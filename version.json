@@ -1,4 +1,4 @@
 {
- "version": "1.5.0",
- "notes": "Fresh greetings, closable panels, and new panel types: line, donut, progress, list, countdown, notes."
+ "version": "1.5.1",
+ "notes": "The floating mini core now matches the HUD's colour."
 }
