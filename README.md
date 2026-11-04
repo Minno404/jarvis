@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.4.0** (shown at the bottom right of the HUD)
+**Version 1.4.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -165,6 +165,7 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.4.1** (5 Nov 2026): fixed panels getting stuck after being moved once.
 - **1.4.0** (5 Nov 2026): HUD upgrade.
   - Colour themes: "Jarvis, make the HUD red" (also gold, green, purple, pink, orange, white, teal, blue...).
   - Pictures: "show me a picture of a CLA45 AMG" pulls one from Wikipedia onto the HUD.

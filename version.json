@@ -1,4 +1,4 @@
 {
- "version": "1.4.0",
- "notes": "HUD colours, pictures from the web, and panels you can move and resize."
+ "version": "1.4.1",
+ "notes": "Fixed panels getting stuck after being moved once."
 }

@@ -467,7 +467,7 @@ function movable(p,id){
   const remember=()=>{if(!id)return;const r=p.getBoundingClientRect();layout[id]={x:r.left,y:r.top,w:r.width,h:r.height};saveLayout()};
   h.addEventListener('pointerdown',e=>{
     if(e.button||innerWidth<1000||e.target.closest('button'))return;
-    e.preventDefault();free(p);p.classList.add('lifted');
+    e.preventDefault();if(p.classList.contains('free'))p.style.zIndex=++topZ;else free(p);p.classList.add('lifted');
     const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
     const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-60,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-30,m.clientY-dy))+'px'};
     const up=()=>{p.classList.remove('lifted');h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);remember()};
