@@ -19,8 +19,8 @@ KEEP = {"settings.json", "memory.json", "state.json", "projects.json", "config.y
         "phone_key.txt"}  # never overwritten, even if one ever lands in the repo by mistake
 
 
-def _get(url, timeout=10):
-    req = urllib.request.Request(url, headers={"User-Agent": "Jarvis-updater"})
+def _get(url, timeout=10, **headers):
+    req = urllib.request.Request(url, headers={"User-Agent": "Jarvis-updater", **headers})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 
@@ -31,7 +31,9 @@ def _v(s):
 
 def latest():
     """The newest version on GitHub and its notes, e.g. {'version': '1.2.0', 'notes': '...'}."""
-    return json.loads(_get(f"https://raw.githubusercontent.com/{REPO}/main/version.json"))
+    # through GitHub's API: the raw file address is cached for ~5 minutes, so a fresh update wasn't seen at first
+    return json.loads(_get(f"https://api.github.com/repos/{REPO}/contents/version.json?ref=main",
+                           Accept="application/vnd.github.raw+json"))
 
 
 def check(current):

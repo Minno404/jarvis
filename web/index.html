@@ -462,8 +462,8 @@ function drawBars(c,ev){
 // Updates: a button appears when GitHub has a newer version; clicking it installs and restarts Jarvis
 async function checkUpdate(){
   let u={};try{u=await (await fetch('/api/update')).json()}catch(e){return}
-  if(!u.update)return;
-  const b=$('updateBtn');b.hidden=false;b.textContent='Update to v'+u.version;b.title=u.notes||'';
+  const b=$('updateBtn');
+  if(!u.update||!b.hidden)return;b.hidden=false;b.textContent='Update to v'+u.version;b.title=u.notes||'';
   b.onclick=async()=>{b.disabled=true;b.textContent='Updating…';
     try{const r=await (await fetch('/api/update',{method:'POST'})).json();
       if(r.error)throw new Error(r.error);
@@ -475,7 +475,7 @@ async function checkUpdate(){
 async function bootSequence(){
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
-  if(info.version&&['127.0.0.1','localhost'].includes(location.hostname))checkUpdate();
+  if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000)}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
   else if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){  // first launch on this PC
     $('setupModal').hidden=false;$('setName').focus();
