@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.2.0** (shown at the bottom right of the HUD)
+**Version 1.3.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -165,6 +165,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.3.0** (5 Nov 2026): spending plans with Spend Breakdown. Ask "how's my spending this month?",
+  "make me a budget" or "set eating out to 300 a month", and "how am I tracking?". Jarvis warns you when a
+  category reaches 80% and 100% of its limit.
 - **1.2.0** (5 Nov 2026): one-click updates from inside the app; no more re-downloading the zip.
 - **1.1.0** (5 Nov 2026): uses far less of your Claude plan. Everyday commands ("pause the music", "next song",
   "TV volume 15", "turn on the TV", "switch the TV to HDMI 2", "timer 20 minutes", "volume 30", "open Discord",

@@ -17,7 +17,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.2.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.3.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1180,6 +1180,13 @@ if __name__ == "__main__":
                         threading.Thread(target=lambda j=job: say(devhelper.run_job(j, CLAUDE)), daemon=True).start()
                 except Exception as e:
                     print(datetime.datetime.now(), "dev job:", repr(e))
+                try:
+                    if time.time() - st.get("plan_check", 0) > 3600:  # spending only changes with new statements
+                        st["plan_check"] = time.time()
+                        for w in spending.plan_warnings():
+                            say(persona(f"Budget note, {{TITLE}}: {w}"))
+                except Exception as e:  # no Spend Breakdown or no statements yet
+                    print(datetime.datetime.now(), "spending plan:", repr(e))
                 try:
                     watch.tick()
                 except Exception as e:  # e.g. MT5 closing mid-check; try again next time
