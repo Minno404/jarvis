@@ -1,4 +1,4 @@
 {
- "version": "1.12.0",
- "notes": "More human voice: Kokoro on your PC (Settings \u2192 Voice), smoother speech and better reading of numbers."
+ "version": "1.12.1",
+ "notes": "Core models can be .blend files too (converted with Blender automatically)."
 }

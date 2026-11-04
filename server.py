@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.12.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.12.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -713,11 +713,62 @@ def models():
     return sorted(f.name for f in MODELS.glob("*.glb")) if MODELS.is_dir() else []
 
 
+BLEND_MAGIC = (b"BLENDER", b"\x1f\x8b", b"\x28\xb5\x2f\xfd")  # plain, gzip- or zstd-compressed .blend
+BLEND_EXPORT = """import bpy, sys
+out = sys.argv[sys.argv.index("--") + 1]
+bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_apply=True, export_animations=True)
+"""
+
+
+def find_blender():
+    """Blender's program, if it's installed: on the PATH, the usual install folders, or Steam's."""
+    import glob
+    found = shutil.which("blender")
+    if found:
+        return found
+    roots = [os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", ""),
+             os.environ.get("LOCALAPPDATA", "")]
+    pats = [os.path.join(r, "Blender Foundation", "Blender*", "blender.exe") for r in roots if r]
+    pats += [os.path.join(r, "Steam", "steamapps", "common", "Blender", "blender.exe") for r in roots if r]
+    hits = sorted((h for p in pats for h in glob.glob(p)), reverse=True)  # newest version first
+    return hits[0] if hits else None
+
+
+def blend_to_glb(src, dest):
+    """Convert a .blend to .glb with Blender itself (in the background, no window). Raises with the reason."""
+    blender = find_blender()
+    if not blender:
+        raise ValueError("A .blend file needs Blender installed to convert it (free from blender.org). "
+                         "Or open it in Blender and use File → Export → glTF 2.0, format .glb.")
+    script = MODELS / "_export.py"
+    script.write_text(BLEND_EXPORT)
+    try:
+        r = subprocess.run([blender, "-b", str(src), "--python", str(script), "--", str(dest)], capture_output=True,
+                           text=True, timeout=300, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except subprocess.TimeoutExpired:
+        raise ValueError("Blender took too long converting that model (over 5 minutes).")
+    finally:
+        script.unlink(missing_ok=True)
+    if not dest.exists() or dest.read_bytes()[:4] != b"glTF":
+        err = [l for l in (r.stdout + r.stderr).splitlines() if "Error" in l or "error" in l][-1:]
+        raise ValueError("Blender couldn't convert that file" + (f": {err[0].strip()}" if err else "."))
+
+
 def save_model(name, data):
+    """A 3D model for the core: a .glb as is, or a .blend converted to .glb with Blender."""
     name = Path(name).name
-    if not MODEL_NAME.fullmatch(name) or data[:4] != b"glTF":
-        raise ValueError("Send a .glb 3D model (glTF binary)")
     MODELS.mkdir(parents=True, exist_ok=True)
+    if name.lower().endswith(".blend") and data.startswith(BLEND_MAGIC):
+        glb = name[:-6] + ".glb"
+        if not MODEL_NAME.fullmatch(glb):
+            raise ValueError("Rename the file using letters, numbers, spaces, - or _")
+        src = MODELS / "blend" / name  # the original is kept beside the converted model
+        src.parent.mkdir(exist_ok=True)
+        src.write_bytes(data)
+        blend_to_glb(src, MODELS / glb)
+        return glb
+    if not MODEL_NAME.fullmatch(name) or data[:4] != b"glTF":
+        raise ValueError("Send a .glb or .blend 3D model")
     (MODELS / name).write_bytes(data)
     return name
 

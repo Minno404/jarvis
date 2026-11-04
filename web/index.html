@@ -269,8 +269,8 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
       <select id="avatarSel"><option value="">Arc reactor (default)</option></select>
       <div class="keyrow"><label class="hint"><input type="radio" name="as" value="hologram"> Hologram (HUD colour)</label>
         <label class="hint"><input type="radio" name="as" value="original"> Original colours</label></div>
-      <div class="keyrow"><input type="file" id="modelFile" accept=".glb,model/gltf-binary" hidden><button type="button" id="modelAdd">Add a 3D model (.glb)</button></div>
-      <p class="hint">Any .glb model works (a Cortana-style figure, a helmet...). It's kept in custom/models, so updates never remove it.</p>
+      <div class="keyrow"><input type="file" id="modelFile" accept=".glb,.blend,model/gltf-binary" hidden><button type="button" id="modelAdd">Add a 3D model (.glb or .blend)</button></div>
+      <p class="hint">Any .glb or .blend model works (a Cortana-style figure, a helmet...). A .blend is converted with Blender, so Blender needs to be installed. Models are kept in custom/models, so updates never remove them.</p>
     </fieldset>
     <p class="hint" id="setMsg" aria-live="polite"></p>
   </div>
@@ -840,7 +840,7 @@ addEventListener('keydown',e=>{if(!capturing)return;e.preventDefault();e.stopPro
 addEventListener('mousedown',e=>{if(!capturing||e.button===0||e.button===2)return;e.preventDefault();endCapture({1:'MouseMiddle',3:'Mouse4',4:'Mouse5'}[e.button])},true);
 addEventListener('auxclick',e=>{if(capturing)e.preventDefault()},true);
 $('modelAdd').onclick=()=>$('modelFile').click();
-$('modelFile').onchange=async()=>{const f=$('modelFile').files[0];if(!f)return;$('setMsg').textContent='Uploading '+f.name+'…';
+$('modelFile').onchange=async()=>{const f=$('modelFile').files[0];if(!f)return;$('setMsg').textContent=(/\.blend$/i.test(f.name)?'Converting '+f.name+' with Blender… (can take a minute)':'Uploading '+f.name+'…');
   try{const r=await (await fetch('/api/model?name='+encodeURIComponent(f.name.replace(/[^A-Za-z0-9 _.-]/g,'_')),{method:'POST',body:f})).json();
     if(r.error)throw new Error(r.error);await loadModels();await savePref({avatar:r.name})}catch(e){$('setMsg').textContent=e.message||'Upload failed.'}
   $('modelFile').value=''};
