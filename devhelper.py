@@ -10,6 +10,7 @@ pc_errors:  recent errors from Windows' own logs, grouped.
 """
 import datetime
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -129,26 +130,44 @@ def _self_rule(job):
     return SELF_RULE.replace("{HERE}", here) if touches else ""
 
 
-def run_job(job, claude):
-    """Run one background job with Claude Code. Returns the spoken summary.
+def run_job(job, claude, brain="claude"):
+    """Run one background job and return the spoken summary. brain: "claude" or "chatgpt" (whichever Jarvis is
+    thinking with). A Claude job that hits the plan's limit is handed to ChatGPT when it's set up.
 
-    Dev jobs: in the project folder, read and edit only. PC jobs: anywhere, with the shell and the web, under
-    Claude Code's auto mode, where a safety check reviews every action and blocks risky ones."""
-    base = [claude, "-p", "--output-format", "json", "--model", os.environ.get("JARVIS_DEV_MODEL", "sonnet"),
-            "--strict-mcp-config"]
-    if job.get("kind") == "pc":
-        cmd, prompt = base + ["--permission-mode", "auto", "--permission-prompts", "none"], PC_PROMPT
-    else:
-        cmd, prompt = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep",
-                              "--disallowedTools", "Bash,PowerShell,WebFetch,WebSearch"], DEV_PROMPT
-    try:
-        r = subprocess.run(cmd, input=features.personal(prompt) + _self_rule(job) + job["request"], capture_output=True, text=True, encoding="utf-8",
-                           cwd=job["path"], timeout=1800, creationflags=NO_WINDOW)
-        out = json.loads(r.stdout)
-        text = out.get("result", "").strip() or "It finished but didn't say anything."
-        status = "error" if out.get("is_error") else "done"
-    except Exception as e:
-        text, status = f"It didn't work: {type(e).__name__}.", "error"
+    Dev jobs: in the project folder, read and edit only. PC jobs: anywhere, with the shell and the web; with Claude,
+    under Claude Code's auto mode, where a safety check reviews every action and blocks risky ones."""
+    import gpt_brain
+    prompt = features.personal(PC_PROMPT if job.get("kind") == "pc" else DEV_PROMPT) + _self_rule(job) + job["request"]
+    text, status = "", "error"
+    if brain != "chatgpt" and claude:
+        base = [claude, "-p", "--output-format", "json", "--model", os.environ.get("JARVIS_DEV_MODEL", "sonnet"),
+                "--strict-mcp-config"]
+        if job.get("kind") == "pc":
+            cmd = base + ["--permission-mode", "auto", "--permission-prompts", "none"]
+        else:
+            cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep",
+                          "--disallowedTools", "Bash,PowerShell,WebFetch,WebSearch"]
+        try:
+            r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
+                               cwd=job["path"], timeout=1800, creationflags=NO_WINDOW)
+            out = json.loads(r.stdout)
+            text = out.get("result", "").strip() or "It finished but didn't say anything."
+            status = "error" if out.get("is_error") else "done"
+        except Exception as e:
+            text, status = f"It didn't work: {type(e).__name__}.", "error"
+        limited = status == "error" and re.search(r"limit|quota|usage|exceeded|429", text, re.I)
+        if limited and gpt_brain.available():
+            brain = "chatgpt"  # Claude's allowance ran out: let ChatGPT do the job instead
+    if brain == "chatgpt" or not claude:
+        if not gpt_brain.available():
+            text, status = text or "Neither Claude nor ChatGPT is set up for jobs on this PC.", "error"
+        else:
+            try:
+                text, ok = gpt_brain.run_task(prompt, job["path"])
+                status = "done" if ok else "error"
+                text += " (ChatGPT did this one.)" if ok else ""
+            except Exception as e:
+                text, status = f"It didn't work: {type(e).__name__}.", "error"
     finish_job(job, status, text)
     what = "that job" if job.get("kind") == "pc" else f"the {job['project']} job"
     return f"Sir, {what} is {'done' if status == 'done' else 'stuck'}. {text}"

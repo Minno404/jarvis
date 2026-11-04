@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.8.1** (shown at the bottom right of the HUD)
+**Version 1.9.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -168,8 +168,9 @@ settings and recent conversation. It uses your ChatGPT plan (Plus or higher), no
 4. Restart Jarvis. The Systems panel shows which brain he's using.
 
 He switches by himself when the Claude limit is hit, and tries Claude again an hour later. You can also say
-"switch to ChatGPT", "use Claude" or "auto mode". (Background jobs like PC fixes, dev jobs and the learning
-pass still need Claude.)
+"switch to ChatGPT", "use Claude" or "auto mode". Background jobs (coding and PC jobs) use whichever brain he's
+on, and switch to ChatGPT if Claude runs out mid-job. If you only have ChatGPT (no Claude Code), Jarvis uses
+ChatGPT for everything. (The background learning pass still needs Claude.)
 
 ## Your own additions (kept through updates)
 
@@ -186,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.9.0** (5 Nov 2026): coding and PC jobs work with ChatGPT too. They follow whichever brain Jarvis is on,
+  switch to ChatGPT if Claude's limit is hit mid-job, and a PC with only ChatGPT set up uses it for everything.
 - **1.8.1** (5 Nov 2026): select and copy text from the chat, or use the Copy button on any message.
 - **1.8.0** (5 Nov 2026): your own additions survive updates. Anything Jarvis builds into himself now goes in
   the `custom/` folder (panels, stats, tools, styles), which updates never touch. Fixes updates being skipped

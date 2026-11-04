@@ -109,6 +109,20 @@ def chat(system_prompt, message, images=()):
             proc.kill()
 
 
+def run_task(prompt, cwd, timeout=1800):
+    """A background job (coding or PC work) done by ChatGPT through Codex. Returns (spoken summary, ok)."""
+    cmd = [CODEX, "exec", "--json", "--skip-git-repo-check", "-C", str(cwd), "-s", SANDBOX,
+           "-c", "sandbox_workspace_write.network_access=true", "-c", 'approval_policy="never"']
+    if os.environ.get("JARVIS_GPT_MODEL"):
+        cmd += ["-m", os.environ["JARVIS_GPT_MODEL"]]
+    r = subprocess.run(cmd + ["-"], input=prompt, capture_output=True, text=True, encoding="utf-8", cwd=cwd,
+                       timeout=timeout, creationflags=NO_WINDOW)
+    _, texts, err = parse(r.stdout.splitlines())
+    if err or not texts:
+        return f"It didn't work: {err or (r.stderr or r.stdout)[-200:].strip() or 'no answer'}", False
+    return texts[-1].strip(), True
+
+
 def selftest():
     sample = ['{"type":"thread.started","thread_id":"abc-123"}', '{"type":"turn.started"}',
               '{"type":"item.completed","item":{"id":"1","type":"command_execution","command":"python server.py tool quote"}}',

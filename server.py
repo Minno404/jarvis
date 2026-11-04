@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.8.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.9.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -689,7 +689,7 @@ def chat_stream(text, photo=None):
         yield persona(fast)
         return
     brain = features.settings().get("brain", "auto")
-    if brain == "chatgpt" or (brain == "auto" and time.time() < claude_out["until"] and gpt_brain.available()):
+    if brain_status()["using"] == "ChatGPT":
         yield from chat_gpt(text, photo)
         return
     said = False
@@ -724,8 +724,10 @@ def chat_gpt(text, photo=None):
 
 def brain_status():
     b = features.settings().get("brain", "auto")
-    using = ("ChatGPT" if b == "chatgpt" or (b == "auto" and time.time() < claude_out["until"]
-                                              and gpt_brain.available()) else "Claude")
+    no_claude = not CLAUDE and not os.environ.get("ANTHROPIC_API_KEY")  # a mate who only has ChatGPT
+    using = ("ChatGPT" if gpt_brain.available() and (b == "chatgpt" or (b == "auto" and (no_claude or time.time()
+                                                                                         < claude_out["until"])))
+             else "Claude")
     return {"setting": b, "using": using, "chatgpt_ready": gpt_brain.available()}
 
 
@@ -1342,7 +1344,7 @@ if __name__ == "__main__":
                 try:
                     job = devhelper.next_job()
                     if job:  # a coding job: run it alongside, announce when finished
-                        threading.Thread(target=lambda j=job: say(devhelper.run_job(j, CLAUDE)), daemon=True).start()
+                        threading.Thread(target=lambda j=job: say(devhelper.run_job(j, CLAUDE, brain_status()["using"].lower())), daemon=True).start()
                 except Exception as e:
                     print(datetime.datetime.now(), "dev job:", repr(e))
                 try:
