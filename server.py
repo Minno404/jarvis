@@ -8,6 +8,7 @@ Tool: python server.py tool <name> '<json args>'  (the commands Claude Code runs
 import datetime
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.5.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.6.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -564,9 +565,15 @@ import tv         # his Hisense TV (see tv.py)
 import quick      # everyday commands done without Claude (see quick.py)
 import updater    # updates from GitHub (see updater.py)
 import hud        # HUD colour and pictures from the web (see hud.py)
+import gpt_brain  # ChatGPT as the backup brain (see gpt_brain.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud):
     FUNCS.update(m.FUNCS)
     TOOLS += m.TOOLS
+FUNCS["set_brain"] = lambda brain: set_brain(brain)
+TOOLS.append({"name": "set_brain", "description": "Switch which AI you think with when he asks: auto (Claude, "
+              "switching to ChatGPT by itself when the Claude plan's limit is used up), claude, or chatgpt.",
+              "input_schema": {"type": "object", "required": ["brain"], "properties": {
+                  "brain": {"type": "string", "enum": ["auto", "claude", "chatgpt"]}}}})
 features.REGISTRY = FUNCS
 
 # ---------- Claude ----------
@@ -601,6 +608,32 @@ The tools, as name(arguments; * = required):
 """ + "\n".join(f"- {t['name']}({_args(t)}): {t['description']}" for t in TOOLS)
 
 
+def tool_args(name, argv):
+    """A tool's arguments from the command line: one JSON object (Claude), key=value pairs (ChatGPT on
+    Windows, where quoting JSON is fragile), or '-' to read JSON from stdin."""
+    if not argv:
+        return {}
+    if argv == ["-"]:
+        return json.loads(sys.stdin.read() or "{}")
+    if len(argv) == 1 and argv[0].lstrip().startswith("{"):
+        return json.loads(argv[0])
+    props = next((t["input_schema"].get("properties", {}) for t in TOOLS if t["name"] == name), {})
+    out = {}
+    for a in argv:
+        k, _, v = a.partition("=")
+        try:
+            val = json.loads(v)
+        except ValueError:
+            val = v
+        kind = props.get(k, {}).get("type")
+        if kind == "array" and not isinstance(val, list):
+            val = [x.strip() for x in str(val).split(",") if x.strip()]
+        elif kind == "string" and not isinstance(val, str):
+            val = v
+        out[k] = val
+    return out
+
+
 def persona(text):
     """The user's name and how to address them (from first-launch setup) in place of {USER} / {TITLE}."""
     return features.personal(text).replace("{TITLE}", features.settings()["title"])
@@ -619,6 +652,63 @@ def chat_stream(text):
     if fast:
         yield persona(fast)
         return
+    brain = features.settings().get("brain", "auto")
+    if brain == "chatgpt" or (brain == "auto" and time.time() < claude_out["until"] and gpt_brain.available()):
+        yield from chat_gpt(text)
+        return
+    said = False
+    try:
+        for p in _chat_claude(text):
+            said = said or bool(p)
+            yield p
+    except Exception as e:
+        if said or brain != "auto" or not gpt_brain.available() or not LIMIT_HIT.search(str(e)):
+            raise
+        claude_out["until"] = time.time() + 3600  # try Claude again in an hour
+        print(datetime.datetime.now(), "Claude limit reached, switching to ChatGPT:", str(e)[:200])
+        push_event({"type": "brain", "name": "ChatGPT"})
+        yield persona("My Claude allowance is spent for now, {TITLE}, so I've switched to ChatGPT. ")
+        yield from chat_gpt(text)
+
+
+LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
+claude_out = {"until": 0.0}
+
+
+def chat_gpt(text):
+    now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
+    try:
+        room = awareness.describe(awareness.situation())
+    except Exception:
+        room = ""
+    with lock:
+        yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + features.memory_prompt(),
+                                  persona(f"[{now}] {room}\n{text}"))
+
+
+def brain_status():
+    b = features.settings().get("brain", "auto")
+    using = ("ChatGPT" if b == "chatgpt" or (b == "auto" and time.time() < claude_out["until"]
+                                              and gpt_brain.available()) else "Claude")
+    return {"setting": b, "using": using, "chatgpt_ready": gpt_brain.available()}
+
+
+def set_brain(brain):
+    """Which AI Jarvis thinks with: auto (Claude, ChatGPT when the Claude limit is hit), claude or chatgpt."""
+    b = {"gpt": "chatgpt", "openai": "chatgpt", "codex": "chatgpt", "anthropic": "claude"}.get(brain.lower(), brain.lower())
+    if b not in ("auto", "claude", "chatgpt"):
+        return {"error": "brain must be auto, claude or chatgpt"}
+    if b == "chatgpt" and not gpt_brain.available():
+        return {"error": "ChatGPT isn't set up on this PC yet: install Node.js, then run 'npm install -g "
+                         "@openai/codex' and 'codex login' (Sign in with ChatGPT)."}
+    features._save("settings.json", {**features.settings(), "brain": b})
+    if b != "auto":
+        claude_out["until"] = 0
+    push_event({"type": "brain", "name": brain_status()["using"]})
+    return brain_status()
+
+
+def _chat_claude(text):
     if os.environ.get("ANTHROPIC_API_KEY") or not CLAUDE:
         yield chat_api(text)
         return
@@ -843,7 +933,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/boot":
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             return self.send_json({"memories": len(features.memories()), "protocols": len(features.list_routines()),
-                                   "mt5": mt5_on, "version": VERSION, **features.settings()})
+                                   "mt5": mt5_on, "version": VERSION, "brain": brain_status(), **features.settings()})
         if self.path == "/api/update":  # is there a newer version on GitHub?
             return self.send_json(updater.check(VERSION) if self.local() else {"update": False})
         if self.path == "/api/stats":
@@ -1012,7 +1102,7 @@ if __name__ == "__main__":
         sys.exit()
     if sys.argv[1:2] == ["tool"]:  # how Claude Code runs Jarvis's tools
         try:
-            print(json.dumps(FUNCS[sys.argv[2]](**json.loads(sys.argv[3] if len(sys.argv) > 3 else "{}"))))
+            print(json.dumps(FUNCS[sys.argv[2]](**tool_args(sys.argv[2], sys.argv[3:]))))
         except Exception as e:  # report the problem to Claude instead of crashing
             print(json.dumps({"error": f"{type(e).__name__}: {e}"}))
         sys.exit()

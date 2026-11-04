@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.5.1** (shown at the bottom right of the HUD)
+**Version 1.6.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -157,6 +157,20 @@ You can still drop MT5 History reports (Toolbox > History > right-click > Report
 - `python server.py --test`, `python features.py`, `python trading.py`, `python devhelper.py` and
   `python voice.py` run the self-checks.
 
+## ChatGPT as a backup brain (optional)
+
+If your Claude plan's limit runs out, Jarvis can carry on using ChatGPT, with the same memory, journals,
+settings and recent conversation. It uses your ChatGPT plan (Plus or higher), not paid API credits.
+
+1. Install Node.js (LTS) from https://nodejs.org if you don't have it.
+2. Open a Command Prompt and run: `npm install -g @openai/codex`
+3. Then run: `codex login` and choose **Sign in with ChatGPT**.
+4. Restart Jarvis. The Systems panel shows which brain he's using.
+
+He switches by himself when the Claude limit is hit, and tries Claude again an hour later. You can also say
+"switch to ChatGPT", "use Claude" or "auto mode". (Background jobs like PC fixes, dev jobs and the learning
+pass still need Claude.)
+
 ## Updating
 
 When a new version is out, an **Update to vX** button appears at the bottom right of the HUD. Click it and
@@ -165,6 +179,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.6.0** (5 Nov 2026): ChatGPT as a backup brain. When the Claude plan's limit is used up, Jarvis switches to
+  ChatGPT (through OpenAI's Codex CLI on your ChatGPT plan) and keeps his memory and the conversation. Say
+  "switch to ChatGPT", "use Claude" or "auto mode" to choose. See "ChatGPT as a backup brain" above to set it up.
 - **1.5.1** (5 Nov 2026): the floating mini core now matches the HUD's colour.
 - **1.5.0** (5 Nov 2026): fresher greetings (around 50, by time of day and weekday, no repeats in a row).
   Close any side panel with its x and ask Jarvis to bring it back ("show the MT5 journal", "show all panels").

@@ -86,6 +86,15 @@ def quick(text):
         show = m.group(1) in ("open", "show", "reopen", "bring up", "bring back", "restore")
         r = R["hud_panel"](m.group(2), show)
         return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))
+    # --- which AI Jarvis thinks with ---
+    m = re.fullmatch(r"(?:switch to|use|swap to|change to) (chat ?gpt|gpt|claude|auto(?:matic)?)(?: brain| mode)?|"
+                     r"(chat ?gpt|claude|auto) mode", t)
+    if m:
+        b = (m.group(1) or m.group(2)).replace(" ", "")
+        b = "chatgpt" if "gpt" in b else "auto" if b.startswith("auto") else "claude"
+        r = R["set_brain"](b)
+        return _ok(r, {"chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
+                       "auto": "Automatic it is: Claude first, ChatGPT if the Claude allowance runs out."}[b])
     # --- the HUD's colour ---
     m = re.fullmatch(r"(?:change|switch|set|make|turn) (?:the |your )?(?:hud |interface |screen )?(?:colou?r )?(?:to |into )?"
                      r"([a-z ]+?)(?: colou?r)?|(?:go|be) ([a-z]+)", t)
@@ -124,7 +133,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour", "hud_panel", "show_panel"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -150,6 +159,9 @@ def selftest():
         "close the MT5 journal": ("hud_panel", ("mt5 journal", False), {}),
         "Jarvis, bring back the systems panel": ("hud_panel", ("systems", True), {}),
         "show all panels": ("hud_panel", ("all", True), {}),
+        "switch to ChatGPT": ("set_brain", ("chatgpt",), {}),
+        "use claude": ("set_brain", ("claude",), {}),
+        "auto mode": ("set_brain", ("auto",), {}),
     }
     for said, want in cases.items():
         calls.clear()

@@ -137,6 +137,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="row"><span>Memory</span><span id="mem">--</span></div><div class="bar"><i id="memBar"></i></div>
       <div class="row" id="gpuRow" hidden><span>GPU</span><span id="gpu">--</span></div><div class="bar" id="gpuBarWrap" hidden><i id="gpuBar"></i></div>
       <div class="row"><span>API link</span><span id="api" style="color:var(--amber)">Offline</span></div>
+      <div class="row" id="brainRow" hidden><span>Brain</span><span id="brain">Claude</span></div>
       <div class="row"><span>Phone link</span><button id="phoneBtn" class="linkbtn" type="button">Pair phone</button></div>
     </div>
     <div class="panel" data-id="protocols"><h2>Protocols</h2>
@@ -451,6 +452,7 @@ async function ask(q){
 $('f').onsubmit=e=>{e.preventDefault();ask($('q').value);$('q').value=''};
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>ask(b.textContent));
 // Colour themes: "Jarvis, make the HUD red". One accent colour drives everything, including the 3D core.
+function showBrain(name){$('brainRow').hidden=false;$('brain').textContent=name;$('brain').style.color=name==='ChatGPT'?'var(--amber)':''}
 function setTheme(hex){
   const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');if(!m)return;
   const n=parseInt(m[1],16),rgb=[n>>16,n>>8&255,n&255],mix=k=>rgb.map(v=>Math.round(v*k)),h=a=>'#'+a.map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -509,7 +511,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -616,6 +618,7 @@ async function checkUpdate(show){
 async function bootSequence(){
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
   if(info.theme)setTheme(info.theme);
+  if(info.brain)showBrain(info.brain.using);
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
