@@ -17,7 +17,7 @@ REPO = "Minno404/jarvis"
 HERE = Path(__file__).resolve().parent
 KEEP = {"settings.json", "memory.json", "state.json", "projects.json", "config.yaml", "tokens.json",
         "phone_key.txt", "dev_jobs.json"}  # never overwritten, even if one ever lands in the repo by mistake
-KEEP_DIRS = {"custom", "backups", "conversations", "uploads", "images", "reviews", "screens", "mt5 reports"}
+KEEP_DIRS = {"custom", "voices", "backups", "conversations", "uploads", "images", "reviews", "screens", "mt5 reports"}
 
 
 def _get(url, timeout=10, **headers):

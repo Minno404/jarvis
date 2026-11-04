@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.11.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.12.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -585,6 +585,7 @@ import gpt_brain  # ChatGPT as the backup brain (see gpt_brain.py)
 import custom_loader  # your own add-ons in custom/, kept through updates (see CUSTOM.md)
 import coach      # trade replays, pre-trade checklist, tilt detector (see coach.py)
 import personas   # voices and personalities: Jarvis, FRIDAY, EDITH, Jarvo (see personas.py)
+import speech     # the voice itself: online neural, or Kokoro on this PC (see speech.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
@@ -691,10 +692,21 @@ def save_prefs(d):
         s["avatar"] = d["avatar"] or ""
     if d.get("avatar_style") in ("hologram", "original"):
         s["avatar_style"] = d["avatar_style"]
+    if d.get("voice_engine") in ("edge", "kokoro"):
+        s["voice_engine"] = d["voice_engine"]
+        if d["voice_engine"] == "kokoro":
+            speech.install_kokoro()  # first time: installs and downloads in the background
+    if "kokoro_voice" in d:
+        if d["kokoro_voice"] and d["kokoro_voice"] not in speech.KOKORO_VOICES:
+            raise ValueError("Unknown voice")
+        s["kokoro_voice"] = d["kokoro_voice"] or ""
+    if "voice_speed" in d:
+        s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     features._save("settings.json", s)
     apply_prefs()
-    push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style")}})
-    return s
+    push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
+                                                            "voice_engine", "kokoro_voice", "voice_speed")}})
+    return {**s, "voice": speech.status}
 
 
 def models():
@@ -947,19 +959,8 @@ VOICE = os.environ.get("JARVIS_VOICE", "en-GB-RyanNeural")
 
 
 def tts(text):
-    import asyncio
-    import edge_tts  # pip install edge-tts
-
-    async def run():
-        audio = b""
-        # no pitch shift: shifting adds a processed edge to the voice
-        p = personas.get()
-        voice = os.environ.get("JARVIS_VOICE") or p["voice"]
-        async for chunk in edge_tts.Communicate(text, voice, rate=p["rate"]).stream():
-            if chunk["type"] == "audio":
-                audio += chunk["data"]
-        return audio
-    return asyncio.run(run())
+    """Speech audio for the HUD: (bytes, mime type), in the current personality's voice (see speech.py)."""
+    return speech.say(text, personas.get())
 
 
 # ---------- Web server ----------
@@ -1079,6 +1080,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
+            return self.send_json({**speech.status, "voices": list(speech.KOKORO_VOICES),
+                                   "auto": speech.PERSONA_KOKORO.get(personas.current())})
         if self.path == "/api/custom":  # add-on files for the HUD to load (custom/*.js, *.css), and 3D models
             return self.send_json({"files": custom_loader.web_files(), "errors": custom_loader.errors, "models": models()})
         if self.path.startswith("/custom/models/"):
@@ -1139,14 +1143,14 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"shown": push_event(ev)})
         if self.path == "/api/tts":
             try:
-                audio = tts(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["text"])
+                audio, mime = tts(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["text"])
                 if not audio:
                     raise RuntimeError("no audio returned")
             except Exception as e:  # the page falls back to the built-in Windows voice
                 print(datetime.datetime.now(), "voice error:", repr(e))
                 return self.send_error(503)
             self.send_response(200)
-            self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
             return self.wfile.write(audio)

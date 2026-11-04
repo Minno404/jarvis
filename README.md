@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.11.0** (shown at the bottom right of the HUD)
+**Version 1.12.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.12.0** (5 Nov 2026): a more human voice. Settings → Voice → Kokoro installs a natural-sounding voice that
+  runs on your PC (free, no limits, about 350 MB once), with British and American voices to pick from and a
+  speed slider. Both voices now say things the way a person would ("gold", "minus 41 dollars", "plus 2 R"),
+  and after his first sentence Jarvis speaks in longer, smoother stretches.
 - **1.11.0** (5 Nov 2026): settings (Protocols → Settings → Open).
   - Listening: "Hey Jarvis", push-to-talk only, or both. Push-to-talk works anywhere, even in games: hold the
     key (or a mouse side/middle button) and talk, let go to send.

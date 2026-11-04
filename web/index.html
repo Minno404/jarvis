@@ -121,11 +121,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
 /* Settings */
-.settings{max-width:480px}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
+.settings{max-width:480px;max-height:calc(100vh - 32px);overflow:auto}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
 .settings legend{color:var(--cyan);font-family:var(--display);font-size:11px;letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
 .settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio]{flex:none;accent-color:var(--cyan)}
 .settings .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}.settings .keyrow button{padding:6px 12px}
 .settings #pttName{font-family:var(--display);color:var(--text);min-width:120px}.settings .hint{color:var(--mute);font-size:11px;line-height:1.5;margin:6px 0 0}
+.settings input[type=range]{accent-color:var(--cyan);padding:0}
 .settings select{width:100%;background:rgba(3,7,12,.7);color:var(--text);border:1px solid var(--line);font:inherit;padding:8px}
 #pttSet.listening{border-color:var(--amber);color:var(--amber)}
 /* A custom 3D model in place of the reactor core */
@@ -244,7 +245,7 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 <div class="version" id="version" aria-label="Jarvis version"></div>
 <button class="updatebtn" id="updateBtn" hidden></button>
 <div class="modal" id="settingsModal" hidden>
-  <div class="panel settings"><button type="button" class="holo-x" id="setX" aria-label="Close settings">\u00d7</button>
+  <div class="panel settings"><button type="button" class="holo-x" id="setX" aria-label="Close settings">&times;</button>
     <h2>Jarvis settings</h2>
     <fieldset><legend>Listening</legend>
       <label><input type="radio" name="lm" value="wake"> Say "Hey Jarvis"</label>
@@ -254,6 +255,15 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
     <fieldset><legend>Push-to-talk key</legend>
       <div class="keyrow"><span id="pttName">Not set</span><button type="button" id="pttSet">Set key</button><button type="button" id="pttClear" class="linkbtn">Clear</button></div>
       <p class="hint" id="pttHint">Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.</p>
+    </fieldset>
+    <fieldset><legend>Voice</legend>
+      <label><input type="radio" name="ve" value="edge"> Online neural voice (Microsoft)</label>
+      <label><input type="radio" name="ve" value="kokoro"> Kokoro on this PC: more natural, free, works offline</label>
+      <p class="hint" id="kokoroSt"></p>
+      <div id="kokoroOpts"><select id="kokoroVoice"></select>
+        <div class="keyrow"><span class="hint">Speed</span><input type="range" id="voiceSpeed" min="0.8" max="1.2" step="0.05" style="flex:1">
+          <span class="hint" id="speedVal"></span></div></div>
+      <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
     <fieldset><legend>Core model</legend>
       <select id="avatarSel"><option value="">Arc reactor (default)</option></select>
@@ -481,7 +491,7 @@ function audio(){
   try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
 function voice(){
-  let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false;
+  let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false,sent=0;
   const gen=voiceGen,cut=()=>gen!==voiceGen;
   const done=()=>{if(cut())return;voiceOn=false;setMode('idle')};
   const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})
@@ -491,7 +501,9 @@ function voice(){
     activeSrcs.add(src);playing++;src.onended=()=>{activeSrcs.delete(src);if(--playing===0&&closed)done()};
     if(!started){started=voiceOn=true;setMode('speaking')}})};
   return{
-    push(t){pending+=t;all+=t;let m;while((m=pending.match(/^([\s\S]{12,}?[.!?]["')]?)\s+([\s\S]*)$/))){queue(m[1]);pending=m[2]}},
+    // the first sentence goes straight out (a fast reply); after that, longer stretches so the voice flows
+    push(t){pending+=t;all+=t;let m;const min=sent?110:12,re=new RegExp(`^([\\s\\S]{${min},}?[.!?]["')]?)\\s+([\\s\\S]*)$`);
+      while((m=pending.match(re))){queue(m[1]);sent++;pending=m[2]}},
     flush(){queue(pending);pending=''},
     end(){this.flush();chain=chain.then(()=>{closed=true;if(cut())return;if(!started){setMode('speaking');setTimeout(()=>browserSpeak(all),Math.max(0,(speechAt-(actx?.currentTime||0))*1000))}else if(!playing)done()})}
   };
@@ -739,7 +751,7 @@ async function bootSequence(){
   if(info.theme)setTheme(info.theme);
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
-  showPrefs({listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style});
+  showPrefs({listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -780,6 +792,8 @@ function showPrefs(p){
   prefs={...prefs,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&v!==null))};
   document.querySelectorAll('input[name=lm]').forEach(r=>r.checked=r.value===(prefs.listen_mode||'wake'));
   document.querySelectorAll('input[name=as]').forEach(r=>r.checked=r.value===(prefs.avatar_style||'hologram'));
+  document.querySelectorAll('input[name=ve]').forEach(r=>r.checked=r.value===(prefs.voice_engine||'edge'));
+  $('voiceSpeed').value=prefs.voice_speed||1;$('speedVal').textContent=(+(prefs.voice_speed||1)).toFixed(2)+'×';
   $('pttName').textContent=keyName(prefs.ptt_key);
   $('pttHint').textContent=/^(Key|Digit|Space|Enter|Tab)/.test(prefs.ptt_key||'')?"Heads up: that key also types, so it'll trigger Jarvis while you type. F-keys, ` or a mouse side button are better for games."
     :'Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.';
@@ -796,7 +810,25 @@ async function loadModels(){
   $('avatarSel').replaceChildren(new Option('Arc reactor (default)',''),...(c.models||[]).map(m=>new Option(m.replace(/\.glb$/,''),m)));
   $('avatarSel').value=prefs.avatar||'';
 }
-$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({})};
+// Voice: online or Kokoro (installs itself the first time it's picked; progress shows here)
+let voiceInfo={voices:[]},kPoll=null;
+async function refreshVoice(){
+  try{voiceInfo=await (await fetch('/api/voice')).json()}catch(e){return}
+  const st=voiceInfo.kokoro,eng=prefs.voice_engine||'edge';
+  $('kokoroSt').textContent=eng!=='kokoro'?'':st==='ready'?'Kokoro is ready.':st==='installing'?'Installing Kokoro… (the online voice is used until it\'s ready)'
+    :st==='downloading'?`Downloading the voice model… ${voiceInfo.progress}%`:st==='failed'?"Kokoro couldn't be set up"+(voiceInfo.error?': '+voiceInfo.error:'')+'. Using the online voice.':'';
+  $('kokoroOpts').hidden=eng!=='kokoro';
+  const sel=$('kokoroVoice');if(sel.options.length!==voiceInfo.voices.length+1){
+    sel.replaceChildren(new Option(`Match personality${voiceInfo.auto?' ('+voiceInfo.auto.split(' (')[0]+')':''}`,''),...voiceInfo.voices.map(v=>new Option(v,v)))}
+  sel.value=prefs.kokoro_voice||'';
+  clearTimeout(kPoll);if(['installing','downloading'].includes(st)&&!$('settingsModal').hidden)kPoll=setTimeout(refreshVoice,1500);
+}
+document.querySelectorAll('input[name=ve]').forEach(r=>r.onchange=async()=>{await savePref({voice_engine:r.value});refreshVoice()});
+$('kokoroVoice').onchange=()=>savePref({kokoro_voice:$('kokoroVoice').value});
+$('voiceSpeed').oninput=()=>$('speedVal').textContent=(+$('voiceSpeed').value).toFixed(2)+'×';
+$('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
+$('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};
+$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice()};
 $('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};
 document.querySelectorAll('input[name=lm]').forEach(r=>r.onchange=()=>savePref({listen_mode:r.value}));
 document.querySelectorAll('input[name=as]').forEach(r=>r.onchange=()=>savePref({avatar_style:r.value}));
