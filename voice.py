@@ -22,7 +22,11 @@ VOCAB = ("Jarvis, XAUUSD, gold, GBPJPY, MT5, MetaTrader, long, short, stop loss,
          "London open, New York session, Spotify, League of Legends.")
 
 INTERRUPT_THRESHOLD = 0.6   # a bit stricter while he's talking, so his own voice can't set it off
-FOLLOW_UP_S = 6             # after he answers you by voice, keep listening this long for a reply
+FOLLOW_UP_S = 8             # after he answers you by voice, keep listening this long for a reply
+# After "Hey Jarvis": how long to wait for you to start talking, and how long a pause ends what you're saying.
+# Longer = more time to think mid-sentence, but a slightly slower reply after you finish.
+START_WAIT_S = float(os.environ.get("JARVIS_START_WAIT", "8"))
+PAUSE_S = float(os.environ.get("JARVIS_PAUSE", "1.6"))
 
 speaking = threading.Event()  # set while Jarvis is talking
 _push = threading.Event()     # mic button: listen now, no wake word needed
@@ -69,14 +73,15 @@ def start(on_status, on_heard, on_text, on_interrupt=lambda: None, on_follow=lam
     threading.Thread(target=_run, args=(on_status, cb), daemon=True).start()
 
 
-def end_of_speech(levels, noise, frame_s=FRAME / RATE, quiet_s=0.8, wait_s=4.0):
+def end_of_speech(levels, noise, frame_s=FRAME / RATE, quiet_s=None, wait_s=None):
     """Given loudness per frame since listening began, decide: 'wait', 'done' or 'nothing' (no speech)."""
+    quiet_s, wait_s = quiet_s or PAUSE_S, wait_s or START_WAIT_S
     talk = max(noise * 3, 300)
     spoke = [i for i, v in enumerate(levels) if v > talk]
     if not spoke:
         return "nothing" if len(levels) * frame_s >= wait_s else "wait"
     quiet = len(levels) - 1 - spoke[-1]
-    if quiet * frame_s >= quiet_s or len(levels) * frame_s >= 15:
+    if quiet * frame_s >= quiet_s or len(levels) * frame_s >= 30:
         return "done"
     return "wait"
 
@@ -233,11 +238,12 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
 
 if __name__ == "__main__":  # quick check of the end-of-speech rule
     q, loud = 50.0, 2000.0
-    assert end_of_speech([q] * 10, q) == "wait"
-    assert end_of_speech([q] * 50, q) == "nothing"
-    assert end_of_speech([q] * 3 + [loud] * 10 + [q] * 5, q) == "wait"
-    assert end_of_speech([q] * 3 + [loud] * 10 + [q] * 10, q) == "done"
-    assert end_of_speech([loud] * 190, q) == "done"  # 15 s cap
+    fs = FRAME / RATE
+    assert end_of_speech([q] * int(6 / fs), q) == "wait"  # 6 s to think before speaking is fine
+    assert end_of_speech([q] * int(8.1 / fs), q) == "nothing"
+    assert end_of_speech([q] * 3 + [loud] * 10 + [q] * int(1.2 / fs), q) == "wait"  # a 1.2 s pause mid-thought
+    assert end_of_speech([q] * 3 + [loud] * 10 + [q] * int(1.7 / fs), q) == "done"
+    assert end_of_speech([loud] * int(30.1 / fs), q) == "done"  # 30 s cap
     assert starts_talking([q, loud, loud], q) and not starts_talking([loud, q], q) and not starts_talking([loud], q)
     for said in ("Hold on Jarvis", "hold on, Jarvis.", "Jarvis, stop!", "Hey Jarvis, not now.", "never mind",
                  "and that is why gold went up, sir. Hold on Jarvis", "Hang on.", "Okay, that's enough Jarvis"):
