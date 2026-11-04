@@ -1,4 +1,4 @@
 {
- "version": "1.7.0",
- "notes": "Send Jarvis photos: Photo button, paste or drag and drop, then ask about it."
+ "version": "1.7.1",
+ "notes": "The HUD now grows to fill bigger windows, with Jarvis kept in the centre."
 }

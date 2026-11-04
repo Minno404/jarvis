@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.7.0** (shown at the bottom right of the HUD)
+**Version 1.7.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -179,6 +179,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.7.1** (5 Nov 2026): the HUD scales with the window. Make the window bigger (or full screen) and the side
+  panels move out to the edges while the core, text, panels and charts grow, with Jarvis kept in the centre.
 - **1.7.0** (5 Nov 2026): send Jarvis photos. Press Photo (opens the camera on a phone), paste one, or drag it
   onto the window, then ask about it by typing or by voice ("Hey Jarvis, what's this?"). Works with both brains.
 - **1.6.1** (5 Nov 2026): the ChatGPT brain can now use Jarvis's tools (MT5, TV, PC...). Pictures now come from
