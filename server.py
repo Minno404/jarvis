@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.10.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.11.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -591,6 +591,12 @@ for m in (features, trading, spending, devhelper, learn, tv, hud, coach, persona
     FUNCS.update(m.FUNCS)
     TOOLS += m.TOOLS
 FUNCS["set_brain"] = lambda brain: set_brain(brain)
+FUNCS["jarvis_power"] = lambda action: jarvis_power(action)
+TOOLS.append({"name": "jarvis_power", "description": "Restart yourself (Jarvis) or power yourself down when he asks "
+              "('restart yourself', 'power down', 'shut down Jarvis'). This closes Jarvis, not the PC. Say a short "
+              "goodbye; it happens a few seconds later.",
+              "input_schema": {"type": "object", "required": ["action"], "properties": {
+                  "action": {"type": "string", "enum": ["restart", "shutdown"]}}}})
 TOOLS.append({"name": "set_brain", "description": "Switch which AI you think with when he asks: auto (Claude, "
               "switching to ChatGPT by itself when the Claude plan's limit is used up), claude, or chatgpt.",
               "input_schema": {"type": "object", "required": ["brain"], "properties": {
@@ -653,6 +659,66 @@ def save_upload(data, kind):
     for old in sorted(UPLOADS.iterdir(), key=lambda f: f.stat().st_mtime)[:-30]:  # keep the last 30
         old.unlink(missing_ok=True)
     return f"{name}.{ext}"
+
+
+# ---------- Settings from the HUD: listening mode, push-to-talk key, avatar model ----------
+LIVE = {"voice": None}  # the voice module once the desktop app has started it
+MODELS = HERE / "custom" / "models"  # your own 3D avatar models (.glb), kept through updates
+MODEL_NAME = re.compile(r"[A-Za-z0-9 _.-]{1,80}\.glb")
+
+
+def apply_prefs():
+    s = features.settings()
+    import hotkey
+    hotkey.set_key(s.get("ptt_key"))
+    if LIVE["voice"]:
+        LIVE["voice"].set_mode(s.get("listen_mode", "wake"))
+
+
+def save_prefs(d):
+    """Listening mode, push-to-talk key and avatar choices from the HUD's settings."""
+    s = features.settings()
+    if d.get("listen_mode") in ("wake", "ptt", "both"):
+        s["listen_mode"] = d["listen_mode"]
+    if "ptt_key" in d:
+        import hotkey
+        if d["ptt_key"] and d["ptt_key"] not in hotkey.VK:
+            raise ValueError("Jarvis can't watch that key; pick another (letters, F-keys, ` or the mouse side buttons)")
+        s["ptt_key"] = d["ptt_key"] or ""
+    if "avatar" in d:
+        if d["avatar"] and not (MODEL_NAME.fullmatch(d["avatar"]) and (MODELS / d["avatar"]).exists()):
+            raise ValueError("No such model in custom/models")
+        s["avatar"] = d["avatar"] or ""
+    if d.get("avatar_style") in ("hologram", "original"):
+        s["avatar_style"] = d["avatar_style"]
+    features._save("settings.json", s)
+    apply_prefs()
+    push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style")}})
+    return s
+
+
+def models():
+    return sorted(f.name for f in MODELS.glob("*.glb")) if MODELS.is_dir() else []
+
+
+def save_model(name, data):
+    name = Path(name).name
+    if not MODEL_NAME.fullmatch(name) or data[:4] != b"glTF":
+        raise ValueError("Send a .glb 3D model (glTF binary)")
+    MODELS.mkdir(parents=True, exist_ok=True)
+    (MODELS / name).write_bytes(data)
+    return name
+
+
+def jarvis_power(action):
+    """Restart Jarvis or close him: 'restart' or 'shutdown'. Runs in the main Jarvis, after he's said goodbye."""
+    if action not in ("restart", "shutdown"):
+        return {"error": "action is restart or shutdown"}
+    import urllib.request
+    req = urllib.request.Request(f"http://127.0.0.1:{PORT}/api/power", data=json.dumps({"action": action}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return json.loads(r.read())
 
 
 def tool_args(name, argv):
@@ -1013,8 +1079,19 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             return self.wfile.write(data)
-        if self.path == "/api/custom":  # add-on files for the HUD to load (custom/*.js, *.css)
-            return self.send_json({"files": custom_loader.web_files(), "errors": custom_loader.errors})
+        if self.path == "/api/custom":  # add-on files for the HUD to load (custom/*.js, *.css), and 3D models
+            return self.send_json({"files": custom_loader.web_files(), "errors": custom_loader.errors, "models": models()})
+        if self.path.startswith("/custom/models/"):
+            from urllib.parse import unquote
+            name = unquote(self.path.split("?")[0].rsplit("/", 1)[-1])
+            if not MODEL_NAME.fullmatch(name) or not (MODELS / name).is_file():
+                return self.send_error(404)
+            data = (MODELS / name).read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "model/gltf-binary")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path.startswith("/custom/"):
             got = custom_loader.file(self.path.split("?")[0].rsplit("/", 1)[-1])
             if not got:
@@ -1073,6 +1150,34 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
             return self.wfile.write(audio)
+        if self.path == "/api/prefs":  # the HUD's settings
+            if not self.local():
+                return self.send_error(403)
+            try:
+                return self.send_json(save_prefs(json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
+            except ValueError as e:
+                return self.send_json({"error": str(e)}, 400)
+        if self.path.startswith("/api/model?name="):  # a 3D model for the avatar, from the settings
+            if not self.local():
+                return self.send_error(403)
+            from urllib.parse import unquote
+            try:
+                n = int(self.headers["Content-Length"])
+                if n > 150_000_000:
+                    raise ValueError("That model is over 150 MB")
+                return self.send_json({"name": save_model(unquote(self.path.split("=", 1)[1]), self.rfile.read(n))})
+            except ValueError as e:
+                return self.send_json({"error": str(e)}, 400)
+        if self.path == "/api/power":  # restart or close Jarvis (jarvis_power, from this PC only)
+            if not self.local():
+                return self.send_error(403)
+            action = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("action")
+            if action not in ("restart", "shutdown"):
+                return self.send_error(400)
+            self.send_json({"ok": action, "in_seconds": 6})
+            # a few seconds so his goodbye is spoken first
+            threading.Timer(6, updater.restart if action == "restart" else lambda: os._exit(0)).start()
+            return
         if self.path == "/api/upload":  # a photo for Jarvis: raw image bytes in, {"name": ...} out
             try:
                 n = int(self.headers["Content-Length"])
@@ -1232,6 +1337,11 @@ if __name__ == "__main__":
         except Exception as e:
             print(datetime.datetime.now(), "voice control unavailable:", repr(e))
             voice = None
+        LIVE["voice"] = voice
+        if voice:
+            import hotkey
+            hotkey.start(voice.ptt_down, voice.ptt_up)
+        apply_prefs()
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         main = None
 

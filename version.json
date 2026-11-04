@@ -1,4 +1,4 @@
 {
- "version": "1.10.0",
- "notes": "Trade replay, pre-trade checklist, tilt detector, and switchable personalities (FRIDAY, EDITH, Jarvo)."
+ "version": "1.11.0",
+ "notes": "Push-to-talk key and listening modes, your own 3D core model, and voice restart/power down."
 }

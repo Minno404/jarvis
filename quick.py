@@ -95,6 +95,12 @@ def quick(text):
         show = m.group(1) in ("open", "show", "reopen", "bring up", "bring back", "restore")
         r = R["hud_panel"](m.group(2), show)
         return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))
+    # --- Jarvis himself: restart or power down (never the PC: that needs saying "PC" and goes to Claude) ---
+    if re.fullmatch(r"(?:restart|reboot|reload|reset) (?:yourself|jarvis|your ?self)|(?:restart|reboot) (?:your )?systems", t):
+        return _ok(R["jarvis_power"]("restart"), "Restarting, {TITLE}. Back in a moment.")
+    if re.fullmatch(r"power (?:yourself )?down|power off|shut (?:yourself|jarvis) down|shut ?down (?:yourself|jarvis)|"
+                    r"close (?:yourself|jarvis)|(?:switch|turn) (?:yourself|jarvis) off", t):
+        return _ok(R["jarvis_power"]("shutdown"), "Powering down. Goodbye, {TITLE}.")
     # --- voices and personalities ---
     m = re.fullmatch(r"(?:switch to|change to|swap to|use|go|be|become|bring back|back to) (?:the )?(jarvis|friday|edith|"
                      r"jarvo|casual|aussie|mate|tactical|normal)(?: mode| voice| personality)?|(jarvis|friday|edith|jarvo|"
@@ -151,7 +157,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona", "jarvis_power"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -183,6 +189,9 @@ def selftest():
         "switch to FRIDAY": ("set_persona", ("friday",), {}),
         "Jarvis, casual mode": ("set_persona", ("casual",), {}),
         "back to Jarvis": ("set_persona", ("jarvis",), {}),
+        "Jarvis, restart yourself": ("jarvis_power", ("restart",), {}),
+        "power down": ("jarvis_power", ("shutdown",), {}),
+        "shut yourself down": ("jarvis_power", ("shutdown",), {}),
     }
     for said, want in cases.items():
         calls.clear()
@@ -192,7 +201,8 @@ def selftest():
         else:
             assert calls and calls[0] == want and reply, (said, calls, reply)
     for said in ("open the gold chart", "how did I go today", "pause my trading for a week and review it",
-                 "what's the TV doing tonight", "turn the lights red", "change my red trades to green", "open the thing I used yesterday", "remind me to call Mum at 6"):
+                 "what's the TV doing tonight", "turn the lights red", "change my red trades to green",
+                 "restart my PC", "shut down the computer", "open the thing I used yesterday", "remind me to call Mum at 6"):
         calls.clear()
         assert quick(said) is None or calls[0][0] == "open_app", said
     assert quick("open the thing I used yesterday") is None  # app not found: Claude handles it

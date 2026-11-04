@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.10.0** (shown at the bottom right of the HUD)
+**Version 1.11.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,13 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.11.0** (5 Nov 2026): settings (Protocols → Settings → Open).
+  - Listening: "Hey Jarvis", push-to-talk only, or both. Push-to-talk works anywhere, even in games: hold the
+    key (or a mouse side/middle button) and talk, let go to send.
+  - Core model: swap the arc reactor for any 3D model (.glb), shown as a hologram in the HUD colour or in its own
+    colours; it turns, breathes and pulses with his voice, and plays the model's idle animation if it has one.
+    Models live in custom/models, so updates keep them.
+  - "Restart yourself" and "power down": Jarvis restarts or closes himself (not the PC).
 - **1.10.0** (5 Nov 2026): trading coach and personalities.
   - Trade replay: "replay my last loss" shows the trade on a chart (entry, exit, stop, target) and what price did.
   - Pre-trade checklist: "should I take this long?" checks news, losses today, daily loss, tilt and your record

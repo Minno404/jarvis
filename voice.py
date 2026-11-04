@@ -32,6 +32,30 @@ speaking = threading.Event()  # set while Jarvis is talking
 _push = threading.Event()     # mic button: listen now, no wake word needed
 _follow = {"until": 0.0}
 paused = speaking             # older name
+ptt_held = threading.Event()  # set while the push-to-talk key is held down (see hotkey.py)
+mode = {"wake": True}         # False in push-to-talk-only mode: no wake word and no open-mic follow-ups
+
+
+def set_mode(listen_mode):
+    """'wake' (say "Hey Jarvis"), 'ptt' (push-to-talk key only) or 'both'."""
+    mode["wake"] = listen_mode != "ptt"
+    if not mode["wake"]:
+        _follow["until"] = 0
+
+
+def ptt_down():
+    """The push-to-talk key went down: listen until it comes back up (and cut in if he's talking)."""
+    ptt_held.set()
+    listen_now()
+
+
+def ptt_up():
+    ptt_held.clear()
+
+
+def ptt_done(held_frames, max_s=30):
+    """While recording with the push-to-talk key: stop once it's released (plus a moment's tail) or at max_s."""
+    return not ptt_held.is_set() or held_frames * FRAME / RATE >= max_s
 
 
 on_hold = threading.Event()  # "hold on Jarvis": ignore everything until "Hey Jarvis" or the mic button
@@ -58,8 +82,8 @@ def listen_now():
 
 
 def follow_up(seconds=FOLLOW_UP_S):
-    """Listen for a reply without the wake word, for a few seconds (not while on hold)."""
-    if not on_hold.is_set():
+    """Listen for a reply without the wake word, for a few seconds (not while on hold or in push-to-talk mode)."""
+    if not on_hold.is_set() and mode["wake"]:
         _follow["until"] = time.time() + seconds
 
 
@@ -192,6 +216,11 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
         by_name = False
         if _push.is_set():
             woke = True
+            if speaking.is_set():  # mic button or push-to-talk while he's talking: cut in
+                on_interrupt()
+                speaking.clear()
+        elif not mode["wake"]:
+            continue  # push-to-talk only: nothing else wakes him (and no wake-word work at all)
         elif in_window:
             woke = starts_talking(recent[-2:], noise)
         else:
@@ -208,6 +237,7 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
         if not woke:
             continue
         _push.clear()
+        by_key = ptt_held.is_set()  # push-to-talk: record exactly while the key is held
         _follow["until"] = 0
         following = False
         on_heard()
@@ -219,7 +249,12 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
             f = stream.read(FRAME)[0][:, 0]
             audio.append(f)
             levels.append(float(np.sqrt(np.mean(f.astype(np.float32) ** 2))))
-            state = end_of_speech(levels, noise)
+            if by_key:
+                state = "done" if ptt_done(len(levels)) else "wait"
+                if state == "done":
+                    audio += [stream.read(FRAME)[0][:, 0] for _ in range(3)]  # the end of the last word
+            else:
+                state = end_of_speech(levels, noise)
             if state != "wait":
                 break
         text = _transcribe(stt, audio) if (state == "done" or by_name) else ""
@@ -253,4 +288,15 @@ if __name__ == "__main__":  # quick check of the end-of-speech rule
     for said in ("Hey Jarvis, what's gold doing?", "wait until gold hits 3,950 then tell me", "", "Jarvis",
                  "set a timer to stop the oven", "how do I stop losing on shorts"):
         assert not is_hold(said), said
+    ptt_down()
+    assert ptt_held.is_set() and _push.is_set() and not ptt_done(10)
+    ptt_up()
+    assert ptt_done(10) and ptt_done(10_000)
+    _push.clear()
+    set_mode("ptt")
+    assert not mode["wake"]
+    follow_up()
+    assert _follow["until"] == 0  # no open-mic follow-ups in push-to-talk mode
+    set_mode("both")
+    assert mode["wake"]
     print("voice self-test passed")

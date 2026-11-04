@@ -120,6 +120,23 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* Settings */
+.settings{max-width:480px}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
+.settings legend{color:var(--cyan);font-family:var(--display);font-size:11px;letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
+.settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio]{flex:none;accent-color:var(--cyan)}
+.settings .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}.settings .keyrow button{padding:6px 12px}
+.settings #pttName{font-family:var(--display);color:var(--text);min-width:120px}.settings .hint{color:var(--mute);font-size:11px;line-height:1.5;margin:6px 0 0}
+.settings select{width:100%;background:rgba(3,7,12,.7);color:var(--text);border:1px solid var(--line);font:inherit;padding:8px}
+#pttSet.listening{border-color:var(--amber);color:var(--amber)}
+/* A custom 3D model in place of the reactor core */
+.core-wrap.avatar #core,.core-wrap.avatar #core3d{visibility:hidden}
+.core-wrap.avatar::after{content:"";position:absolute;inset:8% 8% 0;pointer-events:none;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 90%,rgba(var(--rgb),.25),transparent 60%)}
+.core-wrap.avatar.holo-style::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:repeating-linear-gradient(0deg,rgba(var(--rgb),.07) 0 1px,transparent 1px 4px);animation:scan 6s linear infinite;
+  -webkit-mask-image:radial-gradient(circle,#000 45%,transparent 72%);mask-image:radial-gradient(circle,#000 45%,transparent 72%)}
+@keyframes scan{to{background-position:0 120px}}
+#avatar3d{position:absolute;inset:0;width:100%;height:100%;z-index:1}
 /* Copying from the chat: select any text with the mouse, or use a message's Copy button */
 body{user-select:none;-webkit-user-select:none}
 .log,.log *,input,.htext,.hlist,td,.holo-rows,.row span:last-child{user-select:text;-webkit-user-select:text}
@@ -171,6 +188,7 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
       <div class="row"><span>Journal</span><span>Ready</span></div>
       <div class="row"><span>PC control</span><span>Ready</span></div>
       <div class="row"><span>HUD sounds</span><button id="sfxBtn" class="linkbtn" type="button">On</button></div>
+      <div class="row" id="settingsRow"><span>Settings</span><button id="settingsBtn" class="linkbtn" type="button">Open</button></div>
       <div class="row" id="layoutRow" hidden><span>Layout</span><button id="layoutBtn" class="linkbtn" type="button">Reset</button></div>
     </div>
   </div>
@@ -225,6 +243,28 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 </div>
 <div class="version" id="version" aria-label="Jarvis version"></div>
 <button class="updatebtn" id="updateBtn" hidden></button>
+<div class="modal" id="settingsModal" hidden>
+  <div class="panel settings"><button type="button" class="holo-x" id="setX" aria-label="Close settings">\u00d7</button>
+    <h2>Jarvis settings</h2>
+    <fieldset><legend>Listening</legend>
+      <label><input type="radio" name="lm" value="wake"> Say "Hey Jarvis"</label>
+      <label><input type="radio" name="lm" value="ptt"> Push-to-talk only</label>
+      <label><input type="radio" name="lm" value="both"> Both</label>
+    </fieldset>
+    <fieldset><legend>Push-to-talk key</legend>
+      <div class="keyrow"><span id="pttName">Not set</span><button type="button" id="pttSet">Set key</button><button type="button" id="pttClear" class="linkbtn">Clear</button></div>
+      <p class="hint" id="pttHint">Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.</p>
+    </fieldset>
+    <fieldset><legend>Core model</legend>
+      <select id="avatarSel"><option value="">Arc reactor (default)</option></select>
+      <div class="keyrow"><label class="hint"><input type="radio" name="as" value="hologram"> Hologram (HUD colour)</label>
+        <label class="hint"><input type="radio" name="as" value="original"> Original colours</label></div>
+      <div class="keyrow"><input type="file" id="modelFile" accept=".glb,model/gltf-binary" hidden><button type="button" id="modelAdd">Add a 3D model (.glb)</button></div>
+      <p class="hint">Any .glb model works (a Cortana-style figure, a helmet...). It's kept in custom/models, so updates never remove it.</p>
+    </fieldset>
+    <p class="hint" id="setMsg" aria-live="polite"></p>
+  </div>
+</div>
 <div class="modal" id="phoneModal" hidden>
   <div class="panel"><h2>Pair your phone</h2>
     <p>Scan with your phone's camera. Your phone then stays paired, and you can add it to your home screen.</p>
@@ -251,7 +291,8 @@ $('phoneBtn').onclick=async()=>{
     :'This works on your home Wi-Fi. To use Jarvis anywhere, install <a href="https://tailscale.com/download" target="_blank" rel="noopener">Tailscale</a> on this PC and your phone (free), sign both into the same account, then open this again.';
 };
 $('phoneClose').onclick=()=>$('phoneModal').hidden=true;
-if(!['127.0.0.1','localhost'].includes(location.hostname))$('phoneBtn').closest('.row').hidden=true;  // on the phone itself
+if(!['127.0.0.1','localhost'].includes(location.hostname))$('phoneBtn').closest('.row').hidden=true;
+if(!['127.0.0.1','localhost'].includes(location.hostname))$('settingsRow').hidden=true;  // settings are made on the PC  // on the phone itself
 
 // The desktop app's bridge to Python (absent in a plain browser)
 const api=()=>window.pywebview?.api;
@@ -577,7 +618,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -698,6 +739,7 @@ async function bootSequence(){
   if(info.theme)setTheme(info.theme);
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
+  showPrefs({listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -729,6 +771,89 @@ $('coreWrap').addEventListener('click',()=>{if(voiceOn||busy){stopSpeaking();set
 function followUp(on){if(on)setMode('listening');else if(mode==='listening')setMode('idle')}  // listening for a reply
   // Show the mini window while the main one is in the background
   addEventListener('blur',()=>api()?.mini(true));addEventListener('focus',()=>api()?.mini(false));
+
+// ---------- Settings: listening mode, push-to-talk key, core model ----------
+let prefs={listen_mode:'wake',ptt_key:'',avatar:'',avatar_style:'hologram'},capturing=false;
+const KEYNAME={Mouse4:'Mouse back button',Mouse5:'Mouse forward button',MouseMiddle:'Middle mouse button',Backquote:'` (backtick)',CapsLock:'Caps Lock',AltRight:'Right Alt',ControlRight:'Right Ctrl'};
+const keyName=c=>!c?'Not set':KEYNAME[c]||c.replace(/^Key|^Digit/,'').replace('Numpad','Numpad ');
+function showPrefs(p){
+  prefs={...prefs,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&v!==null))};
+  document.querySelectorAll('input[name=lm]').forEach(r=>r.checked=r.value===(prefs.listen_mode||'wake'));
+  document.querySelectorAll('input[name=as]').forEach(r=>r.checked=r.value===(prefs.avatar_style||'hologram'));
+  $('pttName').textContent=keyName(prefs.ptt_key);
+  $('pttHint').textContent=/^(Key|Digit|Space|Enter|Tab)/.test(prefs.ptt_key||'')?"Heads up: that key also types, so it'll trigger Jarvis while you type. F-keys, ` or a mouse side button are better for games."
+    :'Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.';
+  if(prefs.listen_mode==='ptt'&&!prefs.ptt_key)$('setMsg').textContent='Push-to-talk only needs a key: set one above.';
+  setAvatar(prefs.avatar,prefs.avatar_style);
+}
+async function savePref(d){
+  $('setMsg').textContent='';
+  try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})).json();
+    if(r.error)throw new Error(r.error);showPrefs(r);$('setMsg').textContent='Saved.'}catch(e){$('setMsg').textContent=e.message||'Couldn\'t save.'}
+}
+async function loadModels(){
+  let c={models:[]};try{c=await (await fetch('/api/custom')).json()}catch(e){}
+  $('avatarSel').replaceChildren(new Option('Arc reactor (default)',''),...(c.models||[]).map(m=>new Option(m.replace(/\.glb$/,''),m)));
+  $('avatarSel').value=prefs.avatar||'';
+}
+$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({})};
+$('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};
+document.querySelectorAll('input[name=lm]').forEach(r=>r.onchange=()=>savePref({listen_mode:r.value}));
+document.querySelectorAll('input[name=as]').forEach(r=>r.onchange=()=>savePref({avatar_style:r.value}));
+$('avatarSel').onchange=()=>savePref({avatar:$('avatarSel').value});
+$('pttClear').onclick=()=>savePref({ptt_key:''});
+$('pttSet').onclick=()=>{capturing=true;$('pttSet').classList.add('listening');$('pttName').textContent='Press a key or mouse button… (Esc cancels)'};
+const endCapture=code=>{capturing=false;$('pttSet').classList.remove('listening');if(code)savePref({ptt_key:code});else showPrefs({})};
+addEventListener('keydown',e=>{if(!capturing)return;e.preventDefault();e.stopPropagation();endCapture(e.code==='Escape'?null:e.code)},true);
+addEventListener('mousedown',e=>{if(!capturing||e.button===0||e.button===2)return;e.preventDefault();endCapture({1:'MouseMiddle',3:'Mouse4',4:'Mouse5'}[e.button])},true);
+addEventListener('auxclick',e=>{if(capturing)e.preventDefault()},true);
+$('modelAdd').onclick=()=>$('modelFile').click();
+$('modelFile').onchange=async()=>{const f=$('modelFile').files[0];if(!f)return;$('setMsg').textContent='Uploading '+f.name+'…';
+  try{const r=await (await fetch('/api/model?name='+encodeURIComponent(f.name.replace(/[^A-Za-z0-9 _.-]/g,'_')),{method:'POST',body:f})).json();
+    if(r.error)throw new Error(r.error);await loadModels();await savePref({avatar:r.name})}catch(e){$('setMsg').textContent=e.message||'Upload failed.'}
+  $('modelFile').value=''};
+
+// The core model: the built-in arc reactor, or any .glb from custom/models. In hologram style it's drawn in the
+// HUD colour with additive glow; it turns slowly, bobs, and pulses with his voice (amber while he thinks).
+let avatar=null;
+const loadScript=src=>new Promise((ok,no)=>{if(document.querySelector(`script[src="${src}"]`))return ok();const sc=document.createElement('script');sc.src=src;sc.onload=ok;sc.onerror=no;document.head.append(sc)});
+async function setAvatar(name,style){
+  const key=(name||'')+'|'+(style||'');if(avatar?.key===key)return;
+  if(avatar){avatar.stop=true;avatar.canvas.remove();avatar=null}
+  $('coreWrap').classList.remove('avatar','holo-style');
+  if(!name||!window.THREE)return;
+  try{
+    if(!THREE.GLTFLoader)await loadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js');
+    const gltf=await new Promise((ok,no)=>new THREE.GLTFLoader().load('/custom/models/'+encodeURIComponent(name),ok,undefined,no));
+    const c=document.createElement('canvas');c.id='avatar3d';$('coreWrap').append(c);
+    const r=new THREE.WebGLRenderer({canvas:c,alpha:true,antialias:true});r.setPixelRatio(Math.min(devicePixelRatio||1,2));
+    if('outputEncoding' in r)r.outputEncoding=THREE.sRGBEncoding;
+    const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(32,1,.01,1000),root=gltf.scene,holo=style!=='original';
+    const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),ctr=box.getCenter(new THREE.Vector3());
+    const k=2.6/Math.max(size.x,size.y,size.z||1);root.scale.setScalar(k);root.position.sub(ctr.multiplyScalar(k));
+    const pivot=new THREE.Group();pivot.add(root);scene.add(pivot);cam.position.set(0,0,5.4);
+    scene.add(new THREE.AmbientLight(0xffffff,.7));const dl=new THREE.DirectionalLight(0xffffff,1);dl.position.set(2,3,4);scene.add(dl);
+    const mats=[];
+    const meshes=[];root.traverse(o=>{if(o.isMesh)meshes.push(o)});  // collected first: the wireframes added below are meshes too
+    if(holo)meshes.forEach(o=>{  // animated models: the new materials must follow the skeleton and morphs
+      const opt={color:0x5fe3ff,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,skinning:!!o.isSkinnedMesh,morphTargets:!!o.morphTargetInfluences};
+      o.material=new THREE.MeshBasicMaterial({...opt,opacity:.42,side:THREE.DoubleSide});mats.push(o.material);
+      const wm=new THREE.MeshBasicMaterial({...opt,wireframe:true,opacity:.12}),wf=o.isSkinnedMesh?new THREE.SkinnedMesh(o.geometry,wm):new THREE.Mesh(o.geometry,wm);
+      if(o.isSkinnedMesh){wf.bind(o.skeleton,o.bindMatrix);wf.bindMode=o.bindMode}else o.add(wf);
+      if(o.isSkinnedMesh)o.parent.add(wf);if(o.morphTargetInfluences){wf.morphTargetInfluences=o.morphTargetInfluences;wf.morphTargetDictionary=o.morphTargetDictionary}
+      mats.push(wm)});
+    const mixer=gltf.animations?.length?new THREE.AnimationMixer(root):null;
+    if(mixer){const idle=gltf.animations.find(a=>/idle|breath|stand/i.test(a.name))||gltf.animations[0];mixer.clipAction(idle).play()}
+    const fit=()=>{const w=$('coreWrap').clientWidth||420;r.setSize(w,w,false)};fit();addEventListener('resize',fit);
+    const clock=new THREE.Clock(),me={key,canvas:c,stop:false};avatar=me;
+    $('coreWrap').classList.add('avatar');if(holo)$('coreWrap').classList.add('holo-style');
+    (function frame(){if(me.stop)return;const dt=clock.getDelta(),tt=clock.elapsedTime;mixer?.update(dt);
+      pivot.rotation.y+=dt*(mode==='thinking'?.9:.25);pivot.position.y=Math.sin(tt*1.2)*.06;pivot.scale.setScalar(1+level*.06);
+      if(holo){const [R,G,B]=(mode==='thinking'?'255,179,71':accent).split(',').map(v=>v/255);
+        for(const m of mats){m.color.setRGB(R,G,B);if(!m.wireframe)m.opacity=.38+level*.3+Math.sin(tt*3)*.03}}
+      r.render(scene,cam);requestAnimationFrame(frame)})();
+  }catch(e){console.warn('3D model failed',e);$('setMsg').textContent="Couldn't load that model; showing the reactor."}
+}
 
 // ---------- Add-ons: your own panels and tweaks in the custom/ folder, kept through every update ----------
 // A custom/*.js file can use:
