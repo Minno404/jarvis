@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.6.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.7.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -603,9 +603,35 @@ CLI_PROMPT = SYSTEM + """
 Your tools are commands. Run one with the Bash tool exactly like this, JSON arguments in single quotes:
   python server.py tool <name> '{"arg": "value"}'
 It prints JSON. Do not run any other commands, and do not read or edit files, with one exception: after
-the screenshot tool, use the Read tool on the image file it saved to see his screen.
+the screenshot tool, or when he sends you a photo (uploads/...), use the Read tool on that image file to see it.
 The tools, as name(arguments; * = required):
 """ + "\n".join(f"- {t['name']}({_args(t)}): {t['description']}" for t in TOOLS)
+
+
+UPLOADS = HERE / "uploads"  # photos he sends Jarvis
+PHOTO = re.compile(r"[0-9a-f]{16}\.(jpg|png|webp)")
+
+
+def save_upload(data, kind):
+    """Keep a photo he sent (shrunk to 1600 px, which is plenty to see and far fewer tokens). Returns its name."""
+    import hashlib
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}.get(kind)
+    if not ext or not 100 < len(data) < 20_000_000:
+        raise ValueError("Send a JPEG, PNG or WebP photo under 20 MB")
+    UPLOADS.mkdir(exist_ok=True)
+    name = hashlib.sha1(data).hexdigest()[:16]
+    try:
+        import io
+        from PIL import Image, ImageOps
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(data))).convert("RGB")
+        im.thumbnail((1600, 1600))
+        im.save(UPLOADS / f"{name}.jpg", quality=88)
+        ext = "jpg"
+    except ImportError:  # no Pillow: keep it as sent
+        (UPLOADS / f"{name}.{ext}").write_bytes(data)
+    for old in sorted(UPLOADS.iterdir(), key=lambda f: f.stat().st_mtime)[:-30]:  # keep the last 30
+        old.unlink(missing_ok=True)
+    return f"{name}.{ext}"
 
 
 def tool_args(name, argv):
@@ -643,10 +669,16 @@ def chat(text):
     return "".join(p for p in chat_stream(text) if p)
 
 
-def chat_stream(text):
-    """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now)."""
+def chat_stream(text, photo=None):
+    """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now).
+    photo: the name of a picture he sent (in uploads/), for Jarvis to look at."""
+    if photo and PHOTO.fullmatch(photo) and (UPLOADS / photo).exists():
+        text = (text or "What's in this photo?") + (f"\n[He sent you a photo: uploads/{photo}. Look at it "
+                                                     "before you answer.]")
+    else:
+        photo = None
     try:  # everyday commands ("pause the music", "TV volume 15") are done right here: no Claude, no tokens
-        fast = quick.quick(text)
+        fast = None if photo else quick.quick(text)
     except Exception as e:
         fast = f"That didn't work, sir. {e}"
     if fast:
@@ -654,7 +686,7 @@ def chat_stream(text):
         return
     brain = features.settings().get("brain", "auto")
     if brain == "chatgpt" or (brain == "auto" and time.time() < claude_out["until"] and gpt_brain.available()):
-        yield from chat_gpt(text)
+        yield from chat_gpt(text, photo)
         return
     said = False
     try:
@@ -668,14 +700,14 @@ def chat_stream(text):
         print(datetime.datetime.now(), "Claude limit reached, switching to ChatGPT:", str(e)[:200])
         push_event({"type": "brain", "name": "ChatGPT"})
         yield persona("My Claude allowance is spent for now, {TITLE}, so I've switched to ChatGPT. ")
-        yield from chat_gpt(text)
+        yield from chat_gpt(text, photo)
 
 
 LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
 claude_out = {"until": 0.0}
 
 
-def chat_gpt(text):
+def chat_gpt(text, photo=None):
     now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
     try:
         room = awareness.describe(awareness.situation())
@@ -683,7 +715,7 @@ def chat_gpt(text):
         room = ""
     with lock:
         yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + features.memory_prompt(),
-                                  persona(f"[{now}] {room}\n{text}"))
+                                  persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [])
 
 
 def brain_status():
@@ -934,9 +966,9 @@ class Handler(SimpleHTTPRequestHandler):
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             return self.send_json({"memories": len(features.memories()), "protocols": len(features.list_routines()),
                                    "mt5": mt5_on, "version": VERSION, "brain": brain_status(), **features.settings()})
-        if self.path.startswith("/api/img/"):  # pictures Jarvis downloaded for the HUD (see hud.py)
+        if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
-            f = HERE / hud.IMAGES / name
+            f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name
             if not re.fullmatch(r"[0-9a-f]{16}\.(jpg|png|webp|gif)", name) or not f.exists():
                 return self.send_error(404)
             data = f.read_bytes()
@@ -996,14 +1028,23 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
             return self.wfile.write(audio)
+        if self.path == "/api/upload":  # a photo for Jarvis: raw image bytes in, {"name": ...} out
+            try:
+                n = int(self.headers["Content-Length"])
+                if n > 20_000_000:
+                    raise ValueError("That photo is over 20 MB")
+                return self.send_json({"name": save_upload(self.rfile.read(n), self.headers.get_content_type())})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
         if self.path == "/api/chat-stream":  # one JSON line per piece: {"t": text} / {"flush": true} / {"done": true}
-            text = json.loads(self.rfile.read(int(self.headers["Content-Length"])))["text"]
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            text, photo = body.get("text", ""), body.get("photo")
             self.send_response(200)
             self.send_header("Content-Type", "application/x-ndjson")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             send = lambda obj: (self.wfile.write((json.dumps(obj) + "\n").encode()), self.wfile.flush())
-            pieces, reply = chat_stream(text), []
+            pieces, reply = chat_stream(text, photo), []
             try:
                 for p in pieces:
                     reply.append(p or "")

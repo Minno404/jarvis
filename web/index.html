@@ -120,6 +120,14 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* Sending Jarvis a photo */
+.attach{position:relative;display:flex;align-items:center;gap:10px;width:100%;max-width:640px;box-sizing:border-box;padding:6px 34px 6px 6px;
+  border:1px solid var(--cyan-dim);background:rgba(var(--rgb),.06);color:var(--mute);font-size:11px;letter-spacing:.08em}
+.attach img{height:54px;max-width:90px;object-fit:cover;border:1px solid var(--line)}
+.attach.busy span::after{content:" · uploading…"}
+.msg .sent{display:block;max-width:220px;max-height:160px;margin:6px 0 0 auto;border:1px solid var(--line);cursor:zoom-in}
+body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--cyan);outline-offset:-12px}
+@media (max-width:600px){#photoBtn{padding:0 10px}}
 .panel>.holo-x{top:8px;right:8px}
 /* Extra panel kinds */
 .prog{margin:8px 0}.prog .row{border:0;padding:0 0 4px}.prog .bar{height:6px}
@@ -161,7 +169,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="core-wrap" id="coreWrap"><canvas id="core" width="840" height="840"></canvas><canvas id="core3d" hidden></canvas></div>
     <div class="state" id="state">Standing by</div>
     <div class="log" id="log" aria-live="polite"></div>
-    <form id="f"><input id="q" placeholder="Say something, sir…" autocomplete="off"><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button><button>Send</button></form>
+    <div class="attach" id="attach" hidden><img id="attImg" alt="Photo to send"><span>Photo ready · ask about it</span><button type="button" class="holo-x" id="attX" aria-label="Remove photo">\u00d7</button></div>
+    <form id="f"><input id="q" placeholder="Say something, sir…" autocomplete="off"><input type="file" id="file" accept="image/*" hidden><button type="button" id="photoBtn" title="Send Jarvis a photo (or paste / drop one)">Photo</button><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button><button>Send</button></form>
     <div class="chips">
       <button class="chip" type="button">Bring up my trading journal</button>
       <button class="chip" type="button">Give me a report</button>
@@ -433,18 +442,40 @@ async function announce(text){
   sfx('alert');await new Promise(r=>setTimeout(r,350));
   audio();const v=voice();add('j',text);v.push(text);v.end();
 }
+// Photos: the Photo button (the camera on a phone), paste, or drag one onto the window. It waits above the box
+// until the next thing you type or say, so "Hey Jarvis, what's this?" works too.
+let photo=null;
+async function attach(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  $('attach').hidden=false;$('attach').classList.add('busy');$('attImg').src=URL.createObjectURL(file);photo=null;
+  try{const r=await (await fetch('/api/upload',{method:'POST',headers:{'Content-Type':file.type},body:file})).json();
+    if(r.error)throw new Error(r.error);photo=r.name;sfx('panel');$('q').focus()}
+  catch(e){$('attach').hidden=true;add('j',"I couldn't take that photo, sir. "+(e.message||''))}
+  $('attach').classList.remove('busy');
+}
+const clearPhoto=()=>{photo=null;$('attach').hidden=true;$('file').value=''};
+$('photoBtn').onclick=()=>$('file').click();
+$('file').onchange=()=>attach($('file').files[0]);
+$('attX').onclick=clearPhoto;
+addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])].find(f=>f.type.startsWith('image/'));if(f){e.preventDefault();attach(f)}});
+addEventListener('dragover',e=>{if([...e.dataTransfer.items].some(i=>i.type.startsWith('image/'))){e.preventDefault();document.body.classList.add('dropping')}});
+addEventListener('dragleave',e=>{if(!e.relatedTarget)document.body.classList.remove('dropping')});
+addEventListener('drop',e=>{document.body.classList.remove('dropping');const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));if(f){e.preventDefault();attach(f)}});
 async function ask(q){
   if(isHold(q)){add('you',q);holdOn();api()?.hold();return}  // typed "hold on" works too
-  if(!q.trim()||busy)return;
+  const pic=photo;
+  if((!q.trim()&&!pic)||busy)return;
   if(voiceOn)stopSpeaking();  // a new question takes over from whatever he was still saying
-  busy=true;add('you',q);setMode('thinking');
+  busy=true;const mine=add('you',q||'What do you make of this?');setMode('thinking');
+  if(pic){const im=new Image();im.className='sent';im.src='/api/photo/'+pic;im.alt='Photo you sent';
+    im.onclick=()=>showPanel({kind:'image',title:'Your photo',src:im.src});mine.after(im);clearPhoto()}
   if(!live){const r=canned(q);busy=false;setMode('speaking');add('j',r);browserSpeak(r);return}
   audio();
   const el=add('j',''),v=voice(),before=trades.length;let full='';
   const show=t=>{full+=t;el.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
   try{
     aborter=new AbortController();
-    const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q}),signal:aborter.signal});
+    const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,photo:pic}),signal:aborter.signal});
     const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
     for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
       while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;const m=JSON.parse(line);if(m.t)show(m.t);if(m.flush)v.flush()}}

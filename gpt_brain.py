@@ -51,12 +51,13 @@ def recent_context(n=6):
     return "Your conversation just before this (with your other brain):\n" + "\n".join(lines) + "\n\n"
 
 
-def command(resume_id=None):
+def command(resume_id=None, images=()):
     cmd = [CODEX, "exec", "--json", "--skip-git-repo-check", "-C", str(HERE), "-s", SANDBOX,
            "-c", "sandbox_workspace_write.network_access=true", "-c", 'approval_policy="never"']
     if os.environ.get("JARVIS_GPT_MODEL"):
         cmd += ["-m", os.environ["JARVIS_GPT_MODEL"]]
-    return cmd + (["resume", resume_id, "-"] if resume_id else ["-"])
+    pics = [a for img in images for a in ("-i", str(img))]  # photos he sent, attached to the message
+    return cmd + (["resume", resume_id, *pics, "-"] if resume_id else [*pics, "-"])
 
 
 def parse(lines):
@@ -77,13 +78,13 @@ def parse(lines):
     return tid, texts, err
 
 
-def chat(system_prompt, message):
+def chat(system_prompt, message, images=()):
     """Yield Jarvis's reply from ChatGPT (each message whole; None marks the end of one). Raises on failure."""
     if time.time() - thread["last"] > 1200 or thread["turns"] >= 15:  # same fresh-start rule as Claude
         thread.update(id=None, turns=0)
     thread["last"], thread["turns"] = time.time(), thread["turns"] + 1
     text = message if thread["id"] else f"{system_prompt}\n{HOW_TO_USE_TOOLS}\n{recent_context()}{message}"
-    proc = subprocess.Popen(command(thread["id"]), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    proc = subprocess.Popen(command(thread["id"], images), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", cwd=HERE, creationflags=NO_WINDOW)
     try:
         proc.stdin.write(text)
@@ -117,6 +118,8 @@ def selftest():
     assert parse(['{"type":"turn.failed","error":{"message":"usage limit"}}'])[2] == "usage limit"
     c = command("abc-123")
     assert c[-3:] == ["resume", "abc-123", "-"] and "--json" in c and c.index("-s") < c.index("resume")
+    assert command(None, ["uploads/a.jpg"])[-3:] == ["-i", "uploads/a.jpg", "-"]
+    assert command("t1", ["p.jpg"])[-5:] == ["resume", "t1", "-i", "p.jpg", "-"]
     print("gpt brain self-test passed")
 
 

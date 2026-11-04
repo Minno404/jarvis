@@ -1,4 +1,4 @@
 {
- "version": "1.6.1",
- "notes": "ChatGPT brain can use tools; pictures from anywhere on the web, shown right in the HUD."
+ "version": "1.7.0",
+ "notes": "Send Jarvis photos: Photo button, paste or drag and drop, then ask about it."
 }
