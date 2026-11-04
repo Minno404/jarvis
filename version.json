@@ -1,4 +1,4 @@
 {
- "version": "1.12.1",
- "notes": "Core models can be .blend files too (converted with Blender automatically)."
+ "version": "1.12.2",
+ "notes": "Core models can be a .zip of a .blend with its textures."
 }

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.12.1** (shown at the bottom right of the HUD)
+**Version 1.12.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.12.2** (5 Nov 2026): core models can also be a .zip (a .blend with its texture images), unpacked and
+  converted with Blender, which also finds textures the .blend lost track of.
 - **1.12.1** (5 Nov 2026): the core model can be a Blender file (.blend) as well as .glb. Jarvis converts it with
   Blender automatically (Blender needs to be installed; it's free from blender.org).
 - **1.12.0** (5 Nov 2026): a more human voice. Settings → Voice → Kokoro installs a natural-sounding voice that

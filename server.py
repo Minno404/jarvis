@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.12.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.12.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -714,8 +714,12 @@ def models():
 
 
 BLEND_MAGIC = (b"BLENDER", b"\x1f\x8b", b"\x28\xb5\x2f\xfd")  # plain, gzip- or zstd-compressed .blend
-BLEND_EXPORT = """import bpy, sys
+BLEND_EXPORT = """import bpy, os, sys
 out = sys.argv[sys.argv.index("--") + 1]
+try:  # textures saved with paths from the creator's PC: look for them beside the .blend instead
+    bpy.ops.file.find_missing_files(directory=os.path.dirname(bpy.data.filepath))
+except Exception as e:
+    print("find_missing_files:", e)
 bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_apply=True, export_animations=True)
 """
 
@@ -754,10 +758,41 @@ def blend_to_glb(src, dest):
         raise ValueError("Blender couldn't convert that file" + (f": {err[0].strip()}" if err else "."))
 
 
+def unzip_model(name, data):
+    """A zipped model (a .blend with its textures, or a .glb): unpacked into custom/models/blend/<name>/.
+    Returns the model file inside it."""
+    import io
+    import zipfile
+    folder = MODELS / "blend" / re.sub(r"[^A-Za-z0-9 _.-]", "_", name[:-4])
+    z = zipfile.ZipFile(io.BytesIO(data))
+    if sum(i.file_size for i in z.infolist()) > 600_000_000:
+        raise ValueError("That zip unpacks to over 600 MB")
+    for i in z.infolist():
+        rel = Path(i.filename)
+        if i.is_dir() or rel.is_absolute() or ".." in rel.parts:
+            continue
+        out = folder / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(z.read(i))
+    found = sorted(folder.rglob("*.blend")) or sorted(folder.rglob("*.glb"))
+    if not found:
+        raise ValueError("No .blend or .glb model inside that zip")
+    return found[0]
+
+
 def save_model(name, data):
-    """A 3D model for the core: a .glb as is, or a .blend converted to .glb with Blender."""
+    """A 3D model for the core: a .glb as is, a .blend converted to .glb with Blender, or a zip of either
+    (a .blend with its texture images beside it)."""
     name = Path(name).name
     MODELS.mkdir(parents=True, exist_ok=True)
+    if name.lower().endswith(".zip") and data[:2] == b"PK":
+        inner = unzip_model(name, data)
+        glb = re.sub(r"[^A-Za-z0-9 _.-]", "_", inner.stem)[:70] + ".glb"
+        if inner.suffix.lower() == ".glb":
+            (MODELS / glb).write_bytes(inner.read_bytes())
+        else:
+            blend_to_glb(inner, MODELS / glb)
+        return glb
     if name.lower().endswith(".blend") and data.startswith(BLEND_MAGIC):
         glb = name[:-6] + ".glb"
         if not MODEL_NAME.fullmatch(glb):
@@ -768,7 +803,7 @@ def save_model(name, data):
         blend_to_glb(src, MODELS / glb)
         return glb
     if not MODEL_NAME.fullmatch(name) or data[:4] != b"glTF":
-        raise ValueError("Send a .glb or .blend 3D model")
+        raise ValueError("Send a .glb, .blend or .zip 3D model")
     (MODELS / name).write_bytes(data)
     return name
 
@@ -1218,8 +1253,8 @@ class Handler(SimpleHTTPRequestHandler):
             from urllib.parse import unquote
             try:
                 n = int(self.headers["Content-Length"])
-                if n > 150_000_000:
-                    raise ValueError("That model is over 150 MB")
+                if n > 300_000_000:
+                    raise ValueError("That model is over 300 MB")
                 return self.send_json({"name": save_model(unquote(self.path.split("=", 1)[1]), self.rfile.read(n))})
             except ValueError as e:
                 return self.send_json({"error": str(e)}, 400)
