@@ -8,25 +8,25 @@
 /* Layout: three-column HUD around a live reactor core; stacks to one column on phones. Single dark look by design. */
 :root{
   --void:#03070c; --panel:rgba(10,32,48,.55); --line:#1c5a78;
-  --cyan:#5fe3ff; --cyan-dim:#2a8fb0; --amber:#ffb347; --red:#ff5a5a; --text:#cdeefb; --mute:#6f9fb4;
+  --cyan:#5fe3ff; --cyan-dim:#2a8fb0; --rgb:95,227,255; --line-rgb:28,90,120; --bg-glow:#0a2233; --amber:#ffb347; --red:#ff5a5a; --text:#cdeefb; --win:var(--cyan); --mute:#6f9fb4;
   --display:"Chakra Petch",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
   color-scheme:dark;
 }
 html,body{height:100%}
-body{background:radial-gradient(ellipse at 50% 40%,#0a2233 0%,var(--void) 70%);color:var(--text);font-family:var(--mono);font-size:13px;overflow-x:hidden}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(95,227,255,.03) 0 1px,transparent 1px 3px)}
+body{background:radial-gradient(ellipse at 50% 40%,var(--bg-glow) 0%,var(--void) 70%);color:var(--text);font-family:var(--mono);font-size:13px;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.03) 0 1px,transparent 1px 3px)}
 .wrap{min-height:100%;box-sizing:border-box;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:260px 1fr 300px;gap:16px;max-width:1400px;margin:0 auto}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .panel{background:var(--panel);border:1px solid var(--line);padding:14px;position:relative;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);backdrop-filter:blur(4px)}
 .panel::before{content:"";position:absolute;top:0;left:12px;width:40px;height:2px;background:var(--cyan)}
 h2{font-family:var(--display);font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px;font-weight:600}
-.clock{font-family:var(--display);font-size:44px;font-weight:700;color:var(--cyan);text-shadow:0 0 18px rgba(95,227,255,.5);font-variant-numeric:tabular-nums;line-height:1}
+.clock{font-family:var(--display);font-size:44px;font-weight:700;color:var(--cyan);text-shadow:0 0 18px rgba(var(--rgb),.5);font-variant-numeric:tabular-nums;line-height:1}
 .date{color:var(--mute);letter-spacing:.15em;text-transform:uppercase;margin-top:6px}
-.row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed rgba(28,90,120,.5);font-variant-numeric:tabular-nums}
+.row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed rgba(var(--line-rgb),.5);font-variant-numeric:tabular-nums}
 .row:last-child{border:0}.row span:first-child{color:var(--mute)}
-.bar{height:4px;background:rgba(28,90,120,.5);margin-top:4px}.bar i{display:block;height:100%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transition:width .8s}
+.bar{height:4px;background:rgba(var(--line-rgb),.5);margin-top:4px}.bar i{display:block;height:100%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transition:width .8s}
 .center{display:flex;flex-direction:column;align-items:center;gap:12px;min-width:0}
-.brand{font-family:var(--display);font-weight:700;letter-spacing:.6em;font-size:clamp(20px,3vw,30px);color:var(--cyan);text-shadow:0 0 20px rgba(95,227,255,.6);margin-right:-.6em}
+.brand{font-family:var(--display);font-weight:700;letter-spacing:.6em;font-size:clamp(20px,3vw,30px);color:var(--cyan);text-shadow:0 0 20px rgba(var(--rgb),.6);margin-right:-.6em}
 .sub{color:var(--mute);letter-spacing:.3em;font-size:10px;text-transform:uppercase}
 canvas{width:min(420px,100%);aspect-ratio:1;max-width:100%}
 .core-wrap{position:relative;width:min(420px,100%);aspect-ratio:1;max-width:100%;cursor:pointer}
@@ -39,13 +39,13 @@ form{display:flex;gap:8px;width:100%;max-width:640px}
 input{flex:1;min-width:0;background:rgba(3,7,12,.7);border:1px solid var(--line);color:var(--text);font:inherit;padding:10px 12px;outline:none}
 input:focus,button:focus-visible{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan)}
 button{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;padding:0 16px;cursor:pointer}
-button:hover{background:rgba(95,227,255,.12)}
+button:hover{background:rgba(var(--rgb),.12)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:640px}
 .chip{font-size:11px;padding:6px 10px;border-color:var(--line);color:var(--mute);letter-spacing:.05em;text-transform:none;font-family:var(--mono)}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th{padding-right:10px;text-align:left;color:var(--mute);font-weight:400;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding-bottom:6px}
-td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,120,.5)}
-.win{color:var(--cyan)}td:last-child{white-space:normal;padding-right:0}.loss{color:var(--red)}
+td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--line-rgb),.5)}
+.win{color:var(--win)}td:last-child{white-space:normal;padding-right:0}.loss{color:var(--red)}
 .tag{font-size:9px;letter-spacing:.2em;color:var(--amber);border:1px solid var(--amber);padding:1px 5px;margin-left:6px;vertical-align:middle}
 .flash{animation:flash 1.2s}@keyframes flash{0%,100%{border-color:var(--line)}30%{border-color:var(--amber);box-shadow:0 0 24px rgba(255,179,71,.4)}}
 [hidden]{display:none!important}
@@ -71,9 +71,9 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,12
 .center{position:relative}
 .holo{position:absolute;top:64px;right:-10px;width:min(330px,42%);display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,.74);border:1px solid var(--cyan-dim);padding:12px 14px 10px;
-  box-shadow:0 0 28px rgba(95,227,255,.18),inset 0 0 30px rgba(95,227,255,.06);backdrop-filter:blur(3px);
+  box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
-.holo-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(95,227,255,.05) 0 1px,transparent 1px 3px)}
+.holo-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.05) 0 1px,transparent 1px 3px)}
 .holo-panel.out{animation:holoOut .5s ease-in forwards}
 @keyframes holoIn{from{opacity:0;transform:perspective(700px) rotateY(-42deg) translateX(-90px) scale(.82);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
 @keyframes holoOut{to{opacity:0;transform:translateX(40px) scale(.94);filter:blur(5px)}}
@@ -85,28 +85,55 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,12
 .holo-rows .row span:last-child{color:var(--text)}
 /* Boot sequence */
 .boot{position:absolute;left:50%;top:520px;transform:translateX(-50%);width:min(340px,90%);font-size:11px;letter-spacing:.12em;color:var(--cyan);
-  text-transform:uppercase;line-height:1.9;pointer-events:none;z-index:6;text-shadow:0 0 8px rgba(95,227,255,.6);transition:opacity .6s}
+  text-transform:uppercase;line-height:1.9;pointer-events:none;z-index:6;text-shadow:0 0 8px rgba(var(--rgb),.6);transition:opacity .6s}
 .boot .ok{color:var(--text)}.boot .dim{color:var(--mute)}
 @media (max-width:1000px){.holo{position:static;width:100%;max-width:640px}}
 @media (prefers-reduced-motion:reduce){.holo-panel,.holo-panel.out{animation:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Polish: corner brackets, a slow scan sweep, a faint grid, colour changes fade */
+body{transition:background .8s}
+.panel,.holo-panel,h2,.clock,.brand,.bar i{transition:border-color .8s,color .8s,background-color .8s,box-shadow .8s,text-shadow .8s}
+.panel::after{content:"";position:absolute;right:12px;bottom:0;width:40px;height:2px;background:var(--cyan);opacity:.5}
+.panel:hover{border-color:var(--cyan-dim);box-shadow:0 0 22px rgba(var(--rgb),.12)}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(rgba(var(--rgb),.035) 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,rgba(var(--rgb),.035) 1px,transparent 1px) 0 0/48px 48px;
+  mask-image:radial-gradient(ellipse at 50% 40%,#000 0%,transparent 75%)}
+.sweep{position:fixed;left:0;right:0;height:120px;pointer-events:none;z-index:1;top:-120px;
+  background:linear-gradient(180deg,transparent,rgba(var(--rgb),.025) 85%,rgba(var(--rgb),.07) 100%);animation:sweep 12s linear infinite}
+@keyframes sweep{to{top:100%}}
+.wrap{position:relative;z-index:2}
+/* Movable, resizable panels: drag by the title, resize from the bottom-right corner */
+.grip{cursor:grab;user-select:none;touch-action:none}.grip:active{cursor:grabbing}
+.free{position:fixed!important;margin:0!important;resize:both;overflow:auto;z-index:8;max-width:none!important;box-sizing:border-box;
+  clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px)!important;animation:none!important}
+.free::-webkit-resizer{background:linear-gradient(135deg,transparent 50%,var(--cyan) 50%,var(--cyan) 60%,transparent 60%,transparent 72%,var(--cyan) 72%,var(--cyan) 82%,transparent 82%)}
+.free.lifted{box-shadow:0 0 36px rgba(var(--rgb),.35);border-color:var(--cyan)}
+.holo-panel.free{display:flex;flex-direction:column}
+.holo-panel .pic{display:block;width:100%;height:auto;max-height:340px;object-fit:contain;background:rgba(0,0,0,.25);
+  filter:drop-shadow(0 0 10px rgba(var(--rgb),.25));animation:picIn .8s ease-out both}
+.holo-panel.free .pic{flex:1;min-height:0;max-height:none;height:100%}
+@keyframes picIn{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+.holo-panel.image{width:auto}
+@media (max-width:1000px){.grip{cursor:auto}}
 </style>
 
+<div class="sweep" aria-hidden="true"></div>
 <div class="wrap">
   <div class="col">
-    <div class="panel"><h2>Local time</h2><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
-    <div class="panel"><h2>Systems</h2>
+    <div class="panel" data-id="time"><h2>Local time</h2><div class="clock" id="clock">--:--</div><div class="date" id="date"></div></div>
+    <div class="panel" data-id="systems"><h2>Systems</h2>
       <div class="row"><span>CPU</span><span id="cpu">--</span></div><div class="bar"><i id="cpuBar"></i></div>
       <div class="row"><span>Memory</span><span id="mem">--</span></div><div class="bar"><i id="memBar"></i></div>
       <div class="row" id="gpuRow" hidden><span>GPU</span><span id="gpu">--</span></div><div class="bar" id="gpuBarWrap" hidden><i id="gpuBar"></i></div>
       <div class="row"><span>API link</span><span id="api" style="color:var(--amber)">Offline</span></div>
       <div class="row"><span>Phone link</span><button id="phoneBtn" class="linkbtn" type="button">Pair phone</button></div>
     </div>
-    <div class="panel"><h2>Protocols</h2>
+    <div class="panel" data-id="protocols"><h2>Protocols</h2>
       <div class="row"><span>Voice</span><span id="voiceSt">Off</span></div>
       <div class="row"><span>Journal</span><span>Ready</span></div>
       <div class="row"><span>PC control</span><span>Ready</span></div>
       <div class="row"><span>HUD sounds</span><button id="sfxBtn" class="linkbtn" type="button">On</button></div>
+      <div class="row" id="layoutRow" hidden><span>Layout</span><button id="layoutBtn" class="linkbtn" type="button">Reset</button></div>
     </div>
   </div>
 
@@ -127,7 +154,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,12
   </div>
 
   <div class="col">
-    <div class="panel" id="mt5" hidden><h2>MT5 journal <span class="tag" id="acct">MT5</span></h2>
+    <div class="panel" id="mt5" data-id="mt5" hidden><h2>MT5 journal <span class="tag" id="acct">MT5</span></h2>
       <div class="row"><span>Trades</span><span id="mN">-</span></div>
       <div class="row"><span>Win rate</span><span id="mW">-</span></div>
       <div class="row"><span>Net P&amp;L</span><span id="mP">-</span></div>
@@ -135,10 +162,10 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,12
       <div class="row"><span>Biggest leak</span><span id="mL">-</span></div>
       <table style="margin-top:10px"><thead><tr><th>Pair</th><th>Side</th><th>P&amp;L</th><th>Read</th></tr></thead><tbody id="mT"></tbody></table>
     </div>
-    <div class="panel" id="journal"><h2>Voice journal <span class="tag" id="jtag">EXAMPLE</span></h2>
+    <div class="panel" id="journal" data-id="journal"><h2>Voice journal <span class="tag" id="jtag">EXAMPLE</span></h2>
       <table><thead><tr><th>Pair</th><th>Side</th><th>R</th><th>Note</th></tr></thead><tbody id="trades"></tbody></table>
     </div>
-    <div class="panel"><h2>Voice journal report</h2>
+    <div class="panel" data-id="report"><h2>Voice journal report</h2>
       <div class="row"><span>Trades</span><span id="rN">-</span></div>
       <div class="row"><span>Win rate</span><span id="rW">-</span></div>
       <div class="row"><span>Net R</span><span id="rR">-</span></div>
@@ -266,7 +293,7 @@ render();sync();
 const boot0=performance.now(),calm=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const bootK=i=>{if(calm)return 1;const x=Math.min(1,Math.max(0,(performance.now()-boot0-300-i*260)/650));return 1-Math.pow(1-x,3)};
 const cv=$('core'),cx=cv.getContext('2d');let mode='idle',t=0,level=0,target=0,nextSyl=0;
-const col={idle:'95,227,255',listening:'95,227,255',thinking:'255,179,71',speaking:'95,227,255',hold:'70,105,125'};
+let accent='95,227,255';const col={idle:'95,227,255',listening:'95,227,255',thinking:'255,179,71',speaking:'95,227,255',hold:'70,105,125'};
 // The 3D holographic core (three.js). Rings are real 3D segments tilted like a gyroscope, with
 // orbiting particles and a glowing heart. Falls back to the flat core if three.js didn't load.
 const RINGS=[[110,10,6,1,.7],[170,3,3,-.6,.85],[230,14,24,.35,.5],[300,2,2,-.25,.9],[350,6,60,.15,.35],[395,1.5,1,0,1]];
@@ -314,7 +341,7 @@ function draw3d(h,c,pulse){
   h.r.render(h.scene,h.cam);
 }
 function draw(){
-  t+=mode==='thinking'?0.04:0.012;const W=cv.width,C=W/2,c=col[mode];cx.clearRect(0,0,W,W);
+  t+=mode==='thinking'?0.04:0.012;const W=cv.width,C=W/2,c=mode==='thinking'||mode==='hold'?col[mode]:accent;cx.clearRect(0,0,W,W);
   // ponytail: fake syllable envelope (browser TTS exposes no audio levels); swap for an AnalyserNode on real TTS audio in the desktop app
   const now=performance.now();
   if(mode==='speaking'&&voiceOn){analyser.getByteTimeDomainData(abuf);let sum=0;for(const v of abuf)sum+=((v-128)/128)**2;target=Math.min(1,Math.sqrt(sum/abuf.length)*4)}
@@ -412,12 +439,52 @@ async function ask(q){
 }
 $('f').onsubmit=e=>{e.preventDefault();ask($('q').value);$('q').value=''};
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>ask(b.textContent));
+// Colour themes: "Jarvis, make the HUD red". One accent colour drives everything, including the 3D core.
+function setTheme(hex){
+  const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');if(!m)return;
+  const n=parseInt(m[1],16),rgb=[n>>16,n>>8&255,n&255],mix=k=>rgb.map(v=>Math.round(v*k)),h=a=>'#'+a.map(v=>v.toString(16).padStart(2,'0')).join('');
+  const r=document.documentElement.style;
+  r.setProperty('--cyan','#'+m[1]);r.setProperty('--rgb',rgb.join(','));r.setProperty('--cyan-dim',h(mix(.5)));
+  r.setProperty('--line',h(mix(.3)));r.setProperty('--line-rgb',mix(.3).join(','));
+  r.setProperty('--bg-glow',h(mix(.12)));r.setProperty('--text',h(rgb.map(v=>Math.round(205+(v-205)*.25))));
+  r.setProperty('--win',rgb[0]>180&&rgb[1]<130&&rgb[2]<140?'#4dff9a':'#'+m[1]);  // wins stay readable against red losses
+  accent=rgb.join(',');document.querySelector('meta[name=theme-color]')?.setAttribute('content',h(mix(.04)));
+}
+// Movable panels (on the PC): drag a panel by its title, resize it from the bottom-right corner. Where you put
+// each one is remembered on this screen; "Layout: Reset" puts everything back.
+const LAYOUT='jarvis-layout';
+let layout={};try{layout=JSON.parse(localStorage.getItem(LAYOUT)||'{}')}catch(e){}
+const saveLayout=()=>{try{localStorage.setItem(LAYOUT,JSON.stringify(layout))}catch(e){}};
+let topZ=10;
+function free(p,box){
+  if(!p.classList.contains('free')){const r=p.getBoundingClientRect();box=box||{x:r.left,y:r.top,w:r.width,h:r.height};
+    p.classList.add('free');document.body.append(p);$('layoutRow').hidden=false}
+  Object.assign(p.style,{left:Math.max(0,Math.min(innerWidth-60,box.x))+'px',top:Math.max(0,Math.min(innerHeight-40,box.y))+'px',
+    width:box.w+'px',height:box.h+'px',zIndex:++topZ});
+}
+function movable(p,id){
+  const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
+  const remember=()=>{if(!id)return;const r=p.getBoundingClientRect();layout[id]={x:r.left,y:r.top,w:r.width,h:r.height};saveLayout()};
+  h.addEventListener('pointerdown',e=>{
+    if(e.button||innerWidth<1000||e.target.closest('button'))return;
+    e.preventDefault();free(p);p.classList.add('lifted');
+    const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
+    const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-60,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-30,m.clientY-dy))+'px'};
+    const up=()=>{p.classList.remove('lifted');h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);remember()};
+    h.addEventListener('pointermove',move);h.addEventListener('pointerup',up)});
+  p.addEventListener('pointerdown',()=>{if(p.classList.contains('free'))p.style.zIndex=++topZ});
+  let t;new ResizeObserver(()=>{if(p.classList.contains('free')){clearTimeout(t);t=setTimeout(remember,300)}}).observe(p);
+  if(id&&layout[id]&&innerWidth>=1000)free(p,layout[id]);
+}
+document.querySelectorAll('.panel[data-id]').forEach(p=>movable(p,p.dataset.id));
+$('layoutBtn').onclick=()=>{try{localStorage.removeItem(LAYOUT)}catch(e){};location.reload()};
+
 // Holographic panels: Jarvis's show_panel tool posts them; every screen (PC and phone) picks them up here
 let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -430,19 +497,24 @@ function showPanel(ev){
   if(ev.kind==='stats'){const box=document.createElement('div');box.className='holo-rows';
     for(const [a,b] of ev.rows||[]){const r=document.createElement('div'),l=document.createElement('span'),v=document.createElement('span');r.className='row';l.textContent=a;v.textContent=b;r.append(l,v);box.append(r)}
     p.append(box)}
-  else{const c=document.createElement('canvas');p.append(c);requestAnimationFrame(()=>(ev.kind==='chart'?drawCandles:drawBars)(c,ev))}
+  else if(ev.kind==='image'){const im=new Image();im.className='pic';im.alt=ev.title;im.referrerPolicy='no-referrer';im.src=ev.src;
+    im.onerror=()=>{im.replaceWith(Object.assign(document.createElement('div'),{className:'note',textContent:"Couldn't load that picture."}))};
+    p.classList.add('image');p.append(im)}
+  else{const c=document.createElement('canvas');p.append(c);const drawIt=()=>(ev.kind==='chart'?drawCandles:drawBars)(c,ev);
+    requestAnimationFrame(drawIt);new ResizeObserver(()=>p.classList.contains('free')&&drawIt()).observe(p)}
   if(ev.note){const n=document.createElement('div');n.className='note';n.textContent=ev.note;p.append(n)}
-  setTimeout(()=>closePanel(p),60000);
+  movable(p,null);
+  setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
 }
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function sizeCanvas(c,h){const w=c.clientWidth||300,r=devicePixelRatio||1;c.width=w*r;c.height=h*r;c.style.height=h+'px';const g=c.getContext('2d');g.scale(r,r);return[g,w]}
 function drawCandles(c,ev){
   const [g,w]=sizeCanvas(c,170),k=ev.candles||[];if(!k.length)return;
   const hi=Math.max(...k.map(x=>x.h)),lo=Math.min(...k.map(x=>x.l)),pad=62,top=8,bot=150,y=v=>top+(hi-v)/(hi-lo||1)*(bot-top);
-  const step=(w-pad)/k.length,bw=Math.max(1,step*.6),up=css('--cyan'),dn=css('--red');
+  const step=(w-pad)/k.length,bw=Math.max(1,step*.6),up=css('--win'),dn=css('--red');
   g.font='10px '+css('--mono');g.fillStyle=css('--mute');g.textAlign='left';
   [[hi,top+8],[lo,bot]].forEach(([v,yy])=>g.fillText(v.toFixed(ev.digits),w-pad+6,yy));
-  g.strokeStyle='rgba(95,227,255,.12)';g.beginPath();for(let i=0;i<=3;i++){const yy=top+i*(bot-top)/3;g.moveTo(0,yy);g.lineTo(w-pad,yy)}g.stroke();
+  g.strokeStyle='rgba('+css('--rgb')+',.12)';g.beginPath();for(let i=0;i<=3;i++){const yy=top+i*(bot-top)/3;g.moveTo(0,yy);g.lineTo(w-pad,yy)}g.stroke();
   k.forEach((x,i)=>{const cx_=i*step+step/2,col=x.c>=x.o?up:dn;g.strokeStyle=g.fillStyle=col;
     g.beginPath();g.moveTo(cx_,y(x.h));g.lineTo(cx_,y(x.l));g.stroke();const t=y(Math.max(x.o,x.c)),b=y(Math.min(x.o,x.c));g.fillRect(cx_-bw/2,t,bw,Math.max(1,b-t))});
   const last=k[k.length-1].c,ly=y(last);g.strokeStyle=css('--amber');g.setLineDash([3,3]);g.beginPath();g.moveTo(0,ly);g.lineTo(w-pad,ly);g.stroke();g.setLineDash([]);
@@ -455,7 +527,7 @@ function drawBars(c,ev){
   g.font='11px '+css('--mono');g.textBaseline='middle';
   it.forEach((x,i)=>{const yy=i*rowH+rowH/2+2,len=Math.abs(x.value)/max*area;
     g.fillStyle=css('--mute');g.textAlign='left';g.fillText(x.label.slice(0,14),0,yy);
-    g.fillStyle=x.value<0?css('--red'):css('--cyan');g.globalAlpha=.85;g.fillRect(lab,yy-6,Math.max(1,len),12);g.globalAlpha=1;
+    g.fillStyle=x.value<0?css('--red'):css('--win');g.globalAlpha=.85;g.fillRect(lab,yy-6,Math.max(1,len),12);g.globalAlpha=1;
     g.fillStyle=css('--text');g.textAlign='right';g.fillText((Math.abs(x.value)>=100?Math.round(x.value):x.value.toFixed(2)).toLocaleString(),w,yy)});
 }
 
@@ -478,6 +550,7 @@ async function checkUpdate(show){
 // Boot sequence: status lines type in while the rings power up, with a power-up sound in the app
 async function bootSequence(){
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
+  if(info.theme)setTheme(info.theme);
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}

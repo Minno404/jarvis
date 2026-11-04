@@ -8,6 +8,7 @@ import random
 import re
 
 import features
+import hud
 
 DONE = ["Done, {TITLE}.", "Right away, {TITLE}.", "As you wish.", "Done.", "Of course, {TITLE}."]
 NUM = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
@@ -78,6 +79,12 @@ def quick(text):
         if m:
             return _ok(R["tv_channel"](int(m.group(1))), f"Channel {m.group(1)}.")
         return None
+    # --- the HUD's colour ---
+    m = re.fullmatch(r"(?:change|switch|set|make|turn) (?:the |your )?(?:hud |interface |screen )?(?:colou?r )?(?:to |into )?"
+                     r"([a-z ]+?)(?: colou?r)?|(?:go|be) ([a-z]+)", t)
+    if m and (m.group(1) or m.group(2)) in hud.COLOURS:
+        name = m.group(1) or m.group(2)
+        return _ok(R["hud_colour"](name), f"{name.title()} it is, {{TITLE}}.")
     # --- PC volume ---
     m = re.fullmatch(r"(?:set )?(?:the )?(?:pc |computer )?volume (?:to )?(\w+)(?: percent| %)?", t)
     if m and _n(m.group(1)) is not None:
@@ -105,7 +112,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder"):
+              "add_reminder", "hud_colour"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -124,6 +131,10 @@ def selftest():
         "timer 20 minutes": ("add_reminder", ("timer for 20 minutes",), {"in_minutes": 20}),
         "set a timer for five minutes": ("add_reminder", ("timer for 5 minutes",), {"in_minutes": 5}),
         "open Discord": ("open_app", ("discord",), {}),
+        "Jarvis, change the colour to red": ("hud_colour", ("red",), {}),
+        "make the HUD gold": ("hud_colour", ("gold",), {}),
+        "switch your colour to iron man": ("hud_colour", ("iron man",), {}),
+        "go purple": ("hud_colour", ("purple",), {}),
     }
     for said, want in cases.items():
         calls.clear()
@@ -133,7 +144,7 @@ def selftest():
         else:
             assert calls and calls[0] == want and reply, (said, calls, reply)
     for said in ("open the gold chart", "how did I go today", "pause my trading for a week and review it",
-                 "what's the TV doing tonight", "open the thing I used yesterday", "remind me to call Mum at 6"):
+                 "what's the TV doing tonight", "turn the lights red", "change my red trades to green", "open the thing I used yesterday", "remind me to call Mum at 6"):
         calls.clear()
         assert quick(said) is None or calls[0][0] == "open_app", said
     assert quick("open the thing I used yesterday") is None  # app not found: Claude handles it
