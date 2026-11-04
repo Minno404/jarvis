@@ -54,7 +54,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(28,90,12
 #setupForm .field input{width:100%;box-sizing:border-box;flex:none}
 #setupForm button{margin-top:8px;padding:10px 16px}
 .version{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));
-  font-size:10px;letter-spacing:.2em;color:var(--mute);opacity:.7;pointer-events:none;z-index:4}
+  font-size:10px;letter-spacing:.2em;color:var(--mute);opacity:.7;cursor:pointer;z-index:4}
 .updatebtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
   z-index:4;font-size:11px;padding:6px 12px;border-color:var(--amber);color:var(--amber)}
 .linkbtn{border:0;padding:0;font:inherit;letter-spacing:0;text-transform:none;color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
@@ -460,8 +460,12 @@ function drawBars(c,ev){
 }
 
 // Updates: a button appears when GitHub has a newer version; clicking it installs and restarts Jarvis
-async function checkUpdate(){
-  let u={};try{u=await (await fetch('/api/update')).json()}catch(e){return}
+async function checkUpdate(show){
+  const v=$('version'),was=v.dataset.v||(v.dataset.v=v.textContent);
+  let u={};try{u=await (await fetch('/api/update')).json()}catch(e){u={error:'Jarvis is not answering: '+e}}
+  if(show){v.textContent=u.update?'Update found':u.error||'Up to date ('+(u.version||'?')+' is the latest)';
+    setTimeout(()=>v.textContent=was,u.error?15000:4000)}
+  if(u.error)console.log(u.error);
   const b=$('updateBtn');
   if(!u.update||!b.hidden)return;b.hidden=false;b.textContent='Update to v'+u.version;b.title=u.notes||'';
   b.onclick=async()=>{b.disabled=true;b.textContent='Updating…';
@@ -475,7 +479,7 @@ async function checkUpdate(){
 async function bootSequence(){
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
-  if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000)}
+  if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
   else if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){  // first launch on this PC
     $('setupModal').hidden=false;$('setName').focus();
