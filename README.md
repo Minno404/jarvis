@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.6.0** (shown at the bottom right of the HUD)
+**Version 1.6.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -179,6 +179,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.6.1** (5 Nov 2026): the ChatGPT brain can now use Jarvis's tools (MT5, TV, PC...). Pictures now come from
+  a web-wide image search (Wikipedia as backup), are pulled straight into the HUD without opening the browser,
+  and up to 4 can show side by side ("show me 3 pictures of...", "show me another one"); click one to enlarge.
 - **1.6.0** (5 Nov 2026): ChatGPT as a backup brain. When the Claude plan's limit is used up, Jarvis switches to
   ChatGPT (through OpenAI's Codex CLI on your ChatGPT plan) and keeps his memory and the conversation. Say
   "switch to ChatGPT", "use Claude" or "auto mode" to choose. See "ChatGPT as a backup brain" above to set it up.

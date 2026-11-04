@@ -28,46 +28,109 @@ def hud_colour(colour):
     return {"colour": hexc}
 
 
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+      "Chrome/130.0 Safari/537.36")  # image sites answer a normal browser, not a script
+
+
+def _fetch(url, referer=None, timeout=8):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, **({"Referer": referer} if referer else {})})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read(), r.headers.get_content_type()
+
+
 def _get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "Jarvis-assistant/1.0 (personal desktop assistant)"})
-    with urllib.request.urlopen(req, timeout=8) as r:
-        return json.loads(r.read())
+    return json.loads(_fetch(url)[0])
 
 
-def find_image(query):
-    """The best picture for a search: the lead photo of the best-matching Wikipedia article, else Commons."""
-    q = urllib.parse.quote(query)
+def bing_images(query):
+    """Image links from a Bing image search (the whole web), best first."""
+    html = _fetch("https://www.bing.com/images/search?form=HDRSC2&first=1&q=" + urllib.parse.quote(query))[0]
+    import html as H
+    out = []
+    for blob in re.findall(r'\bm="(\{[^"]*\})"', html.decode("utf-8", "replace")):  # each result's details
+        try:
+            d = json.loads(H.unescape(blob))
+        except ValueError:
+            continue
+        if str(d.get("murl", "")).startswith("http"):
+            out.append({"src": d["murl"], "page": d.get("purl", "")})
+    return out
+
+
+def wiki_images(query):
+    """Fallback: the lead photo of matching Wikipedia articles, then Wikimedia Commons."""
+    q, out = urllib.parse.quote(query), []
     d = _get("https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrlimit=5"
              f"&gsrsearch={q}&prop=pageimages&piprop=thumbnail&pithumbsize=1000&pilicense=any")
-    pages = sorted((d.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 99))
-    for p in pages:
-        if p.get("thumbnail", {}).get("source", "").lower().split("?")[0].endswith((".jpg", ".jpeg", ".png", ".webp")):
-            return {"src": p["thumbnail"]["source"], "credit": f"Wikipedia: {p['title']}"}
+    for p in sorted((d.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 99)):
+        if p.get("thumbnail", {}).get("source"):
+            out.append({"src": p["thumbnail"]["source"], "page": "Wikipedia: " + p["title"]})
     d = _get("https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6"
              f"&gsrlimit=5&gsrsearch={q}%20filetype:bitmap&prop=imageinfo&iiprop=url|mime&iiurlwidth=1000")
-    pages = sorted((d.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 99))
-    for p in pages:
+    for p in sorted((d.get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 99)):
         info = (p.get("imageinfo") or [{}])[0]
         if info.get("mime") in ("image/jpeg", "image/png", "image/webp"):
-            return {"src": info.get("thumburl") or info["url"], "credit": "Wikimedia Commons"}
-    return None
+            out.append({"src": info.get("thumburl") or info["url"], "page": "Wikimedia Commons"})
+    return out
 
 
-def show_image(query=None, url=None, title=None):
-    """Show a picture on the HUD: searched for by name, or a direct image link."""
+def find_images(query):
+    for search in (bing_images, wiki_images):
+        try:
+            found = search(query)
+        except Exception:
+            continue
+        if found:
+            return found
+    return []
+
+
+IMAGES = "images"  # downloaded pictures, served to the HUD from Jarvis itself (works on the phone too)
+EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+
+
+def download(src, referer=None):
+    """Save a picture into Jarvis's images folder. Returns its file name, or None if it isn't a usable image."""
+    import hashlib
+    try:
+        data, kind = _fetch(src, referer, timeout=10)
+    except Exception:
+        return None
+    if kind not in EXT or len(data) < 3000 or len(data) > 15_000_000:
+        return None
+    d = features.HERE / IMAGES
+    d.mkdir(exist_ok=True)
+    name = hashlib.sha1(src.encode()).hexdigest()[:16] + EXT[kind]
+    (d / name).write_bytes(data)
+    for old in sorted(d.iterdir(), key=lambda f: f.stat().st_mtime)[:-30]:  # keep the last 30
+        old.unlink(missing_ok=True)
+    return name
+
+
+def show_image(query=None, url=None, title=None, count=1, skip=0):
+    """Show pictures on the HUD: searched for anywhere on the web, or from a direct image link."""
     if url:
         if not re.match(r"https?://", url):
             return {"error": "url must start with http(s)://"}
-        img = {"src": url, "credit": urllib.parse.urlsplit(url).netloc}
+        candidates = [{"src": url, "page": urllib.parse.urlsplit(url).netloc}]
     elif query:
-        img = find_image(query)
-        if not img:
-            return {"error": f"Couldn't find a picture of '{query}'. Try other words."}
+        candidates = find_images(query)[int(skip or 0):]
     else:
         return {"error": "Give a query or a url"}
-    PUSH({"type": "panel", "kind": "image", "title": title or query or "Image", "src": img["src"],
-          "note": img["credit"]})
-    return {"shown": img}
+    shown = []
+    for c in candidates[:12]:
+        name = download(c["src"], c.get("page") if str(c.get("page", "")).startswith("http") else None)
+        if name:
+            shown.append({"src": f"/api/img/{name}", "from": urllib.parse.urlsplit(c["page"]).netloc or c["page"]
+                          if str(c.get("page", "")).startswith("http") else c.get("page", "")})
+        if len(shown) >= max(1, min(int(count or 1), 4)):
+            break
+    if not shown:
+        return {"error": f"Couldn't get a picture of '{query or url}'. Try other words."}
+    PUSH({"type": "panel", "kind": "image", "title": title or query or "Image", "srcs": [x["src"] for x in shown],
+          "src": shown[0]["src"], "note": " · ".join(dict.fromkeys(x["from"] for x in shown if x["from"]))})
+    return {"shown": len(shown), "sources": [x["from"] for x in shown],
+            "next": "For different ones, call again with skip set higher."}
 
 
 PANELS = {"time": "time", "clock": "time", "local time": "time", "systems": "systems", "system": "systems",
@@ -95,11 +158,13 @@ TOOLS = [
      "mt5 journal, voice journal, journal report, or all. show false to close.",
      "input_schema": {"type": "object", "required": ["panel"], "properties": {"panel": {"type": "string"},
                                                                                "show": {"type": "boolean"}}}},
-    {"name": "show_image", "description": "Show a picture on his HUD (and phone) as a holographic panel: query = what "
-     "to find ('Mercedes CLA45 AMG', 'Mount Everest'), searched on Wikipedia/Wikimedia; or url = a direct image "
-     "link. Keep the spoken reply short.",
+    {"name": "show_image", "description": "Show pictures on his HUD (and phone) as a holographic panel. ALWAYS use "
+     "this for 'show me a picture/photo of...': never open his browser for it. query = what to find (searched across "
+     "the whole web), count = 1-4 pictures side by side, skip = how many results to pass over ('show me another one'); "
+     "or url = a direct image link. Keep the spoken reply short.",
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}, "url": {"type": "string"},
-                                                        "title": {"type": "string"}}}},
+                                                        "title": {"type": "string"}, "count": {"type": "integer"},
+                                                        "skip": {"type": "integer"}}}},
 ]
 
 
@@ -113,17 +178,34 @@ def selftest():
         assert hud_colour("Red")["colour"] == "#ff4d5e" and sent[-1] == {"type": "theme", "color": "#ff4d5e"}
         assert features.settings()["theme"] == "#ff4d5e"
         assert hud_colour("FF8800")["colour"] == "#ff8800" and "error" in hud_colour("blurple")
-        _get = lambda url: ({"query": {"pages": {"1": {"index": 1, "title": "Mercedes-AMG CLA",
-                                                       "thumbnail": {"source": "https://up/x.jpg"}}}}}
-                            if "wikipedia" in url else {})
-        assert show_image("cla45")["shown"]["src"] == "https://up/x.jpg" and sent[-1]["kind"] == "image"
-        _get = lambda url: ({} if "wikipedia" in url else {"query": {"pages": {"2": {"index": 1, "imageinfo": [
-            {"mime": "image/jpeg", "url": "https://c/full.jpg", "thumburl": "https://c/t.jpg"}]}}}})
-        assert show_image("rare thing")["shown"]["src"] == "https://c/t.jpg"
-        assert hud_panel("MT5 journal panel", False) == {"panel": "mt5", "shown": False} and sent[-1]["show"] is False
-        assert "error" in hud_panel("toaster")
-        _get = lambda url: {}
-        assert "error" in show_image("nothing") and "error" in show_image(url="file:///c:/x.png")
+        jpg = b"\xff\xd8" + b"x" * 5000
+        pages = {"bing": ('<a m="{&quot;purl&quot;:&quot;https://cars.com/cla&quot;,&quot;murl&quot;:'
+                          '&quot;https://cars.com/cla.jpg&quot;}" ></a><a m="{&quot;murl&quot;:&quot;https://x/tiny.png'
+                          '&quot;,&quot;purl&quot;:&quot;https://x&quot;}">').encode()}
+        def fake(url, referer=None, timeout=8):
+            if "bing.com" in url:
+                return pages["bing"], "text/html"
+            if url.endswith("tiny.png"):
+                return b"\x89PNG", "image/png"  # too small to be a real picture: skipped
+            return jpg, "image/jpeg"
+        global _fetch
+        real_fetch, _fetch = _fetch, fake
+        try:
+            assert [x["src"] for x in bing_images("cla45")] == ["https://cars.com/cla.jpg", "https://x/tiny.png"]
+            r = show_image("cla45", count=2)
+            assert r["shown"] == 1 and r["sources"] == ["cars.com"], r
+            ev = sent[-1]
+            assert ev["kind"] == "image" and ev["src"].startswith("/api/img/") and ev["src"].endswith(".jpg")
+            assert (features.HERE / "images" / ev["src"].split("/")[-1]).read_bytes() == jpg
+            pages["bing"] = b"<html>nothing</html>"
+            _get = lambda url: ({"query": {"pages": {"1": {"index": 1, "title": "Everest",
+                                                           "thumbnail": {"source": "https://up/e.jpg"}}}}}
+                                if "wikipedia" in url else {})
+            assert show_image("everest")["sources"] == ["Wikipedia: Everest"]  # Bing empty: Wikipedia instead
+            _get = lambda url: {}
+            assert "error" in show_image("nothing") and "error" in show_image(url="file:///c:/x.png")
+        finally:
+            _fetch = real_fetch
     finally:
         _get, features.HERE = real_get, real_here
     print("hud self-test passed")

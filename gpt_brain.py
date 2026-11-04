@@ -17,7 +17,9 @@ import features
 HERE = Path(__file__).resolve().parent
 CODEX = shutil.which("codex") or shutil.which("codex.cmd") or shutil.which("codex", path=str(
     Path(os.environ.get("APPDATA", Path.home())) / "npm"))  # npm's global folder on Windows
-SANDBOX = os.environ.get("JARVIS_CODEX_SANDBOX", "workspace-write")  # danger-full-access if tools get blocked
+# Codex's own sandbox runs read-only on Windows, which blocks Jarvis's tools (MT5, the TV, files). Jarvis's
+# instructions limit it to his own tool commands instead. Set JARVIS_CODEX_SANDBOX=workspace-write to keep it.
+SANDBOX = os.environ.get("JARVIS_CODEX_SANDBOX", "danger-full-access")
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 thread = {"id": None, "last": 0.0, "turns": 0}
 

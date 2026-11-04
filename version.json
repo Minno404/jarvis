@@ -1,4 +1,4 @@
 {
- "version": "1.6.0",
- "notes": "ChatGPT as a backup brain when the Claude limit runs out (needs a one-time setup, see README)."
+ "version": "1.6.1",
+ "notes": "ChatGPT brain can use tools; pictures from anywhere on the web, shown right in the HUD."
 }

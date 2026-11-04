@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.6.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.6.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -934,6 +934,19 @@ class Handler(SimpleHTTPRequestHandler):
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             return self.send_json({"memories": len(features.memories()), "protocols": len(features.list_routines()),
                                    "mt5": mt5_on, "version": VERSION, "brain": brain_status(), **features.settings()})
+        if self.path.startswith("/api/img/"):  # pictures Jarvis downloaded for the HUD (see hud.py)
+            name = self.path.rsplit("/", 1)[-1]
+            f = HERE / hud.IMAGES / name
+            if not re.fullmatch(r"[0-9a-f]{16}\.(jpg|png|webp|gif)", name) or not f.exists():
+                return self.send_error(404)
+            data = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp",
+                                              "gif": "image/gif"}[name.rsplit(".", 1)[1]])
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path == "/api/update":  # is there a newer version on GitHub?
             return self.send_json(updater.check(VERSION) if self.local() else {"update": False})
         if self.path == "/api/stats":

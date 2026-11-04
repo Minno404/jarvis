@@ -114,6 +114,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .holo-panel.free .pic{flex:1;min-height:0;max-height:none;height:100%}
 @keyframes picIn{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
 .holo-panel.image{width:auto}
+.pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
+.pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
+.holo-panel.wide{width:min(520px,62vw)}
+.free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
 .panel>.holo-x{top:8px;right:8px}
@@ -524,9 +528,11 @@ function showPanel(ev){
   if(ev.kind==='stats'){const box=document.createElement('div');box.className='holo-rows';
     for(const [a,b] of ev.rows||[]){const r=document.createElement('div'),l=document.createElement('span'),v=document.createElement('span');r.className='row';l.textContent=a;v.textContent=b;r.append(l,v);box.append(r)}
     p.append(box)}
-  else if(ev.kind==='image'){const im=new Image();im.className='pic';im.alt=ev.title;im.referrerPolicy='no-referrer';im.src=ev.src;
-    im.onerror=()=>{im.replaceWith(Object.assign(document.createElement('div'),{className:'note',textContent:"Couldn't load that picture."}))};
-    p.classList.add('image');p.append(im)}
+  else if(ev.kind==='image'){const srcs=ev.srcs||[ev.src],box=document.createElement('div');box.className='pics n'+srcs.length;
+    for(const src of srcs){const im=new Image();im.className='pic';im.alt=ev.title;im.referrerPolicy='no-referrer';im.src=src;
+      im.onclick=()=>{if(srcs.length>1){box.className='pics n1';box.replaceChildren(im)}};  // click one to enlarge it
+      im.onerror=()=>im.remove();box.append(im)}
+    p.classList.add('image');if(srcs.length>1)p.classList.add('wide');p.append(box)}
   else if(ev.kind==='progress'){for(const it of ev.items||[]){const d=document.createElement('div'),pc=it.max?it.value/it.max:0;d.className='prog';
       d.innerHTML=`<div class="row"><span>${esc(it.label)}</span><span>${esc(fmtNum(it.value))} / ${esc(fmtNum(it.max))} · ${Math.round(pc*100)}%</span></div><div class="bar"><i class="${pc>1?'over':''}" style="width:0"></i></div>`;
       p.append(d);requestAnimationFrame(()=>d.querySelector('i').style.width=Math.min(100,pc*100)+'%')}}
