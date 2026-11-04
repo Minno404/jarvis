@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.9.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.10.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -289,6 +289,21 @@ def candles(symbol="XAUUSD", timeframe="M15", bars=60):
                          "l": round(float(c["low"]), d), "c": round(float(c["close"]), d)} for c in rates]}
 
 
+def candles_between(symbol, timeframe, start, end):
+    """Candles between two MT5 server times ('YYYY-MM-DD HH:MM:SS'), e.g. around a past trade (max 400)."""
+    mt5 = _mt5()
+    s = _symbol(mt5, symbol)
+    tf = getattr(mt5, "TIMEFRAME_" + timeframe.upper())
+    d = mt5.symbol_info(s).digits
+    as_utc = lambda x: datetime.datetime.strptime(x[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+    rates = mt5.copy_rates_range(s, tf, as_utc(start), as_utc(end))
+    rates = [] if rates is None else rates[-400:]
+    return {"symbol": s, "timeframe": timeframe.upper(), "digits": d,
+            "candles": [{"t": _ts(c["time"])[5:16], "full": _ts(c["time"]), "o": round(float(c["open"]), d),
+                         "h": round(float(c["high"]), d), "l": round(float(c["low"]), d),
+                         "c": round(float(c["close"]), d)} for c in rates]}
+
+
 def quote(symbols=None):
     """Just the live price: quick enough to check every few seconds."""
     mt5, out = _mt5(), {}
@@ -509,7 +524,7 @@ FUNCS = {"add_trade": add_trade, "delete_trade": delete_trade, "journal_report":
          "mt5_report": mt5_report, "mt5_trades": mt5_trades, "list_apps": list_apps, "open_app": open_app,
          "open_website": open_website, "media": media, "set_volume": set_volume, "spotify_search": spotify_search,
          "market_snapshot": market_snapshot, "account_status": account_status, "quote": quote,
-         "candles": candles}
+         "candles": candles, "candles_between": candles_between}
 MT5_FILTERS = {"since": {"type": "string", "description": "Closed on/after YYYY-MM-DD"},
                "until": {"type": "string", "description": "Closed on/before YYYY-MM-DD"},
                "symbol": {"type": "string", "description": "e.g. XAUUSD"}}
@@ -568,7 +583,9 @@ import updater    # updates from GitHub (see updater.py)
 import hud        # HUD colour and pictures from the web (see hud.py)
 import gpt_brain  # ChatGPT as the backup brain (see gpt_brain.py)
 import custom_loader  # your own add-ons in custom/, kept through updates (see CUSTOM.md)
-for m in (features, trading, spending, devhelper, learn, tv, hud, *custom_loader.load()):
+import coach      # trade replays, pre-trade checklist, tilt detector (see coach.py)
+import personas   # voices and personalities: Jarvis, FRIDAY, EDITH, Jarvo (see personas.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -669,6 +686,12 @@ def persona(text):
     return features.personal(text).replace("{TITLE}", features.settings()["title"])
 
 
+def style():
+    """The current personality's way of talking, added to the brain's instructions (see personas.py)."""
+    s = personas.get()["style"]
+    return f"\n\nPERSONALITY: {s}" if s else ""
+
+
 def chat(text):
     return "".join(p for p in chat_stream(text) if p)
 
@@ -688,6 +711,9 @@ def chat_stream(text, photo=None):
     if fast:
         yield persona(fast)
         return
+    global session
+    if convo.get("persona") != personas.current():  # new personality: fresh conversations in its own voice
+        session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
     brain = features.settings().get("brain", "auto")
     if brain_status()["using"] == "ChatGPT":
         yield from chat_gpt(text, photo)
@@ -718,7 +744,7 @@ def chat_gpt(text, photo=None):
     except Exception:
         room = ""
     with lock:
-        yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + features.memory_prompt(),
+        yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt(),
                                   persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [])
 
 
@@ -761,7 +787,7 @@ def chat_cli(text):
            "--model", os.environ.get("JARVIS_CLI_MODEL", "sonnet"),
            # Fewer tokens per message: Jarvis's own prompt replaces Claude Code's long coding one, only the two
            # tools he uses are loaded, and none of the user's own Claude Code settings or MCP servers.
-           "--system-prompt", persona(" ".join(CLI_PROMPT.split())) + features.memory_prompt(),
+           "--system-prompt", persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt(),
            "--tools", "Bash,Read", "--setting-sources", "project",
            "--allowedTools", "Bash(python server.py tool *)", "--permission-mode", "dontAsk",
            "--strict-mcp-config", "--disable-slash-commands"]
@@ -861,7 +887,9 @@ def tts(text):
     async def run():
         audio = b""
         # no pitch shift: shifting adds a processed edge to the voice
-        async for chunk in edge_tts.Communicate(text, VOICE, rate="+6%").stream():
+        p = personas.get()
+        voice = os.environ.get("JARVIS_VOICE") or p["voice"]
+        async for chunk in edge_tts.Communicate(text, voice, rate=p["rate"]).stream():
             if chunk["type"] == "audio":
                 audio += chunk["data"]
         return audio
@@ -971,7 +999,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/boot":
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             return self.send_json({"memories": len(features.memories()), "protocols": len(features.list_routines()),
-                                   "mt5": mt5_on, "version": VERSION, "brain": brain_status(), **features.settings()})
+                                   "mt5": mt5_on, "version": VERSION, "brain": brain_status(), "persona": personas.get(), **features.settings()})
         if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
             f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name
@@ -1305,7 +1333,7 @@ if __name__ == "__main__":
 
         def watcher():
             """Every 10 s: reminders, the morning brief, price alerts, trade guard, news and the day's review."""
-            watch = trading.Watch(lambda text: say(text, urgent=True), review)
+            watch = trading.Watch(lambda text: say(text, urgent=True), review, coach.TiltWatch())
             learning = threading.Lock()
             while True:
                 try:

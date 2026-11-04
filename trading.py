@@ -159,8 +159,9 @@ def save_review(day, text):
 
 # ---------- The watch loop's single step ----------
 class Watch:
-    def __init__(self, say, review):
+    def __init__(self, say, review, tilt=None):
         self.say, self.review = say, review  # review(day) asks Claude for the day's review
+        self.tilt = tilt                       # coach.TiltWatch: warns as tilt builds through the day
         self.seen = None                       # tickets of positions already open
         self.warned_day, self.warned = None, set()
         self.news_warned, self.news_retry = set(), 0.0
@@ -196,6 +197,10 @@ class Watch:
         start = acct["balance"] - sum(t["pnl"] for t in closed_today)
         for w in guard_day(closed_today, start, self.warned):
             self.say("Sir, " + w + ".")
+        if self.tilt:
+            w = self.tilt.after_trade(closed_today, history, list(open_now.values()), start, server_now)
+            if w:
+                self.say(w)
         state = _load("state.json", {})
         day = review_due(closed_today, open_now, server_now, state.get("reviewed", []))
         if day:

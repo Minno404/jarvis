@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.9.0** (shown at the bottom right of the HUD)
+**Version 1.10.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,14 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.10.0** (5 Nov 2026): trading coach and personalities.
+  - Trade replay: "replay my last loss" shows the trade on a chart (entry, exit, stop, target) and what price did.
+  - Pre-trade checklist: "should I take this long?" checks news, losses today, daily loss, tilt and your record
+    at this hour, then says go, caution or no-go.
+  - Tilt detector: watches for losing streaks, revenge re-entries, sizing up or flipping after losses and
+    overtrading, warns as it builds, and "am I tilting?" shows a tilt meter.
+  - Personalities: "switch to FRIDAY" (Irish, cheeky), "EDITH mode" (crisp, tactical), "casual mode" (Jarvo, an
+    Aussie mate) and "back to Jarvis". Each has its own voice.
 - **1.9.0** (5 Nov 2026): coding and PC jobs work with ChatGPT too. They follow whichever brain Jarvis is on,
   switch to ChatGPT if Claude's limit is hit mid-job, and a PC with only ChatGPT set up uses it for everything.
 - **1.8.1** (5 Nov 2026): select and copy text from the chat, or use the Copy button on any message.

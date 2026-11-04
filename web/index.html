@@ -142,9 +142,12 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 .panel>.holo-x{top:8px;right:8px}
 /* Extra panel kinds */
 .prog{margin:8px 0}.prog .row{border:0;padding:0 0 4px}.prog .bar{height:6px}
+.prog .bar i.warnbar{background:var(--amber);box-shadow:0 0 8px var(--amber)}
 .prog .bar i.over{background:var(--red);box-shadow:0 0 8px var(--red)}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
+.hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
+.hlist li.st-fail::before{content:"\2715";color:var(--red)}.hlist li.st-fail span{color:var(--text)}
 .hlist li.done span{color:var(--mute);text-decoration:line-through}.hlist small{display:block;color:var(--mute);font-size:11px}
 .htext{line-height:1.6;white-space:pre-wrap;max-height:300px;overflow:auto}.free .htext{max-height:none}
 .legend{display:grid;grid-template-columns:auto 1fr auto;gap:3px 8px;font-size:11px;margin-top:6px}.legend i{width:9px;height:9px;margin-top:3px;display:block}
@@ -175,7 +178,7 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
   <div class="center">
     <div class="holo" id="holo" aria-live="polite"></div>
     <div class="boot" id="boot" aria-hidden="true"></div>
-    <div class="brand">JARVIS</div>
+    <div class="brand" id="brand">JARVIS</div>
     <div class="sub" id="sub">Personal assistant · Online</div>
     <div class="core-wrap" id="coreWrap"><canvas id="core" width="840" height="840"></canvas><canvas id="core3d" hidden></canvas></div>
     <div class="state" id="state">Standing by</div>
@@ -513,6 +516,7 @@ async function ask(q){
 $('f').onsubmit=e=>{e.preventDefault();ask($('q').value);$('q').value=''};
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>ask(b.textContent));
 // Colour themes: "Jarvis, make the HUD red". One accent colour drives everything, including the 3D core.
+function showPersona(p){$('brand').textContent=p.name.replace(/ /g,'');document.title=p.name.replace(/ /g,'')+' Console'}
 function showBrain(name){$('brainRow').hidden=false;$('brain').textContent=name;$('brain').style.color=name==='ChatGPT'?'var(--amber)':''}
 function setTheme(hex){
   const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');if(!m)return;
@@ -573,7 +577,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -592,11 +596,11 @@ function showPanel(ev){
       im.onerror=()=>im.remove();box.append(im)}
     p.classList.add('image');if(srcs.length>1)p.classList.add('wide');p.append(box)}
   else if(ev.kind==='progress'){for(const it of ev.items||[]){const d=document.createElement('div'),pc=it.max?it.value/it.max:0;d.className='prog';
-      d.innerHTML=`<div class="row"><span>${esc(it.label)}</span><span>${esc(fmtNum(it.value))} / ${esc(fmtNum(it.max))} · ${Math.round(pc*100)}%</span></div><div class="bar"><i class="${pc>1?'over':''}" style="width:0"></i></div>`;
+      d.innerHTML=`<div class="row"><span>${esc(it.label)}</span><span>${esc(fmtNum(it.value))} / ${esc(fmtNum(it.max))} · ${Math.round(pc*100)}%</span></div><div class="bar"><i class="${pc>1||(it.risk&&pc>=.7)?'over':it.risk&&pc>=.4?'warnbar':''}" style="width:0"></i></div>`;
       p.append(d);requestAnimationFrame(()=>d.querySelector('i').style.width=Math.min(100,pc*100)+'%')}}
   else if(ev.kind==='list'){const ul=document.createElement('ul');ul.className='hlist';
     for(const it of ev.items||[]){const li=document.createElement('li'),sp=document.createElement('span');sp.textContent=it.text;
-      if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';li.append(sp);ul.append(li)}p.append(ul)}
+      if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';if(it.status)li.className='st-'+it.status;li.append(sp);ul.append(li)}p.append(ul)}
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
   else if(ev.kind==='countdown'){const c=document.createElement('canvas');p.append(c);const end=Date.now()+ev.seconds*1000;
     const tickC=()=>{if(!p.isConnected)return;const left=Math.max(0,(end-Date.now())/1000);drawCountdown(c,left,ev.seconds);
@@ -648,8 +652,18 @@ function drawCandles(c,ev){
   g.strokeStyle='rgba('+css('--rgb')+',.12)';g.beginPath();for(let i=0;i<=3;i++){const yy=top+i*(bot-top)/3;g.moveTo(0,yy);g.lineTo(w-pad,yy)}g.stroke();
   k.forEach((x,i)=>{const cx_=i*step+step/2,col=x.c>=x.o?up:dn;g.strokeStyle=g.fillStyle=col;
     g.beginPath();g.moveTo(cx_,y(x.h));g.lineTo(cx_,y(x.l));g.stroke();const t=y(Math.max(x.o,x.c)),b=y(Math.min(x.o,x.c));g.fillRect(cx_-bw/2,t,bw,Math.max(1,b-t))});
-  const last=k[k.length-1].c,ly=y(last);g.strokeStyle=css('--amber');g.setLineDash([3,3]);g.beginPath();g.moveTo(0,ly);g.lineTo(w-pad,ly);g.stroke();g.setLineDash([]);
-  g.fillStyle=css('--amber');g.fillText(last.toFixed(ev.digits),w-pad+6,Math.min(bot-12,Math.max(top+20,ly+3)));
+  const mk=ev.marks;
+  if(mk){const px=i=>i*step+step/2,lvl=(v,col,lab)=>{if(v==null||v>hi*1.02||v<lo*.98)return;const yy=Math.max(top,Math.min(bot,y(v)));
+      g.strokeStyle=col;g.setLineDash([4,3]);g.beginPath();g.moveTo(0,yy);g.lineTo(w-pad,yy);g.stroke();g.setLineDash([]);g.fillStyle=col;g.textAlign='left';g.fillText(lab,3,yy-3)};
+    lvl(mk.stop,css('--red'),'SL');lvl(mk.target,'#4dff9a','TP');
+    const xe=px(mk.entry.i),xx=px(mk.exit.i);g.fillStyle=`rgba(${css('--rgb')},.08)`;g.fillRect(Math.min(xe,xx),top,Math.abs(xx-xe)||2,bot-top);
+    const dot=(x,v,col,lab,up)=>{const yy=y(v);g.fillStyle=col;g.beginPath();g.moveTo(x,yy);g.lineTo(x-5,yy+(up?9:-9));g.lineTo(x+5,yy+(up?9:-9));g.fill();
+      g.font='bold 10px '+css('--mono');g.textAlign='center';g.fillText(lab,x,yy+(up?20:-13));g.font='10px '+css('--mono')};
+    dot(xe,mk.entry.price,css('--text'),'IN',mk.long);const win=mk.long?mk.exit.price>=mk.entry.price:mk.exit.price<=mk.entry.price;
+    dot(xx,mk.exit.price,win?'#4dff9a':css('--red'),'OUT',!mk.long);
+    g.textAlign='left';g.fillStyle=css('--mute')}
+  else{const last=k[k.length-1].c,ly=y(last);g.strokeStyle=css('--amber');g.setLineDash([3,3]);g.beginPath();g.moveTo(0,ly);g.lineTo(w-pad,ly);g.stroke();g.setLineDash([]);
+  g.fillStyle=css('--amber');g.fillText(last.toFixed(ev.digits),w-pad+6,Math.min(bot-12,Math.max(top+20,ly+3)));}
   g.fillStyle=css('--mute');g.fillText(`${ev.symbol} ${ev.timeframe}`,0,168);g.textAlign='right';g.fillText(k[k.length-1].t,w-pad,168);
 }
 function drawBars(c,ev){
@@ -683,6 +697,7 @@ async function bootSequence(){
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
   if(info.theme)setTheme(info.theme);
   if(info.brain)showBrain(info.brain.using);
+  if(info.persona)showPersona(info.persona);
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}

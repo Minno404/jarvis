@@ -326,8 +326,8 @@ def show_panel(title, kind, symbol=None, timeframe="M15", bars=60, rows=None, it
     elif kind == "line":
         ev["items"] = [{"label": str(i.get("label", "")), "value": num(i["value"])} for i in (items or [])][:200]
     elif kind == "progress":
-        ev["items"] = [{"label": str(i["label"]), "value": num(i["value"]), "max": num(i.get("max") or 100)}
-                       for i in (items or [])][:10]
+        ev["items"] = [{"label": str(i["label"]), "value": num(i["value"]), "max": num(i.get("max") or 100),
+                        "risk": bool(i.get("risk"))} for i in (items or [])][:10]
     elif kind == "list":
         ev["items"] = [{"text": str(i.get("text", i) if isinstance(i, dict) else i),
                         "sub": str(i.get("sub", "")) if isinstance(i, dict) else "",

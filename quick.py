@@ -95,6 +95,15 @@ def quick(text):
         show = m.group(1) in ("open", "show", "reopen", "bring up", "bring back", "restore")
         r = R["hud_panel"](m.group(2), show)
         return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))
+    # --- voices and personalities ---
+    m = re.fullmatch(r"(?:switch to|change to|swap to|use|go|be|become|bring back|back to) (?:the )?(jarvis|friday|edith|"
+                     r"jarvo|casual|aussie|mate|tactical|normal)(?: mode| voice| personality)?|(jarvis|friday|edith|jarvo|"
+                     r"casual|aussie|tactical|normal) (?:mode|voice|personality)", t)
+    if m:
+        r = R["set_persona"](m.group(1) or m.group(2))
+        hello = {"jarvis": "Back at your service, {TITLE}.", "friday": "FRIDAY here, boss. What do you need?",
+                 "edith": "EDITH online. Standing by.", "mate": "G'day mate, Jarvo here. What are we up to?"}
+        return _ok(r, hello.get(r.get("now"), "Done."))
     # --- which AI Jarvis thinks with ---
     m = re.fullmatch(r"(?:switch to|use|swap to|change to) (chat ?gpt|gpt|claude|auto(?:matic)?)(?: brain| mode)?|"
                      r"(chat ?gpt|claude|auto) mode", t)
@@ -142,7 +151,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -171,6 +180,9 @@ def selftest():
         "switch to ChatGPT": ("set_brain", ("chatgpt",), {}),
         "use claude": ("set_brain", ("claude",), {}),
         "auto mode": ("set_brain", ("auto",), {}),
+        "switch to FRIDAY": ("set_persona", ("friday",), {}),
+        "Jarvis, casual mode": ("set_persona", ("casual",), {}),
+        "back to Jarvis": ("set_persona", ("jarvis",), {}),
     }
     for said, want in cases.items():
         calls.clear()
