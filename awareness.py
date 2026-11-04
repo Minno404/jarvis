@@ -112,15 +112,66 @@ def late_night_due(s, state):
     return True
 
 
-def greeting(now=None, reminders_today=0):
+GREETINGS = {
+    "any": [
+        "All systems online, sir. Shall we begin?", "At your service, sir.", "Systems are up and running, sir.",
+        "Good to see you, sir. Everything's ready.", "Online and fully operational, sir.",
+        "Reactor core stable. All systems nominal, sir.", "Diagnostics complete. Nothing on fire, sir.",
+        "I've warmed up the servers, sir. What are we building today?", "Ready when you are, sir.",
+        "Back online, sir. I trust you missed me.", "All suits accounted for, sir. Figuratively speaking.",
+        "Systems green across the board, sir.", "Initialising... done. Hello, sir.",
+        "I've run a full sweep, sir. You're clear to proceed.", "Interface online. What's the mission, sir?",
+        "Power levels optimal, sir. I'm all yours.", "Jarvis online. Shall I fetch the coffee, or just the charts?",
+        "Boot sequence complete. Ready for instructions, sir.", "Hello again, sir. I kept the lights on for you.",
+        "Every system checked twice, sir. We're good to go.",
+    ],
+    "morning": [
+        "Good morning, sir. All systems online.", "Morning, sir. A fresh day and a clean slate.",
+        "Good morning, sir. The markets are stirring, and so am I.", "Rise and shine, sir. Systems are ready.",
+        "Good morning, sir. I trust you slept better than the servers did.",
+        "Morning, sir. Coffee first, world domination after?", "Good morning, sir. Today's agenda awaits.",
+    ],
+    "afternoon": [
+        "Good afternoon, sir. All systems online.", "Afternoon, sir. Picking up where we left off?",
+        "Good afternoon, sir. The day's half done; let's make the other half count.",
+        "Afternoon, sir. Everything is as you left it.", "Good afternoon, sir. Ready for round two?",
+    ],
+    "evening": [
+        "Good evening, sir. All systems online.", "Welcome home, sir.", "Evening, sir. Long day?",
+        "Good evening, sir. Shall I dim the lights and bring up the charts?",
+        "Welcome back, sir. The evening's yours.", "Good evening, sir. New York session is wide awake, by the way.",
+    ],
+    "late": [
+        "Working late, sir? I'm here for it.", "Evening, sir. Another late one, I see.",
+        "Still up, sir? Then so am I.", "Night shift engaged, sir.",
+    ],
+    "small_hours": [
+        "Online, sir. Burning the midnight oil again, I see.", "It's rather late, sir. Or very early. Either way, I'm here.",
+        "Small hours, sir. The world's asleep; we're not.", "Up at this hour, sir? Something brilliant, I hope.",
+        "Online, sir. Even the markets are quiet at this time.",
+    ],
+    "Monday": ["Monday, sir. Let's set the tone for the week."],
+    "Friday": ["It's Friday, sir. Let's finish the week strong.", "Friday, sir. Nearly there."],
+    "Saturday": ["Happy Saturday, sir. Work or play today?"],
+    "Sunday": ["Sunday, sir. A good day to plan the week ahead.", "Happy Sunday, sir."],
+}
+
+
+def greeting(now=None, reminders_today=0, recent=None):
+    """A fresh hello each time Jarvis opens. recent: lines said lately (they're skipped), updated in place."""
     import random
     now = now or datetime.datetime.now()
-    part = "morning" if 5 <= now.hour < 12 else "afternoon" if now.hour < 18 else "evening"
-    first = random.choice([f"Good {part}, sir. All systems online.", f"Good {part}, sir. At your service.",
-                           "Welcome home, sir. All systems are online." if now.hour >= 17 else
-                           f"Good {part}, sir. Systems are up and running."])
-    if 1 <= now.hour < 5:
-        first = "Online, sir. Burning the midnight oil again, I see."
+    h = now.hour
+    part = ("small_hours" if 1 <= h < 5 else "morning" if h < 12 else "afternoon" if h < 17 else
+            "evening" if h < 22 else "late")
+    pool = GREETINGS[part] * 2 + GREETINGS.get(now.strftime("%A"), []) * 2
+    if part not in ("small_hours", "late"):
+        pool += GREETINGS["any"]
+    recent = recent if recent is not None else []
+    fresh = [g for g in pool if g not in recent] or pool
+    first = random.choice(fresh)
+    recent.append(first)
+    del recent[:-12]
     if reminders_today:
         first += f" You have {reminders_today} reminder{'s' if reminders_today > 1 else ''} today."
     return first
@@ -142,7 +193,12 @@ def selftest():
                   "game": "League of Legends (in a game)", "open": ["Discord", "MT5"]})
     assert "playing League of Legends" in d and "open: Discord, MT5" in d
     assert greeting(t, 2).endswith("You have 2 reminders today.")
-    assert "midnight oil" in greeting(datetime.datetime(2026, 11, 5, 2, 0))
+    small = datetime.datetime(2026, 11, 5, 2, 0)
+    assert greeting(small) in GREETINGS["small_hours"]
+    recent, seen = [], set()
+    for _ in range(5):
+        seen.add(greeting(small, recent=recent))
+    assert len(seen) == 5  # no repeats until the pool runs out
     print("awareness self-test passed")
 
 

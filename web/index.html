@@ -115,6 +115,17 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes picIn{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
 .holo-panel.image{width:auto}
 @media (max-width:1000px){.grip{cursor:auto}}
+.panel.closed{display:none!important}
+.panel>.holo-x{top:8px;right:8px}
+/* Extra panel kinds */
+.prog{margin:8px 0}.prog .row{border:0;padding:0 0 4px}.prog .bar{height:6px}
+.prog .bar i.over{background:var(--red);box-shadow:0 0 8px var(--red)}
+.hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
+.hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
+.hlist li.done span{color:var(--mute);text-decoration:line-through}.hlist small{display:block;color:var(--mute);font-size:11px}
+.htext{line-height:1.6;white-space:pre-wrap;max-height:300px;overflow:auto}.free .htext{max-height:none}
+.legend{display:grid;grid-template-columns:auto 1fr auto;gap:3px 8px;font-size:11px;margin-top:6px}.legend i{width:9px;height:9px;margin-top:3px;display:block}
+.legend span:nth-child(3n){text-align:right;color:var(--text)}.legend span{color:var(--mute)}
 </style>
 
 <div class="sweep" aria-hidden="true"></div>
@@ -477,6 +488,19 @@ function movable(p,id){
   if(id&&layout[id]&&innerWidth>=1000)free(p,layout[id]);
 }
 document.querySelectorAll('.panel[data-id]').forEach(p=>movable(p,p.dataset.id));
+// Side panels can be closed with their x; ask Jarvis to bring one back ("show the MT5 journal")
+let closedSet=new Set();try{closedSet=new Set(JSON.parse(localStorage.getItem('jarvis-closed')||'[]'))}catch(e){}
+function setPanel(id,show){
+  const ids=id==='all'?[...document.querySelectorAll('.panel[data-id]')].map(p=>p.dataset.id):[id];
+  for(const i of ids){const p=document.querySelector(`.panel[data-id="${i}"]`);if(!p)continue;
+    p.classList.toggle('closed',!show);show?closedSet.delete(i):closedSet.add(i);
+    if(show){p.classList.remove('flash');void p.offsetWidth;p.classList.add('flash')}}
+  sfx(show?'panel':'close');try{localStorage.setItem('jarvis-closed',JSON.stringify([...closedSet]))}catch(e){}
+}
+document.querySelectorAll('.panel[data-id]').forEach(p=>{
+  const x=document.createElement('button');x.className='holo-x';x.type='button';x.textContent='\u00d7';
+  x.setAttribute('aria-label','Close panel (ask Jarvis to bring it back)');x.title='Close (say "show the '+p.querySelector('h2').firstChild.textContent.trim()+'" to bring it back)';
+  x.onclick=()=>setPanel(p.dataset.id,false);p.prepend(x);if(closedSet.has(p.dataset.id))p.classList.add('closed')});
 $('layoutBtn').onclick=()=>{try{localStorage.removeItem(LAYOUT)}catch(e){};location.reload()};
 
 // Holographic panels: Jarvis's show_panel tool posts them; every screen (PC and phone) picks them up here
@@ -484,7 +508,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -500,11 +524,51 @@ function showPanel(ev){
   else if(ev.kind==='image'){const im=new Image();im.className='pic';im.alt=ev.title;im.referrerPolicy='no-referrer';im.src=ev.src;
     im.onerror=()=>{im.replaceWith(Object.assign(document.createElement('div'),{className:'note',textContent:"Couldn't load that picture."}))};
     p.classList.add('image');p.append(im)}
-  else{const c=document.createElement('canvas');p.append(c);const drawIt=()=>(ev.kind==='chart'?drawCandles:drawBars)(c,ev);
+  else if(ev.kind==='progress'){for(const it of ev.items||[]){const d=document.createElement('div'),pc=it.max?it.value/it.max:0;d.className='prog';
+      d.innerHTML=`<div class="row"><span>${esc(it.label)}</span><span>${esc(fmtNum(it.value))} / ${esc(fmtNum(it.max))} · ${Math.round(pc*100)}%</span></div><div class="bar"><i class="${pc>1?'over':''}" style="width:0"></i></div>`;
+      p.append(d);requestAnimationFrame(()=>d.querySelector('i').style.width=Math.min(100,pc*100)+'%')}}
+  else if(ev.kind==='list'){const ul=document.createElement('ul');ul.className='hlist';
+    for(const it of ev.items||[]){const li=document.createElement('li'),sp=document.createElement('span');sp.textContent=it.text;
+      if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';li.append(sp);ul.append(li)}p.append(ul)}
+  else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
+  else if(ev.kind==='countdown'){const c=document.createElement('canvas');p.append(c);const end=Date.now()+ev.seconds*1000;
+    const tickC=()=>{if(!p.isConnected)return;const left=Math.max(0,(end-Date.now())/1000);drawCountdown(c,left,ev.seconds);
+      if(left>0)setTimeout(tickC,250);else{sfx('alert');p.classList.add('flash');setTimeout(()=>closePanel(p),8000)}};tickC()}
+  else{const c=document.createElement('canvas');p.append(c);const drawIt=()=>({chart:drawCandles,line:drawLine,donut:drawDonut}[ev.kind]||drawBars)(c,ev);
     requestAnimationFrame(drawIt);new ResizeObserver(()=>p.classList.contains('free')&&drawIt()).observe(p)}
   if(ev.note){const n=document.createElement('div');n.className='note';n.textContent=ev.note;p.append(n)}
   movable(p,null);
-  setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
+  if(ev.kind!=='countdown')setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
+}
+const fmtNum=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString():Math.abs(v)>=100?Math.round(v):(+v).toFixed(2).replace(/\.00$/,'');
+const PALETTE=()=>{const a=css('--rgb');return[`rgb(${a})`,'#ffb347','#b98cff','#4dff9a','#ff6bd6','#ffe14d','#3d8bff','#ff8a3d',`rgba(${a},.55)`,'#c8d6e0','#ff5a5a','#3dffe0']};
+function drawLine(c,ev){
+  const it=ev.items||[],[g,w]=sizeCanvas(c,c.closest('.free')?Math.max(120,c.parentElement.clientHeight-70):150);if(it.length<2)return;
+  const hgt=c.clientHeight,vs=it.map(x=>x.value),hi=Math.max(...vs),lo=Math.min(...vs),pad=46,top=10,bot=hgt-18;
+  const x=i=>i*(w-pad)/(it.length-1),y=v=>top+(hi-v)/(hi-lo||1)*(bot-top),a=css('--rgb');
+  g.strokeStyle=`rgba(${a},.12)`;g.beginPath();for(let i=0;i<=3;i++){const yy=top+i*(bot-top)/3;g.moveTo(0,yy);g.lineTo(w-pad,yy)}g.stroke();
+  const gr=g.createLinearGradient(0,top,0,bot);gr.addColorStop(0,`rgba(${a},.35)`);gr.addColorStop(1,`rgba(${a},0)`);
+  g.beginPath();it.forEach((p,i)=>i?g.lineTo(x(i),y(p.value)):g.moveTo(x(i),y(p.value)));g.lineTo(x(it.length-1),bot);g.lineTo(0,bot);g.fillStyle=gr;g.fill();
+  g.beginPath();it.forEach((p,i)=>i?g.lineTo(x(i),y(p.value)):g.moveTo(x(i),y(p.value)));g.strokeStyle=css('--cyan');g.lineWidth=2;g.shadowColor=css('--cyan');g.shadowBlur=8;g.stroke();g.shadowBlur=0;
+  g.font='10px '+css('--mono');g.fillStyle=css('--mute');g.textAlign='left';g.fillText(fmtNum(hi),w-pad+6,top+8);g.fillText(fmtNum(lo),w-pad+6,bot);
+  g.fillText(it[0].label,0,hgt-3);g.textAlign='right';g.fillText(it[it.length-1].label,w-pad,hgt-3);
+  const last=it[it.length-1].value,ly=y(last);if(ly-top>18&&bot-ly>18){g.fillStyle=css('--text');g.textAlign='left';g.fillText(fmtNum(last),w-pad+6,ly+3)}
+}
+function drawDonut(c,ev){
+  const it=(ev.items||[]).filter(x=>x.value>0),[g,w]=sizeCanvas(c,150);if(!it.length)return;
+  const tot=it.reduce((s,x)=>s+x.value,0),R=66,cxx=w/2,cy=75,cols=PALETTE();let a=-Math.PI/2;
+  it.forEach((x,i)=>{const da=x.value/tot*Math.PI*2;g.beginPath();g.arc(cxx,cy,R,a+.015,a+da-.015);g.lineWidth=18;g.strokeStyle=cols[i%cols.length];g.stroke();a+=da});
+  g.fillStyle=css('--text');g.font='600 18px '+css('--display');g.textAlign='center';g.fillText(fmtNum(tot),cxx,cy+4);
+  g.fillStyle=css('--mute');g.font='10px '+css('--mono');g.fillText('TOTAL',cxx,cy+20);
+  if(!c.nextElementSibling?.classList.contains('legend')){const l=document.createElement('div');l.className='legend';
+    it.forEach((x,i)=>{l.insertAdjacentHTML('beforeend',`<i style="background:${cols[i%cols.length]}"></i><span>${esc(x.label)}</span><span>${esc(fmtNum(x.value))} · ${Math.round(x.value/tot*100)}%</span>`)});c.after(l)}
+}
+function drawCountdown(c,left,total){
+  const [g,w]=sizeCanvas(c,150),cxx=w/2,cy=75,R=60,a=css('--rgb'),f=total?left/total:0;
+  g.lineWidth=8;g.strokeStyle=`rgba(${a},.15)`;g.beginPath();g.arc(cxx,cy,R,0,7);g.stroke();
+  g.strokeStyle=left<=10?css('--amber'):css('--cyan');g.shadowColor=g.strokeStyle;g.shadowBlur=10;g.beginPath();g.arc(cxx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*f);g.stroke();g.shadowBlur=0;
+  const s=Math.ceil(left),txt=s>=3600?`${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`:`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  g.fillStyle=left?css('--text'):css('--amber');g.font='700 24px '+css('--display');g.textAlign='center';g.fillText(left?txt:'DONE',cxx,cy+8);
 }
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function sizeCanvas(c,h){const w=c.clientWidth||300,r=devicePixelRatio||1;c.width=w*r;c.height=h*r;c.style.height=h+'px';const g=c.getContext('2d');g.scale(r,r);return[g,w]}

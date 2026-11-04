@@ -1,4 +1,4 @@
 {
- "version": "1.4.1",
- "notes": "Fixed panels getting stuck after being moved once."
+ "version": "1.5.0",
+ "notes": "Fresh greetings, closable panels, and new panel types: line, donut, progress, list, countdown, notes."
 }

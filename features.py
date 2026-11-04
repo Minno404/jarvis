@@ -309,17 +309,38 @@ def _panel(ev):
         return json.loads(r.read())
 
 
-def show_panel(title, kind, symbol=None, timeframe="M15", bars=60, rows=None, items=None, note=""):
-    """kind 'chart' (live MT5 candles), 'stats' (rows of [label, value]) or 'bars' (items of {label, value})."""
+KINDS = ("chart", "stats", "bars", "line", "donut", "progress", "list", "countdown", "text")
+
+
+def show_panel(title, kind, symbol=None, timeframe="M15", bars=60, rows=None, items=None, note="", seconds=None,
+               text=None):
+    """A holographic panel. kinds: chart (MT5 candles), stats, bars, line, donut, progress, list, countdown, text."""
     ev = {"type": "panel", "title": title, "kind": kind, "note": note}
+    num = lambda v: float(str(v).replace(",", "").replace("$", "").replace("%", "") or 0)
     if kind == "chart":
         ev.update(REGISTRY["candles"](symbol or "XAUUSD", timeframe, bars))
     elif kind == "stats":
         ev["rows"] = [[str(a), str(b)] for a, b in (rows or [])][:12]
-    elif kind == "bars":
-        ev["items"] = [{"label": str(i["label"]), "value": float(i["value"])} for i in (items or [])][:12]
+    elif kind in ("bars", "donut"):
+        ev["items"] = [{"label": str(i["label"]), "value": num(i["value"])} for i in (items or [])][:12]
+    elif kind == "line":
+        ev["items"] = [{"label": str(i.get("label", "")), "value": num(i["value"])} for i in (items or [])][:200]
+    elif kind == "progress":
+        ev["items"] = [{"label": str(i["label"]), "value": num(i["value"]), "max": num(i.get("max") or 100)}
+                       for i in (items or [])][:10]
+    elif kind == "list":
+        ev["items"] = [{"text": str(i.get("text", i) if isinstance(i, dict) else i),
+                        "sub": str(i.get("sub", "")) if isinstance(i, dict) else "",
+                        "done": bool(i.get("done")) if isinstance(i, dict) else False} for i in (items or [])][:12]
+    elif kind == "countdown":
+        if not seconds:
+            return {"error": "countdown needs seconds"}
+        ev["seconds"] = int(seconds)
+    elif kind == "text":
+        ev["text"] = str(text or note)[:1500]
+        ev["note"] = "" if not text else note
     else:
-        return {"error": "kind must be chart, stats or bars"}
+        return {"error": f"kind must be one of {list(KINDS)}"}
     _panel(ev)
     return {"shown": title}
 
@@ -369,14 +390,18 @@ TOOLS = [
     {"name": "weather", "description": "Weather now, today and tomorrow (Celsius). Defaults to his city.",
      "input_schema": {"type": "object", "properties": {"place": S}}},
     {"name": "show_panel", "description": "Float a holographic panel out of the core on his screen (and phone), like "
-     "Tony's holograms. Use it whenever numbers or a chart help: 'show me gold' (kind chart: live MT5 candles; "
-     "timeframe M1-D1, bars 20-200), a report's key figures (kind stats: rows [[label, value], ...]), or a "
-     "comparison like P&L by hour or spending by category (kind bars: items [{label, value}], negatives show red). "
-     "Panels fade after a minute; keep your spoken reply short when a panel shows the detail.",
+     "Tony's holograms. Use one whenever a visual helps, and keep your spoken reply short. Kinds: "
+     "chart (live MT5 candles: symbol, timeframe M1-D1, bars 20-200); stats (key figures: rows [[label, value]]); "
+     "bars (compare: items [{label, value}], negatives red); line (a trend over time: items [{label, value}] "
+     "oldest first, e.g. equity curve, spending by month); donut (shares of a whole: items [{label, value}], e.g. "
+     "spending by category); progress (towards limits or goals: items [{label, value, max}], e.g. budget plan, "
+     "savings goal); list (items [{text, sub, done}]: reminders, agenda, news, to-dos, steps); countdown (a live "
+     "timer: seconds, e.g. to a timer, news event or market open); text (a short note, quote or definition: text). "
+     "Panels fade after a minute (countdowns when they finish).",
      "input_schema": {"type": "object", "required": ["title", "kind"], "properties": {
-         "title": S, "kind": {"type": "string", "enum": ["chart", "stats", "bars"]}, "symbol": S, "timeframe": S,
-         "bars": I, "rows": {"type": "array", "items": {"type": "array"}},
-         "items": {"type": "array", "items": {"type": "object"}}, "note": S}}},
+         "title": S, "kind": {"type": "string", "enum": list(KINDS)}, "symbol": S, "timeframe": S, "bars": I,
+         "rows": {"type": "array", "items": {"type": "array"}}, "items": {"type": "array"}, "seconds": I,
+         "text": S, "note": S}}},
     {"name": "hide_panels", "description": "Clear the holographic panels.",
      "input_schema": {"type": "object", "properties": {}}},
 ]

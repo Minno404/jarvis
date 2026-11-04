@@ -79,6 +79,13 @@ def quick(text):
         if m:
             return _ok(R["tv_channel"](int(m.group(1))), f"Channel {m.group(1)}.")
         return None
+    # --- the HUD's side panels ---
+    m = re.fullmatch(r"(close|hide|remove|get rid of|open|show|reopen|bring up|bring back|restore) (?:the )?"
+                     r"([a-z0-9 ]+?)(?: panels?)?", t)
+    if m and m.group(2) in hud.PANELS:
+        show = m.group(1) in ("open", "show", "reopen", "bring up", "bring back", "restore")
+        r = R["hud_panel"](m.group(2), show)
+        return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))
     # --- the HUD's colour ---
     m = re.fullmatch(r"(?:change|switch|set|make|turn) (?:the |your )?(?:hud |interface |screen )?(?:colou?r )?(?:to |into )?"
                      r"([a-z ]+?)(?: colou?r)?|(?:go|be) ([a-z]+)", t)
@@ -99,7 +106,12 @@ def quick(text):
         if n:
             mins = n / 60 if unit == "second" else n * 60 if unit == "hour" else n
             label = f"{n} {'min' if unit == 'min' else unit}{'s' if n != 1 else ''}"
-            return _ok(R["add_reminder"](f"timer for {label}", in_minutes=mins), f"Timer set for {label}, {{TITLE}}.")
+            r = R["add_reminder"](f"timer for {label}", in_minutes=mins)
+            try:  # a live countdown on the HUD too
+                R["show_panel"](f"Timer · {label}", "countdown", seconds=round(mins * 60))
+            except Exception:
+                pass
+            return _ok(r, f"Timer set for {label}, {{TITLE}}.")
     # --- opening apps ---
     m = re.fullmatch(r"(?:open|launch|start|run) (?:up )?(?:the )?([a-z0-9+ ]{2,30})", t)
     if m and not re.search(r"\b(chart|journal|report|panel|briefing|my|trade|trades|on the tv)\b", m.group(1)):
@@ -112,7 +124,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -135,6 +147,9 @@ def selftest():
         "make the HUD gold": ("hud_colour", ("gold",), {}),
         "switch your colour to iron man": ("hud_colour", ("iron man",), {}),
         "go purple": ("hud_colour", ("purple",), {}),
+        "close the MT5 journal": ("hud_panel", ("mt5 journal", False), {}),
+        "Jarvis, bring back the systems panel": ("hud_panel", ("systems", True), {}),
+        "show all panels": ("hud_panel", ("all", True), {}),
     }
     for said, want in cases.items():
         calls.clear()

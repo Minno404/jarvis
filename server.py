@@ -17,7 +17,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.4.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.5.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1205,7 +1205,13 @@ if __name__ == "__main__":
             if not features.morning_pending():  # otherwise the morning brief greets you, from the watcher
                 today = datetime.datetime.now().strftime("%Y-%m-%d")
                 n = sum(r["at"].startswith(today) for r in features.list_reminders())
-                threading.Timer(3.5, lambda: speak_now(awareness.greeting(reminders_today=n))).start()  # after boot
+                def hello():
+                    state = features._load("state.json", {})
+                    recent = state.setdefault("greetings", [])  # the last dozen, so openings stay fresh
+                    line = awareness.greeting(reminders_today=n, recent=recent)
+                    features._save("state.json", state)
+                    speak_now(line)
+                threading.Timer(3.5, hello).start()  # after boot
             if voice:
                 voice.start(on_status=lambda t: js(f"voiceStatus({json.dumps(t)})"),
                             on_heard=lambda: (mini.send("mode", "listening"), js("heard()")), on_text=heard_text,

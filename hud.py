@@ -70,11 +70,31 @@ def show_image(query=None, url=None, title=None):
     return {"shown": img}
 
 
-FUNCS = {"hud_colour": hud_colour, "show_image": show_image}
+PANELS = {"time": "time", "clock": "time", "local time": "time", "systems": "systems", "system": "systems",
+          "stats": "systems", "pc stats": "systems", "protocols": "protocols", "mt5": "mt5", "mt5 journal": "mt5",
+          "trading journal": "mt5", "journal": "journal", "voice journal": "journal", "report": "report",
+          "journal report": "report", "voice journal report": "report", "all": "all", "everything": "all"}
+
+
+def hud_panel(panel, show=True):
+    """Close or bring back one of the HUD's side panels (or all of them)."""
+    pid = PANELS.get(panel.lower().replace(" panel", "").strip())
+    if not pid:
+        return {"error": f"Unknown panel '{panel}'", "panels": ["time", "systems", "protocols", "mt5 journal",
+                                                                  "voice journal", "journal report", "all"]}
+    PUSH({"type": "hud_panel", "panel": pid, "show": bool(show)})
+    return {"panel": pid, "shown": bool(show)}
+
+
+FUNCS = {"hud_colour": hud_colour, "show_image": show_image, "hud_panel": hud_panel}
 TOOLS = [
     {"name": "hud_colour", "description": "Change the HUD's colour when he asks: blue (default), red, gold, yellow, "
      "orange, green, teal, purple, pink, white, silver, or any hex code. It stays until changed.",
      "input_schema": {"type": "object", "required": ["colour"], "properties": {"colour": {"type": "string"}}}},
+    {"name": "hud_panel", "description": "Close or reopen one of the HUD's side panels: time, systems, protocols, "
+     "mt5 journal, voice journal, journal report, or all. show false to close.",
+     "input_schema": {"type": "object", "required": ["panel"], "properties": {"panel": {"type": "string"},
+                                                                               "show": {"type": "boolean"}}}},
     {"name": "show_image", "description": "Show a picture on his HUD (and phone) as a holographic panel: query = what "
      "to find ('Mercedes CLA45 AMG', 'Mount Everest'), searched on Wikipedia/Wikimedia; or url = a direct image "
      "link. Keep the spoken reply short.",
@@ -100,6 +120,8 @@ def selftest():
         _get = lambda url: ({} if "wikipedia" in url else {"query": {"pages": {"2": {"index": 1, "imageinfo": [
             {"mime": "image/jpeg", "url": "https://c/full.jpg", "thumburl": "https://c/t.jpg"}]}}}})
         assert show_image("rare thing")["shown"]["src"] == "https://c/t.jpg"
+        assert hud_panel("MT5 journal panel", False) == {"panel": "mt5", "shown": False} and sent[-1]["show"] is False
+        assert "error" in hud_panel("toaster")
         _get = lambda url: {}
         assert "error" in show_image("nothing") and "error" in show_image(url="file:///c:/x.png")
     finally:
