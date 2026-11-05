@@ -1,4 +1,4 @@
 {
- "version": "1.28.0",
- "notes": "\"Goodnight Jarvis\" puts the PC to real sleep; quiet wake from your phone."
+ "version": "1.28.1",
+ "notes": "Use Jarvis from anywhere through Tailscale, no pairing needed."
 }

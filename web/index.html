@@ -463,7 +463,7 @@ $('phoneBtn').onclick=async()=>{
   $('qrs').textContent=urls.length?'':'No network found. Is the PC connected to Wi-Fi or ethernet?';
   for(const u of urls){const d=document.createElement('div'),q=document.createElement('div');d.className='qr';d.append(q,u.where);$('qrs').append(d);
     if(u.svg)q.innerHTML=u.svg;else if(window.QRCode)new QRCode(q,{text:u.url,width:180,height:180});else q.textContent=u.url}
-  $('phoneHelp').innerHTML=urls.some(u=>u.where.startsWith('Anywhere'))?'The Tailscale code works anywhere your phone has internet; the Wi-Fi code only at home.'
+  $('phoneHelp').innerHTML=urls.some(u=>u.where.startsWith('Anywhere'))?'The Tailscale link works anywhere (home or away) with no pairing: keep Tailscale switched on on your phone, open the link, then Share → Add to Home Screen. The Wi-Fi code only works at home.'
     :'This works on your home Wi-Fi. To use Jarvis anywhere, install <a href="https://tailscale.com/download" target="_blank" rel="noopener">Tailscale</a> on this PC and your phone (free), sign both into the same account, then open this again.';
 };
 $('phoneClose').onclick=()=>$('phoneModal').hidden=true;
