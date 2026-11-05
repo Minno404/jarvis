@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.17.0** (shown at the bottom right of the HUD)
+**Version 1.17.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.17.1** (5 Nov 2026): launching Jarvis while he's already running now brings his window to the front, or, if
+  he was left running in the background without a window, replaces him, instead of silently doing nothing.
 - **1.17.0** (5 Nov 2026):
   - No Windows title bar: minimise, maximise and close are small buttons in the HUD's top-right corner. Drag the
     window by the strip along the top (double-click it to maximise) and resize it from the bottom-right corner.

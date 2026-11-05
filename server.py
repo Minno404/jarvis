@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.17.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.17.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -841,6 +841,36 @@ def jarvis_power(action):
         return json.loads(r.read())
 
 
+def take_over(url):
+    """Launched while a Jarvis is already running. If it has its window open, bring that to the front and
+    let this copy close (returns False). If it has no window (left running in the background, or an older
+    version), ask it to shut down and wait for the port (returns True: this copy carries on starting)."""
+    import urllib.request
+
+    def call(path, data=None):
+        req = urllib.request.Request(url + path, data=None if data is None else json.dumps(data).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=3) as r:
+            return json.loads(r.read() or b"{}")
+    try:
+        if call("/api/alive").get("window"):
+            call("/api/show", {})
+            return False
+    except Exception:
+        pass  # no /api/alive (an older version) or no answer: replace it
+    try:
+        call("/api/power", {"action": "shutdown", "now": True})
+    except Exception:
+        pass
+    import socket
+    for _ in range(40):  # up to ~12 s for it to let go of the port
+        time.sleep(0.3)
+        with socket.socket() as sk:
+            if sk.connect_ex(("127.0.0.1", PORT)):
+                return True
+    return False
+
+
 def tool_args(name, argv):
     """A tool's arguments from the command line: one JSON object (Claude), key=value pairs (ChatGPT on
     Windows, where quoting JSON is fragile), or '-' to read JSON from stdin."""
@@ -1243,6 +1273,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/api/alive":  # for a second launch: is this Jarvis's window open?
+            return self.send_json({"window": bool(LIVE.get("window_open")), "version": VERSION})
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
@@ -1320,6 +1352,12 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
             return self.wfile.write(audio)
+        if self.path == "/api/show":  # a second launch: bring this window to the front
+            if not self.local():
+                return self.send_error(403)
+            if LIVE.get("show_window"):
+                threading.Thread(target=LIVE["show_window"], daemon=True).start()
+            return self.send_json({"shown": bool(LIVE.get("show_window"))})
         if self.path == "/api/quiet":  # the Activity panel's quiet mode switch
             on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
             return self.send_json(FUNCS["quiet_mode"](on=bool(on)))
@@ -1344,12 +1382,13 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/power":  # restart or close Jarvis (jarvis_power, from this PC only)
             if not self.local():
                 return self.send_error(403)
-            action = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("action")
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            action = body.get("action")
             if action not in ("restart", "shutdown"):
                 return self.send_error(400)
-            self.send_json({"ok": action, "in_seconds": 6})
-            # a few seconds so his goodbye is spoken first
-            threading.Timer(6, updater.restart if action == "restart" else lambda: os._exit(0)).start()
+            wait = 0.2 if body.get("now") else 6  # a few seconds so his goodbye is spoken first
+            self.send_json({"ok": action, "in_seconds": wait})
+            threading.Timer(wait, updater.restart if action == "restart" else lambda: os._exit(0)).start()
             return
         if self.path == "/api/upload":  # a photo for Jarvis: raw image bytes in, {"name": ...} out
             try:
@@ -1491,11 +1530,15 @@ if __name__ == "__main__":
         print("Warning: Claude Code isn't installed and there's no API key, so Jarvis can't think yet. See README.md.")
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # on Windows this would let two copies share the port
-    try:
-        httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    except OSError:
-        print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
-        sys.exit()
+    httpd = None
+    for attempt in range(2):
+        try:
+            httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+            break
+        except OSError:
+            if attempt or not take_over(url):
+                print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
+                sys.exit()
     print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url}")
     if "--browser" in sys.argv:
         webbrowser.open(url)
@@ -1645,7 +1688,10 @@ if __name__ == "__main__":
         for p in features.settings().get("pins", [])[:3]:
             make_pin(p)  # hidden until Jarvis goes out of focus
         main.events.minimized += lambda: (mini.send("show"), show_pins(True))
+        LIVE["window_open"], LIVE["show_window"] = True, open_main
+
         def closed():  # closing the main window quits everything (pinned panels' hidden pages included)
+            LIVE["window_open"] = False
             mini.send("quit")
             threading.Timer(0.5, lambda: os._exit(0)).start()
         main.events.closed += closed
