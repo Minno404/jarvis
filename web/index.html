@@ -652,6 +652,10 @@ addEventListener('dragleave',e=>{if(!e.relatedTarget)document.body.classList.rem
 addEventListener('drop',e=>{document.body.classList.remove('dropping');const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));if(f){e.preventDefault();attach(f)}});
 async function ask(q){
   if(isHold(q)){add('you',q);holdOn();api()?.hold();return}  // typed "hold on" works too
+  const cmd=q.trim().replace(/^\W*(hey\s+)?jarvis\W*/i,'').replace(/[.!?]+$/,'').toLowerCase();  // "Jarvis split" / "Jarvis merge"
+  if(/^(split|split mode|split up|split decision( mode)?|split decide)$/.test(cmd)){add('you',q);if(split)add('j','Already split, sir. Ask away.');else enterSplit();return}
+  if(split&&/^(merge|merge back|unsplit)( (with|to|into) )?(claude|chat ?gpt)?$/.test(cmd)){add('you',q);
+    return mergeSplit(/gpt/.test(cmd)?'gpt':/claude/.test(cmd)?'claude':$('brain').textContent==='ChatGPT'?'gpt':'claude')}
   if(split&&live&&q.trim()&&!busy)return debate(q);
   const pic=photo;
   if((!q.trim()&&!pic)||busy)return;
@@ -683,7 +687,7 @@ function enterSplit(){
       +`<div class="sc-tag">${sd==='gpt'?'ChatGPT':'Claude'}<small>${sd==='gpt'?'cons':'pros'}</small></div></div>`).join('');$('coreWrap').append(box)}
   split={speaker:null};for(const el of box.querySelectorAll('.sc-side')){const c=el.querySelector('canvas');split[el.dataset.side]={c,cx:c.getContext('2d')}}
   $('coreWrap').classList.add('split');dispatchEvent(new Event('resize'));sfx('panel');
-  add('j','Split mode. Ask me anything: Claude gives you the pros, ChatGPT the cons. Triple-click either of us to merge back with that one as the brain.');
+  add('j','Split mode. Ask me anything: Claude gives you the pros, ChatGPT the cons. Triple-click either of us, or say "Jarvis merge", to merge back.');
 }
 async function mergeSplit(sd){
   if(!split)return;stopSpeaking();busy=false;split=null;$('coreWrap').classList.remove('split');dispatchEvent(new Event('resize'));setMode('idle');sfx('panel');

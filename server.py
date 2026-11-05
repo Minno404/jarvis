@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.20.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.20.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -955,7 +955,6 @@ def chat_stream(text, photo=None):
         claude_out["until"] = time.time() + 3600  # try Claude again in an hour
         print(datetime.datetime.now(), "Claude limit reached, switching to ChatGPT:", str(e)[:200])
         push_event({"type": "brain", "name": "ChatGPT"})
-        yield persona("My Claude allowance is spent for now, {TITLE}, so I've switched to ChatGPT. ")
         yield from chat_gpt(text, photo)
 
 
