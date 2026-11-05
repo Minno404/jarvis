@@ -1,4 +1,4 @@
 {
- "version": "1.14.0",
- "notes": "Layouts kept between launches, backgrounds you can ask for, and a quieter message bar."
+ "version": "1.15.0",
+ "notes": "See-through panels, and pin up to 3 panels to float over other windows while Jarvis is in the background."
 }

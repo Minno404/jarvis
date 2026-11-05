@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.14.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.15.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -709,6 +709,8 @@ def save_prefs(d):
         if d["kokoro_voice"] and d["kokoro_voice"] not in speech.KOKORO_VOICES:
             raise ValueError("Unknown voice")
         s["kokoro_voice"] = d["kokoro_voice"] or ""
+    if "panel_alpha" in d:
+        s["panel_alpha"] = max(0.05, min(0.9, float(d["panel_alpha"])))
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     features._save("settings.json", s)
@@ -720,7 +722,8 @@ def save_prefs(d):
         s = features.settings()
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
-                                                            "voice_engine", "kokoro_voice", "voice_speed")}})
+                                                            "voice_engine", "kokoro_voice", "voice_speed",
+                                                            "panel_alpha")}})
     return {**s, "voice": speech.status}
 
 
@@ -1510,10 +1513,69 @@ if __name__ == "__main__":
             main.on_top = True  # bring it to the front, then let it behave normally again
             main.on_top = False
             mini.send("hide")
+            show_pins(False)
+
+        # ---- Pinned panels: up to 3 HUD panels that float over other windows while Jarvis is out of focus ----
+        pins = {}  # panel id -> its little window
+
+        def save_pin(pid, **kw):
+            s = features.settings()
+            features._save("settings.json", {**s, "pins": [dict(p, **kw) if p["id"] == pid else p
+                                                           for p in s.get("pins", [])]})
+
+        def make_pin(p):
+            from urllib.parse import quote
+            w = webview.create_window(f"Jarvis · {p['title']}", f"{url}/?pin={quote(p['id'])}", width=p.get("w", 300),
+                                      height=p.get("h", 260), x=p.get("x"), y=p.get("y"), frameless=True,
+                                      easy_drag=False, on_top=True, hidden=True, focus=False, min_size=(180, 110),
+                                      background_color="#03070c", js_api=api)
+
+            def moved(x, y):
+                save_pin(p["id"], x=x, y=y)
+            w.events.moved += moved
+            pins[p["id"]] = w
+            return w
+
+        def show_pins(show):
+            for w in list(pins.values()):
+                try:
+                    w.show() if show else w.hide()
+                except Exception as e:
+                    print(datetime.datetime.now(), "pinned panel:", repr(e))
 
         class Api:  # called from the page as window.pywebview.api.<name>
             def mini(self, show):
                 mini.send("show" if show else "hide")
+                show_pins(show)
+
+            def pinned(self):
+                return [p["id"] for p in features.settings().get("pins", [])]
+
+            def pin(self, pid, title, w=300, h=260):
+                s = features.settings()
+                have = s.get("pins", [])
+                if any(p["id"] == pid for p in have):
+                    return {"pinned": pid}
+                if len(have) >= 3:
+                    return {"error": "You can pin up to 3 panels. Unpin one first."}
+                p = {"id": pid, "title": title, "w": int(w), "h": int(h)}
+                features._save("settings.json", {**s, "pins": have + [p]})
+                make_pin(p)
+                return {"pinned": pid}
+
+            def unpin(self, pid):
+                s = features.settings()
+                features._save("settings.json", {**s, "pins": [p for p in s.get("pins", []) if p["id"] != pid]})
+                w = pins.pop(pid, None)
+                if w:
+                    w.destroy()
+                return {"unpinned": pid}
+
+            def resize_pin(self, pid, w, h):
+                w, h = max(180, int(w)), max(110, int(h))
+                if pid in pins:
+                    pins[pid].resize(w, h)
+                save_pin(pid, w=w, h=h)
 
             def theme(self, colour):  # the HUD's colour changed: the mini core follows
                 mini.send("colour", colour)
@@ -1534,9 +1596,12 @@ if __name__ == "__main__":
                 if voice:
                     voice.hold()
 
+        api = Api()
         main = webview.create_window("JARVIS", url, width=1440, height=900, min_size=(420, 600),
-                                     background_color="#03070c", js_api=Api(), text_select=True)
-        main.events.minimized += lambda: mini.send("show")
+                                     background_color="#03070c", js_api=api, text_select=True)
+        for p in features.settings().get("pins", [])[:3]:
+            make_pin(p)  # hidden until Jarvis goes out of focus
+        main.events.minimized += lambda: (mini.send("show"), show_pins(True))
         main.events.closed += lambda: mini.send("quit")  # closing the main window quits
         mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)
         if features.settings().get("theme"):

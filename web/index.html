@@ -7,7 +7,7 @@
 <style>
 /* Layout: three-column HUD around a live reactor core; stacks to one column on phones. Single dark look by design. */
 :root{
-  --void:#03070c; --panel:rgba(10,32,48,.55); --line:#1c5a78;
+  --void:#03070c; --pa:.28; --panel:rgba(10,32,48,var(--pa)); --line:#1c5a78;
   --cyan:#5fe3ff; --cyan-dim:#2a8fb0; --rgb:95,227,255; --line-rgb:28,90,120; --bg-glow:#0a2233; --amber:#ffb347; --red:#ff5a5a; --text:#cdeefb; --win:var(--cyan); --mute:#6f9fb4;
   --display:"Chakra Petch",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
   color-scheme:dark; --s:1;
@@ -70,7 +70,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 /* Holographic panels that float out of the core */
 .center{position:relative}
 .holo{position:absolute;top:calc(64px*var(--s));right:-10px;width:min(calc(330px*var(--s)),42%);display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
-.holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,.74);border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
+.holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
   box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
 .holo-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.05) 0 1px,transparent 1px 3px)}
@@ -120,6 +120,17 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* Pin buttons beside each panel's x, and pinned panels' own windows */
+.panel>.holo-x.pinb{right:34px;font-size:15px}.holo-x.pinb.on{color:var(--cyan)}.holo-x.pinb[hidden]{display:none}
+html.pinmode,html.pinmode body{height:100%;overflow:hidden;background:var(--void)}
+.pinmode body::before,.pinmode body::after,.pinmode .sweep,.pinmode #bgimg,.pinmode #bgfx,.pinmode .center,.pinmode .version,
+.pinmode .updatebtn,.pinmode .modal{display:none!important}
+.pinmode .wrap{display:block;padding:0;max-width:none;height:100%}.pinmode .col{display:contents}
+.pinmode .panel{display:none}.pinmode .panel.pinned{display:block!important;position:fixed!important;inset:0;margin:0;overflow:auto;
+  clip-path:none!important;background:rgba(10,32,48,.55);resize:none}
+.pinmode .panel.pinned h2{cursor:grab;user-select:none;padding-right:44px}
+.pin-grip{position:fixed;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:9;
+  background:linear-gradient(135deg,transparent 50%,var(--cyan-dim) 50%,var(--cyan-dim) 60%,transparent 60%,transparent 72%,var(--cyan-dim) 72%,var(--cyan-dim) 82%,transparent 82%)}
 /* The message bar: there when you need it, quiet when you don't. Enter sends; + adds a photo */
 form{opacity:.55;transition:opacity .3s}form:hover,form:focus-within{opacity:1}
 .qwrap{position:relative;flex:1;min-width:0;display:flex}
@@ -307,6 +318,10 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
           <span class="hint" id="speedVal"></span></div></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
+    <fieldset><legend>Panels</legend>
+      <div class="keyrow"><span class="hint">See-through</span><input type="range" id="panelAlpha" min="0.05" max="0.9" step="0.05" style="flex:1;direction:rtl"></div>
+      <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
+    </fieldset>
     <fieldset><legend>Background</legend>
       <select id="bgSel"><option value="default">Glow (default)</option><option value="dark">Plain dark</option><option value="grid">Holographic grid</option>
         <option value="stars">Starfield (moving)</option><option value="nebula">Nebula</option><option value="hex">Hexagon mesh</option>
@@ -334,6 +349,8 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 </div>
 <script>
 const $=id=>document.getElementById(id);
+// A pinned panel's own little window (?pin=<panel id>): just that panel, nothing else running
+const PIN=new URLSearchParams(location.search).get('pin');if(PIN)document.documentElement.classList.add('pinmode');
 // Everything scales with the window: a bigger window gets bigger columns, text, core and panels, Jarvis centred
 function fitScale(){const w=innerWidth,h=innerHeight,k=w<1000?1:Math.max(1,Math.min(w/1440,h/880,2.4));
   document.documentElement.style.setProperty('--s',k.toFixed(3))}
@@ -509,8 +526,7 @@ function draw(){
   for(let k=0;k<72;k++){const a=k/72*Math.PI*2-t*.1,l=k%6?8:20;cx.beginPath();cx.moveTo(C+Math.cos(a)*(410),C+Math.sin(a)*410);cx.lineTo(C+Math.cos(a)*(410-l),C+Math.sin(a)*(410-l));cx.stroke()}
   requestAnimationFrame(draw);
 }
-holo3d=build3d();
-draw();
+if(!PIN){holo3d=build3d();draw()}  // a pinned panel's window skips the core
 
 // Chat
 const states={idle:'Standing by',listening:'Listening',thinking:'Processing',speaking:'Responding',hold:'On hold'};
@@ -569,6 +585,7 @@ function canned(q){
 }
 let busy=false;
 async function announce(text){
+  if(PIN)return;  // pinned panels never talk
   while(busy||voiceOn)await new Promise(r=>setTimeout(r,300));  // wait until he's finished talking
   sfx('alert');await new Promise(r=>setTimeout(r,350));
   audio();const v=voice();add('j',text);v.push(text);v.end();
@@ -645,6 +662,7 @@ function free(p,box){
     width:box.w+'px',height:box.h+'px',zIndex:++topZ});
 }
 function movable(p,id){
+  if(PIN)return;  // a pinned panel's window moves as a whole instead
   const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
   const remember=()=>{if(!id)return;const r=p.getBoundingClientRect();layout[id]={x:r.left,y:r.top,w:r.width,h:r.height};saveLayout()};
   h.addEventListener('pointerdown',e=>{
@@ -680,7 +698,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -802,7 +820,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed});
+  showPrefs({panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -828,12 +846,12 @@ async function bootSequence(){
   await new Promise(r=>setTimeout(r,900));$('boot').style.opacity=0;setTimeout(()=>$('boot').remove(),700);
   if(!api())add('j','Online, sir.');
 }
-bootSequence();
+if(PIN)pinBoot();else bootSequence();
 addEventListener('keydown',e=>{if(e.key==='Escape'&&(voiceOn||busy)){stopSpeaking();setMode('idle')}});
 $('coreWrap').addEventListener('click',()=>{if(voiceOn||busy){stopSpeaking();setMode('idle')}});
 function followUp(on){if(on)setMode('listening');else if(mode==='listening')setMode('idle')}  // listening for a reply
   // Show the mini window while the main one is in the background
-  addEventListener('blur',()=>api()?.mini(true));addEventListener('focus',()=>api()?.mini(false));
+  if(!PIN){addEventListener('blur',()=>api()?.mini(true));addEventListener('focus',()=>api()?.mini(false))}
 
 // ---------- Activity: jobs, downloads, reminders and held messages, so you can see what Jarvis is up to ----------
 function renderActivity(a){
@@ -886,8 +904,43 @@ function startFx(kind){
 }
 async function saveBackground(d){try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({background:d})})).json();
   if(r.error)throw new Error(r.error);$('setMsg').textContent='Saved.'}catch(e){$('setMsg').textContent=e.message||"Couldn't change the background."}}
+$('panelAlpha').oninput=()=>document.documentElement.style.setProperty('--pa',$('panelAlpha').value);
+$('panelAlpha').onchange=()=>savePref({panel_alpha:+$('panelAlpha').value});
 $('bgSel').onchange=()=>{const v=$('bgSel').value;saveBackground(v==='photo'?{photo:true}:{style:v})};
 $('bgDim').onchange=()=>saveBackground({dim:+$('bgDim').value});
+
+// ---------- Pinning: a + beside each panel's x floats it over other windows while Jarvis is out of focus ----------
+let pinnedIds=new Set();
+function addPinButton(p){
+  if(PIN||p.querySelector('.pinb'))return;
+  const b=document.createElement('button');b.type='button';b.className='holo-x pinb';b.hidden=!api();b.textContent='+';
+  b.title='Pin: float this panel over other windows while Jarvis is in the background (up to 3)';b.setAttribute('aria-label','Pin panel');
+  b.onclick=async()=>{const id=p.dataset.id,title=p.querySelector('h2')?.firstChild?.textContent.trim()||id;
+    if(pinnedIds.has(id)){await api().unpin(id);pinnedIds.delete(id)}
+    else{const r=await api().pin(id,title,Math.round(p.offsetWidth),Math.round(Math.min(p.offsetHeight,520)));
+      if(r?.error){add('j',r.error);return}pinnedIds.add(id);sfx('panel')}
+    showPins()};
+  p.prepend(b);
+}
+function showPins(){document.querySelectorAll('.panel[data-id] .pinb').forEach(b=>{const on=pinnedIds.has(b.closest('.panel').dataset.id);
+  b.classList.toggle('on',on);b.textContent=on?'−':'+';b.title=on?'Unpin this panel':b.title;b.hidden=!api()})}
+document.querySelectorAll('.panel[data-id]').forEach(addPinButton);
+new MutationObserver(()=>document.querySelectorAll('.panel[data-id]').forEach(addPinButton)).observe(document.body,{childList:true,subtree:true});
+addEventListener('pywebviewready',async()=>{if(PIN)return;try{pinnedIds=new Set(await api().pinned())}catch(e){}showPins()});
+async function pinBoot(){  // inside a pinned panel's window
+  let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
+  if(info.theme)setTheme(info.theme);
+  const show=()=>{const p=document.querySelector(`.panel[data-id="${PIN}"]`);if(!p)return false;
+    p.classList.remove('closed','free');p.removeAttribute('style');p.classList.add('pinned');
+    const h=p.querySelector('h2');h?.classList.add('pywebview-drag-region');h?.classList.remove('grip');
+    p.querySelectorAll('.holo-x').forEach(x=>x.remove());const x=document.createElement('button');x.type='button';x.className='holo-x';
+    x.textContent='×';x.setAttribute('aria-label','Unpin');x.title='Unpin';x.onclick=()=>api()?.unpin(PIN);p.prepend(x);
+    const g=document.createElement('div');g.className='pin-grip';document.body.append(g);let st=null;
+    g.onpointerdown=e=>{st={x:e.screenX,y:e.screenY,w:innerWidth,h:innerHeight};g.setPointerCapture(e.pointerId)};
+    let t=0;g.onpointermove=e=>{if(!st)return;const now=Date.now();if(now-t<60)return;t=now;api()?.resize_pin(PIN,st.w+e.screenX-st.x,st.h+e.screenY-st.y)};
+    g.onpointerup=e=>{if(st)api()?.resize_pin(PIN,st.w+e.screenX-st.x,st.h+e.screenY-st.y);st=null};return true};
+  if(!show()){const mo=new MutationObserver(()=>{if(show())mo.disconnect()});mo.observe(document.body,{childList:true,subtree:true})}  // custom panels appear a moment later
+}
 
 // ---------- Settings: listening mode, push-to-talk key, core model ----------
 let prefs={listen_mode:'wake',ptt_key:'',avatar:'',avatar_style:'hologram'},capturing=false;
@@ -904,6 +957,7 @@ function showPrefs(p){
     :'Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.';
   if(prefs.listen_mode==='ptt'&&!prefs.ptt_key)$('setMsg').textContent='Push-to-talk only needs a key: set one above.';
   setAvatar(prefs.avatar,prefs.avatar_style);
+  if(prefs.panel_alpha!=null){document.documentElement.style.setProperty('--pa',prefs.panel_alpha);$('panelAlpha').value=prefs.panel_alpha}
 }
 async function savePref(d){
   $('setMsg').textContent='';
