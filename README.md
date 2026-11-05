@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.28.2** (shown at the bottom right of the HUD)
+**Version 1.28.3** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.28.3** (5 Nov 2026): on a phone, drag the bar under any panel (or the chat) to make it taller or shorter
+  (double-tap the bar to reset), and Settings can be opened from the phone too.
 - **1.28.2** (5 Nov 2026): iPhones play Jarvis's voice even with Silent mode on (his voice counts as media playback).
 - **1.28.1** (5 Nov 2026): phones on your Tailscale network can use Jarvis with no pairing (only your own devices
   can reach that address), and Phone link shows one Tailscale link that works at home and away.

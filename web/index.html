@@ -180,7 +180,11 @@ body[data-bg=image]::before,body[data-bg=stars]::before,body[data-bg=rain]::befo
 .act .bar{margin:2px 0 4px}.act-empty{color:var(--mute);font-size:calc(12px*var(--s)*var(--fs));padding:4px 0}
 #quietBtn[aria-pressed=true]{color:var(--amber)}
 /* Settings */
-.settings{max-width:480px;max-height:calc(100vh - 32px);overflow:auto}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
+.settings{max-width:480px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
+/* Touch screens: drag the little bar under a panel (or the chat) to make it taller or shorter; double-tap it to reset */
+.vgrip{position:sticky;bottom:0;display:block;width:64px;height:22px;margin:4px auto -8px;touch-action:none;cursor:ns-resize;z-index:2}
+.vgrip::after{content:"";position:absolute;left:12px;right:12px;top:9px;height:4px;border-radius:2px;background:rgba(var(--rgb),.45)}
+.vgrip.loggrip{position:relative;margin:2px auto 6px}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
 .settings legend{color:var(--cyan);font-family:var(--display);font-size:calc(11px*var(--fs));letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
 .settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio],.settings input[type=checkbox]{flex:none;accent-color:var(--cyan);width:auto;padding:0}
 .settings .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}.settings .keyrow button{padding:6px 12px}
@@ -468,7 +472,6 @@ $('phoneBtn').onclick=async()=>{
 };
 $('phoneClose').onclick=()=>$('phoneModal').hidden=true;
 if(!['127.0.0.1','localhost'].includes(location.hostname))$('phoneBtn').closest('.row').hidden=true;
-if(!['127.0.0.1','localhost'].includes(location.hostname))$('settingsRow').hidden=true;  // settings are made on the PC  // on the phone itself
 
 // The desktop app's bridge to Python (absent in a plain browser)
 const api=()=>window.pywebview?.api;
@@ -661,6 +664,26 @@ function stopSpeaking(){  // "Hey Jarvis" while he talks, Esc, or clicking the c
   voiceGen++;activeSrcs.forEach(src=>{try{src.stop()}catch(e){}});activeSrcs.clear();
   try{speechSynthesis.cancel()}catch(e){}
   aborter?.abort();voiceOn=false;speechAt=0;
+}
+// ---- Phone: resize panels and the chat by height (drag the bar under them; double-tap it to reset) ----
+if(matchMedia('(pointer:coarse)').matches&&!PIN){
+  const KEY='jarvis.phoneHeights';let hs={};try{hs=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(hs))}catch(e){}};
+  const grip=(el,id,after)=>{
+    if(!el||el.dataset.grip)return;el.dataset.grip=1;
+    if(hs[id])Object.assign(el.style,{height:hs[id]+'px',maxHeight:'none',overflow:'auto',boxSizing:'border-box'});
+    const g=document.createElement('div');g.className='vgrip'+(after?' loggrip':'');g.setAttribute('aria-label','Drag to resize');after?el.after(g):el.append(g);
+    let last=0;
+    g.addEventListener('touchstart',e=>{
+      if(Date.now()-last<300){Object.assign(el.style,{height:'',maxHeight:'',overflow:'',boxSizing:''});delete hs[id];save();return}  // double-tap: reset
+      last=Date.now();const y0=e.touches[0].clientY,h0=el.getBoundingClientRect().height;
+      const mv=ev=>{ev.preventDefault();const h=Math.max(70,Math.round(h0+ev.touches[0].clientY-y0));
+        Object.assign(el.style,{height:h+'px',maxHeight:'none',overflow:'auto',boxSizing:'border-box'});hs[id]=h};
+      const up=()=>{removeEventListener('touchmove',mv);removeEventListener('touchend',up);save()};
+      addEventListener('touchmove',mv,{passive:false});addEventListener('touchend',up)},{passive:true});
+  };
+  const scan=()=>{document.querySelectorAll('.panel[data-id]').forEach(p=>grip(p,p.dataset.id));grip($('log'),'log',true)};
+  scan();[1000,3000,8000].forEach(t=>setTimeout(scan,t));  // add-on panels arrive a little later
 }
 // iPhones mute page sound in Silent mode unless the page says it's media playback, like music or a video
 let mediaOn=false;
