@@ -59,7 +59,7 @@ def situation():
     procs = features.running()
     exe, title, full = foreground()
     game = next((name for e, name in GAMES.items() if e in procs), None)
-    if not game and full and exe not in ("chrome.exe", "msedge.exe", "firefox.exe", "pythonw.exe", "python.exe"):
+    if not game and full and exe not in ("chrome.exe", "msedge.exe", "firefox.exe", "pythonw.exe", "python.exe", "jarvis.exe"):
         game = title or exe  # some other fullscreen game
     return {"now": datetime.datetime.now(), "idle_s": idle_seconds(), "app": exe, "title": title[:80],
             "game": game, "open": sorted({v for e, v in NOTABLE.items() if e in procs})}

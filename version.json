@@ -1,4 +1,4 @@
 {
- "version": "1.17.3",
- "notes": "Text size slider in Settings (Panels section)."
+ "version": "1.18.0",
+ "notes": "Shows as Jarvis with his own icon in Task Manager and the taskbar, plus a tray icon by the clock."
 }

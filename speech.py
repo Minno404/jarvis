@@ -117,7 +117,7 @@ def install_kokoro():
             if not _importable():
                 status.update(kokoro="installing", progress=0)
                 py = Path(sys.executable)
-                py = py.with_name("python.exe") if py.name.lower() == "pythonw.exe" else py  # pip wants a console python
+                py = py.with_name("python.exe") if py.name.lower() in ("pythonw.exe", "jarvis.exe") else py  # pip wants a console python
                 subprocess.run([str(py), "-m", "pip", "install", "--quiet", "kokoro-onnx"], check=True, timeout=900,
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             VOICES_DIR.mkdir(exist_ok=True)
