@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.20.1** (shown at the bottom right of the HUD)
+**Version 1.21.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.21.0** (5 Nov 2026): everyday helpers (life.py). Meal ideas with a recipe panel that stays up while you cook;
+  bills and renewals with warnings a week and a day before; a habit tracker with streaks; "clean up my PC"
+  (scans first, cleans only what you OK, old downloads go to the Recycle Bin); game mode (closes the apps you
+  pick when a game starts and reopens them after); and "find my file" across your own folders.
 - **1.20.1** (5 Nov 2026): say "Jarvis split" to split (and "Jarvis merge", or "merge with ChatGPT/Claude", to
   merge back). Jarvis no longer mentions which brain answered or did a job.
 - **1.20.0** (5 Nov 2026): Split mode voices in Settings: pick each avatar's voice (any Kokoro voice or an online one).
