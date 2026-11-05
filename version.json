@@ -1,4 +1,4 @@
 {
- "version": "1.26.1",
- "notes": "Jarvis can read his own files to answer questions; changes to him go to the coder."
+ "version": "1.27.0",
+ "notes": "Game coach: live tips while you play and a review of your mistakes after."
 }

@@ -38,6 +38,8 @@ COMMANDS = {
     "Handy": ["*What's 15% of 240?", "*12 times 7 plus 3", "*180 Celsius in Fahrenheit", "*5 km in miles",
               "*2 cups in ml", "How do I say 'where's the bathroom' in Japanese?",
               "Translate 'thank you very much' into French"],
+    "Gaming": ["Coach me", "Watch my gameplay and only give me a review at the end", "Coach every game from now on",
+               "What am I doing wrong?", "Stop coaching", "How did I play?"],
     "Fun": ["Run a D&D adventure for me, Josh and Liam", "Continue our adventure", "Roll a d20", "End the adventure",
             "Triple-click the core: Claude vs ChatGPT, pros and cons"],
     "Coding and PC jobs": ["Ask the coder to add a dark mode to my Gun Bros project", "Do this on my PC: tidy my Downloads",

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.26.1** (shown at the bottom right of the HUD)
+**Version 1.27.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.27.0** (5 Nov 2026): game coach. "Coach me" and Jarvis watches your gameplay (a screenshot every ~20 s, kept
+  on this PC), gives a short live tip when he spots a clear mistake, and reviews the session when the game ends
+  ("how did I play?"). "What am I doing wrong?" checks the last minute; "coach every game" makes it automatic.
 - **1.26.1** (5 Nov 2026): both brains (Claude and ChatGPT) may read Jarvis's own files (README, CUSTOM.md, code)
   to answer questions, and changes to Jarvis go to the coder (dev_task), which builds them in custom/.
 - **1.26.0** (5 Nov 2026): Settings > Startup & closing: start Jarvis with Windows (he waits in the tray), and
