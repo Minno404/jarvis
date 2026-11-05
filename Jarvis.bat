@@ -13,5 +13,5 @@ python -c "import vidaa" 2>nul || python -m pip install vidaa-control
 python -c "import pystray" 2>nul || python -m pip install pystray
 rem Jarvis.exe shows as "Jarvis" with his icon in Task Manager and the taskbar (falls back to pythonw)
 set "JEXE=pythonw"
-for /f "delims=" %%e in ('python appexe.py') do set "JEXE=%%e"
+for /f "delims=" %%e in ('python appexe.py') do set "%%e"
 start "" "%JEXE%" server.py
