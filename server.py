@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.12.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.13.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -586,7 +586,8 @@ import custom_loader  # your own add-ons in custom/, kept through updates (see C
 import coach      # trade replays, pre-trade checklist, tilt detector (see coach.py)
 import personas   # voices and personalities: Jarvis, FRIDAY, EDITH, Jarvo (see personas.py)
 import speech     # the voice itself: online neural, or Kokoro on this PC (see speech.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, *custom_loader.load()):
+import undo       # "undo that": a short history of what Jarvis changed (see undo.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -602,6 +603,14 @@ TOOLS.append({"name": "set_brain", "description": "Switch which AI you think wit
               "switching to ChatGPT by itself when the Claude plan's limit is used up), claude, or chatgpt.",
               "input_schema": {"type": "object", "required": ["brain"], "properties": {
                   "brain": {"type": "string", "enum": ["auto", "claude", "chatgpt"]}}}})
+FUNCS["quiet_mode"] = lambda on=True: quiet_mode(on)
+TOOLS.append({"name": "quiet_mode", "description": "Quiet mode when he asks ('quiet mode', 'hold my messages'): you "
+              "hold routine announcements (reviews, briefs, job reports, budget notes) until he turns it off; "
+              "reminders, price alerts and trade warnings still come through. Same as what happens during a game.",
+              "input_schema": {"type": "object", "properties": {"on": {"type": "boolean"}}}})
+for _n in set(undo.FILE_TOOLS) | set(undo.LIVE_TOOLS):  # changes Jarvis makes get an undo step
+    if _n in FUNCS:
+        FUNCS[_n] = undo.wrap(_n, FUNCS[_n])
 features.REGISTRY = FUNCS
 
 # ---------- Claude ----------
@@ -746,6 +755,7 @@ def blend_to_glb(src, dest):
                          "Or open it in Blender and use File → Export → glTF 2.0, format .glb.")
     script = MODELS / "_export.py"
     script.write_text(BLEND_EXPORT)
+    TASKS["model"] = {"label": f"Converting {Path(src).name} with Blender", "progress": None}
     try:
         r = subprocess.run([blender, "-b", str(src), "--python", str(script), "--", str(dest)], capture_output=True,
                            text=True, timeout=300, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
@@ -753,6 +763,7 @@ def blend_to_glb(src, dest):
         raise ValueError("Blender took too long converting that model (over 5 minutes).")
     finally:
         script.unlink(missing_ok=True)
+        TASKS.pop("model", None)
     if not dest.exists() or dest.read_bytes()[:4] != b"glTF":
         err = [l for l in (r.stdout + r.stderr).splitlines() if "Error" in l or "error" in l][-1:]
         raise ValueError("Blender couldn't convert that file" + (f": {err[0].strip()}" if err else "."))
@@ -910,6 +921,40 @@ def chat_gpt(text, photo=None):
     with lock:
         yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt(),
                                   persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [])
+
+
+def quiet_mode(on=True):
+    """Hold routine announcements until he turns it off (urgent ones still come through)."""
+    features._save("settings.json", {**features.settings(), "quiet": bool(on)})
+    try:
+        push_event({"type": "status"})
+    except Exception:
+        pass
+    return {"quiet": bool(on)}
+
+
+TASKS = {}  # things in progress for the Activity panel: name -> {"label", "progress"}
+
+
+def activity():
+    """What Jarvis is busy with, for the Activity panel: jobs, downloads, reminders, held messages."""
+    st = LIVE.get("st") or {}
+    now = datetime.datetime.now()
+    jobs = []
+    for j in reversed(devhelper.dev_status()):
+        done = j.get("finished")
+        if j["status"] in ("queued", "running") or (done and (now - datetime.datetime.strptime(done, "%Y-%m-%d %H:%M"))
+                                                    .total_seconds() < 3600):
+            jobs.append({"what": j["request"][:90], "project": j.get("project"), "status": j["status"],
+                         "since": j.get("finished") or j.get("asked")})
+    downloads = [dict(v, name=k) for k, v in TASKS.items()]
+    if speech.status["kokoro"] in ("installing", "downloading"):
+        downloads.append({"name": "kokoro", "label": "Kokoro voice: " + speech.status["kokoro"],
+                          "progress": speech.status.get("progress")})
+    rem = [{"text": r["text"], "at": r["at"]} for r in features.list_reminders()[:4]]
+    return {"quiet": bool(features.settings().get("quiet")), "game": st.get("game"), "away": bool(st.get("away")),
+            "held": list(st.get("held", []))[:6], "jobs": jobs[:5], "downloads": downloads, "reminders": rem,
+            "brain": brain_status()["using"]}
 
 
 def brain_status():
@@ -1166,6 +1211,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             return self.wfile.write(data)
+        if self.path == "/api/status":  # the Activity panel
+            return self.send_json(activity())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
             return self.send_json({**speech.status, "voices": list(speech.KOKORO_VOICES),
                                    "auto": speech.PERSONA_KOKORO.get(personas.current())})
@@ -1216,6 +1263,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not self.local():
                 return self.send_error(403)
             try:
+                TASKS["update"] = {"label": "Installing the update", "progress": None}
                 files = updater.install()
             except Exception as e:
                 return self.send_json({"error": f"Update failed: {e}"}, 500)
@@ -1240,6 +1288,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
             return self.wfile.write(audio)
+        if self.path == "/api/quiet":  # the Activity panel's quiet mode switch
+            on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
+            return self.send_json(FUNCS["quiet_mode"](on=bool(on)))
         if self.path == "/api/prefs":  # the HUD's settings
             if not self.local():
                 return self.send_error(403)
@@ -1481,13 +1532,14 @@ if __name__ == "__main__":
 
         js = lambda code: threading.Thread(target=run_js, args=(code,), daemon=True).start()
         speak_now = lambda text: js(f"announce({json.dumps(features.address(text))})")
-        st = {"held": [], "game": None, "away": False, "voice_at": 0.0, "mode": "idle"}
+        st = {"held": [], "game": None, "away": False, "voice_at": 0.0, "mode": "idle", "quiet": False}
+        LIVE["st"] = st
         presence = awareness.Presence()
 
         def say(text, urgent=False):
-            """Jarvis speaks up on his own. While you're away, or mid-game for anything that can wait,
-            it's held and told to you when you're back."""
-            if st["away"] or (st["game"] and not urgent):
+            """Jarvis speaks up on his own. While you're away, or mid-game or in quiet mode for anything that can
+            wait, it's held and told to you when you're back."""
+            if st["away"] or ((st["game"] or features.settings().get("quiet")) and not urgent):
                 st["held"].append(text)
             else:
                 speak_now(text)
@@ -1543,13 +1595,16 @@ if __name__ == "__main__":
                     was_game, st["game"] = st["game"], sit.get("game")
                     if change == "back":
                         deliver_held("Welcome back, sir.")
-                    elif was_game and not st["game"] and not st["away"]:
-                        deliver_held("")  # game over: what was held for later
+                    quiet = bool(features.settings().get("quiet"))
+                    was_quiet, st["quiet"] = st["quiet"], quiet
+                    if (was_game and not st["game"] or was_quiet and not quiet) and not st["away"] and not st["game"] \
+                            and not quiet:
+                        deliver_held("")  # game over or quiet mode off: what was held for later
                     state = features._load("state.json", {})
                     if awareness.late_night_due(sit, state):
                         features._save("state.json", state)
-                        speak_now(f"It's past {sit['now'].hour} in the morning, sir. The charts will still be "
-                                  "there after some sleep.")
+                        say(f"It's past {sit['now'].hour} in the morning, sir. The charts will still be "
+                            "there after some sleep.")
                     if sit and learn.learn_due(sit["idle_s"]) and learning.acquire(blocking=False):
                         def run_learning():
                             try:

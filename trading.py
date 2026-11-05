@@ -146,9 +146,11 @@ def review_due(closed_today, open_positions, now_server, done_dates):
     return day
 
 
-REVIEW_PROMPT = ("[Automatic end-of-day review, not typed by {USER}] Review his trading for {day} (MT5 server date): "
-                 "use mt5_trades and mt5_report with since and until set to {day}. Give the numbers, what went well, "
-                 "and the one habit to fix tomorrow, in 4-6 spoken sentences.")
+REVIEW_PROMPT = ("[Automatic end-of-day review, not typed by {USER}] Debrief his trading for {day} (MT5 server date): "
+                 "call session_debrief with day {day} (it checks every entry against his own rules and finds the "
+                 "mistakes that keep recurring, and shows it on his HUD), and mt5_report with since and until set "
+                 "to {day} for the numbers. In 4-6 spoken sentences: the day's result, how many entries kept his rules "
+                 "and what breaking them cost, the recurring mistake, and the one thing to watch tomorrow.")
 
 
 def save_review(day, text):

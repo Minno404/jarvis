@@ -136,7 +136,7 @@ def show_image(query=None, url=None, title=None, count=1, skip=0):
 PANELS = {"time": "time", "clock": "time", "local time": "time", "systems": "systems", "system": "systems",
           "stats": "systems", "pc stats": "systems", "protocols": "protocols", "mt5": "mt5", "mt5 journal": "mt5",
           "trading journal": "mt5", "journal": "journal", "voice journal": "journal", "report": "report",
-          "journal report": "report", "voice journal report": "report", "all": "all", "everything": "all"}
+          "journal report": "report", "voice journal report": "report", "activity": "activity", "status": "activity", "status panel": "activity", "all": "all", "everything": "all"}
 
 
 def hud_panel(panel, show=True):

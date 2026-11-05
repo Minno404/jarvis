@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.12.2** (shown at the bottom right of the HUD)
+**Version 1.13.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,17 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.13.0** (5 Nov 2026):
+  - "Undo that": reverses the last thing Jarvis changed (a logged trade, memory, reminder, alert, routine,
+    budget, rules, colour, personality, panel, an app he opened, the TV). Say it again to go further back.
+  - Quiet mode ("quiet mode" / "quiet mode off", or the switch in the Activity panel): routine announcements wait
+    until you turn it off, like they already do during a game. Reminders, price alerts and trade warnings still
+    come through.
+  - Activity panel: coding and PC jobs, things downloading or converting, upcoming reminders and held messages.
+  - Session debrief ("debrief my session"): every entry checked against your own trading rules, what breaking them
+    cost, the mistakes that keep recurring across your last 10 sessions, and one thing to watch tomorrow. It's
+    also part of the end-of-day review and the morning brief. Change your rules by voice ("stop me after 2
+    losses", "no trading after 11pm", "wait 15 minutes after a loss").
 - **1.12.2** (5 Nov 2026): core models can also be a .zip (a .blend with its texture images), unpacked and
   converted with Blender, which also finds textures the .blend lost track of.
 - **1.12.1** (5 Nov 2026): the core model can be a Blender file (.blend) as well as .glb. Jarvis converts it with

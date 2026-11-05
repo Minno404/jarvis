@@ -427,7 +427,8 @@ def morning_due(now=None):
 MORNING_PROMPT = ("[Automatic morning brief, not typed by {USER}] Give {USER} his morning brief, as if he just sat "
                   "down: a short greeting, the weather (weather tool), today's reminders (list_reminders), high-impact "
                   "news in the next 24 hours (upcoming_news), and gold with market_snapshot if MT5 is open (skip it "
-                  "quietly if not). 4-6 spoken sentences.")
+                  "quietly if not). If MT5 is open, call session_debrief and give its focus_tomorrow as the one "
+                  "thing to watch today. 4-6 spoken sentences.")
 
 
 def selftest():

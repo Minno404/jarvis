@@ -101,6 +101,16 @@ def quick(text):
     if re.fullmatch(r"power (?:yourself )?down|power off|shut (?:yourself|jarvis) down|shut ?down (?:yourself|jarvis)|"
                     r"close (?:yourself|jarvis)|(?:switch|turn) (?:yourself|jarvis) off", t):
         return _ok(R["jarvis_power"]("shutdown"), "Powering down. Goodbye, {TITLE}.")
+    # --- undo the last thing Jarvis changed ---
+    if re.fullmatch(r"undo(?: that| it| the last (?:thing|action|change)| last| your last (?:action|change))?|take that back|"
+                    r"revert that|reverse that", t):
+        r = R["undo_last"]()
+        return r["error"] if r.get("error") else f"Undone: {r.get('undone', 'that')}."
+    # --- quiet mode: hold routine announcements ---
+    if re.fullmatch(r"(?:turn on |enable |start |switch to )?quiet mode(?: on)?|go quiet|hold (?:my|your) messages", t):
+        return _ok(R["quiet_mode"](on=True), "Quiet mode. I'll hold anything routine until you say otherwise.")
+    if re.fullmatch(r"(?:turn off |disable |end |stop |exit )quiet mode|quiet mode off|you can talk again", t):
+        return _ok(R["quiet_mode"](on=False), "Quiet mode off.")
     # --- voices and personalities ---
     m = re.fullmatch(r"(?:switch to|change to|swap to|use|go|be|become|bring back|back to) (?:the )?(jarvis|friday|edith|"
                      r"jarvo|casual|aussie|mate|tactical|normal)(?: mode| voice| personality)?|(jarvis|friday|edith|jarvo|"
@@ -157,7 +167,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona", "jarvis_power"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona", "jarvis_power", "undo_last", "quiet_mode"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -191,6 +201,10 @@ def selftest():
         "back to Jarvis": ("set_persona", ("jarvis",), {}),
         "Jarvis, restart yourself": ("jarvis_power", ("restart",), {}),
         "power down": ("jarvis_power", ("shutdown",), {}),
+        "Jarvis, undo that": ("undo_last", (), {}),
+        "take that back": ("undo_last", (), {}),
+        "quiet mode": ("quiet_mode", (), {"on": True}),
+        "quiet mode off": ("quiet_mode", (), {"on": False}),
         "shut yourself down": ("jarvis_power", ("shutdown",), {}),
     }
     for said, want in cases.items():

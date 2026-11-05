@@ -1,4 +1,4 @@
 {
- "version": "1.12.2",
- "notes": "Core models can be a .zip of a .blend with its textures."
+ "version": "1.13.0",
+ "notes": "Undo, quiet mode, an Activity panel, and a session debrief against your own trading rules."
 }

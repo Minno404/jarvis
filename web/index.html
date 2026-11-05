@@ -120,6 +120,15 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* Activity: what Jarvis is busy with */
+.act{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.act h4{margin:8px 0 2px;font-family:var(--display);font-size:calc(10px*var(--s));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.act .item{display:flex;gap:8px;align-items:baseline;padding:3px 0;line-height:1.35}.act .item span:last-child{min-width:0;overflow-wrap:anywhere}
+.chip-st{flex:none;font-size:calc(9px*var(--s));letter-spacing:.12em;text-transform:uppercase;padding:1px 5px;border:1px solid var(--line);color:var(--mute)}
+.chip-st.running{color:var(--cyan);border-color:var(--cyan)}.chip-st.done{color:#4dff9a;border-color:#4dff9a}
+.chip-st.error{color:var(--red);border-color:var(--red)}.chip-st.held{color:var(--amber);border-color:var(--amber)}
+.act .bar{margin:2px 0 4px}.act-empty{color:var(--mute);font-size:calc(12px*var(--s));padding:4px 0}
+#quietBtn[aria-pressed=true]{color:var(--amber)}
 /* Settings */
 .settings{max-width:480px;max-height:calc(100vh - 32px);overflow:auto}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
 .settings legend{color:var(--cyan);font-family:var(--display);font-size:11px;letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
@@ -191,6 +200,10 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
       <div class="row"><span>HUD sounds</span><button id="sfxBtn" class="linkbtn" type="button">On</button></div>
       <div class="row" id="settingsRow"><span>Settings</span><button id="settingsBtn" class="linkbtn" type="button">Open</button></div>
       <div class="row" id="layoutRow" hidden><span>Layout</span><button id="layoutBtn" class="linkbtn" type="button">Reset</button></div>
+    </div>
+    <div class="panel" data-id="activity"><h2>Activity</h2>
+      <div class="row"><span>Quiet mode</span><button id="quietBtn" class="linkbtn" type="button" aria-pressed="false">Off</button></div>
+      <div id="actBody" class="act"><div class="act-empty">Nothing on the go.</div></div>
     </div>
   </div>
 
@@ -630,7 +643,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -783,6 +796,26 @@ $('coreWrap').addEventListener('click',()=>{if(voiceOn||busy){stopSpeaking();set
 function followUp(on){if(on)setMode('listening');else if(mode==='listening')setMode('idle')}  // listening for a reply
   // Show the mini window while the main one is in the background
   addEventListener('blur',()=>api()?.mini(true));addEventListener('focus',()=>api()?.mini(false));
+
+// ---------- Activity: jobs, downloads, reminders and held messages, so you can see what Jarvis is up to ----------
+function renderActivity(a){
+  const b=$('actBody'),parts=[];if(!b)return;
+  $('quietBtn').textContent=a.quiet?'On':'Off';$('quietBtn').setAttribute('aria-pressed',a.quiet?'true':'false');
+  const item=(chip,cls,text)=>`<div class="item"><span class="chip-st ${cls}">${esc(chip)}</span><span>${esc(text)}</span></div>`;
+  if(a.game||a.held?.length){parts.push('<h4>Held for later</h4>');
+    if(a.game)parts.push(item('game','held',`In ${a.game.replace(/ \(.*\)$/,'')}: routine messages wait until you're done`));
+    for(const h of a.held.slice(0,3))parts.push(item('held','held',h.length>90?h.slice(0,88)+'…':h))}
+  if(a.jobs?.length){parts.push('<h4>Jobs</h4>');for(const j of a.jobs)parts.push(item(j.status,j.status,(j.project&&j.project!=='PC'?j.project+': ':'')+j.what))}
+  if(a.downloads?.length){parts.push('<h4>In progress</h4>');
+    for(const d of a.downloads)parts.push(item('busy','running',d.label)+(d.progress!=null?`<div class="bar"><i style="width:${d.progress}%"></i></div>`:''))}
+  if(a.reminders?.length){parts.push('<h4>Coming up</h4>');const today=new Date().toISOString().slice(0,10);
+    for(const r of a.reminders)parts.push(item(r.at.slice(0,10)===today?r.at.slice(11,16):r.at.slice(5,16),'',r.text))}
+  b.innerHTML=parts.join('')||'<div class="act-empty">Nothing on the go.</div>';
+}
+async function activityTick(){try{renderActivity(await (await fetch('/api/status')).json())}catch(e){}}
+$('quietBtn').onclick=async()=>{const on=$('quietBtn').getAttribute('aria-pressed')!=='true';
+  try{await fetch('/api/quiet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on})})}catch(e){}activityTick()};
+activityTick();setInterval(activityTick,3000);
 
 // ---------- Settings: listening mode, push-to-talk key, core model ----------
 let prefs={listen_mode:'wake',ptt_key:'',avatar:'',avatar_style:'hologram'},capturing=false;
