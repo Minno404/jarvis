@@ -28,7 +28,7 @@ KOKORO_VOICES = {  # name -> (Kokoro voice, language)
     "Alice (British woman)": ("bf_alice", "en-gb"), "Lily (British woman)": ("bf_lily", "en-gb"),
     "Michael (American man)": ("am_michael", "en-us"), "Adam (American man)": ("am_adam", "en-us"),
     "Heart (American woman)": ("af_heart", "en-us"), "Bella (American woman)": ("af_bella", "en-us")}
-PERSONA_KOKORO = {"jarvis": "George (British man)", "friday": "Emma (British woman)",
+PERSONA_KOKORO = {"jarvis": "George (British man)", "dm": "Lewis (British man)", "friday": "Emma (British woman)",
                   "edith": "Heart (American woman)", "mate": "Michael (American man)"}
 status = {"kokoro": "not installed", "progress": 0}
 _lock, _kokoro = threading.Lock(), {}

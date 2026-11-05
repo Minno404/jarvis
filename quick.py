@@ -64,6 +64,10 @@ def quick(text):
         if not ns:
             return "You've no notes this week, {TITLE}."
         return f"Your last {len(ns)} note{'s' if len(ns) > 1 else ''}: " + " ".join(f"{n['text']}." for n in ns)
+    if re.fullmatch(r"(?:run |start |play |do )?(?:the |your |a )?boot ?up(?: sequence)?|(?:run |start |play )(?:the |your )?boot sequence|"
+                    r"wake up(?: jarvis| daddy s home)?|daddy s home", t) and "boot_up" in R:
+        R["boot_up"]()
+        return "Initiating boot sequence."
     # --- workout ---
     m = re.fullmatch(r"(stop|end|cancel|pause|resume|skip)(?: the| my)? (?:workout|exercise)", t)
     if m:
@@ -262,6 +266,11 @@ def selftest():
         assert quick(said) is None or calls[0][0] == "open_app", said
     assert quick("open the thing I used yesterday") is None  # app not found: Claude handles it
     assert quick("what's 15% of 240") == "15% of 240 is 36."
+    features.REGISTRY["boot_up"] = rec("boot_up")
+    calls.clear()
+    assert quick("Jarvis, run the boot sequence") and calls[0][0] == "boot_up"
+    calls.clear()
+    assert quick("wake up, daddy's home") and calls[0][0] == "boot_up"
     features.REGISTRY["add_note"] = rec("add_note")
     calls.clear()
     assert quick("Jarvis, take a note: ask the landlord about the leak") and calls[0] == ("add_note", ("ask the landlord about the leak",), {})

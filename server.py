@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.23.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.24.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -588,7 +588,8 @@ import personas   # voices and personalities: Jarvis, FRIDAY, EDITH, Jarvo (see 
 import speech     # the voice itself: online neural, or Kokoro on this PC (see speech.py)
 import undo       # "undo that": a short history of what Jarvis changed (see undo.py)
 import life       # recipes, bills, habits, PC clean-up, game mode, finding files (see life.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, *custom_loader.load()):
+import dnd        # Jarvis as Dungeon Master: adventures with real dice on the HUD (see dnd.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -721,6 +722,9 @@ def save_prefs(d):
             s[k] = d[k] or ""
             if d[k] in speech.KOKORO_VOICES and not speech.kokoro_ready():
                 speech.install_kokoro()  # first time: installs and downloads in the background
+    for k in ("ambient", "ambient_music", "bootup"):
+        if k in d:
+            s[k] = bool(d[k])
     if "text_size" in d:
         s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
@@ -735,7 +739,7 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha", "text_size", "split_claude_voice",
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "split_claude_voice",
                                                             "split_gpt_voice")}})
     return {**s, "voice": speech.status}
 
@@ -839,6 +843,59 @@ def save_model(name, data):
         raise ValueError("Send a .glb, .blend or .zip 3D model")
     (MODELS / name).write_bytes(data)
     return name
+
+
+def boot_up(held=None):
+    """The Iron Man boot-up: a cinematic systems check on the HUD, then 'Welcome home' with the time, weather and
+    today's reminders (and anything held while he was away)."""
+    now = datetime.datetime.now()
+    st = features.pc_stats()
+    try:
+        w = WEATHER_CACHE["w"] if time.time() - WEATHER_CACHE["at"] < 1200 else features.weather()
+    except Exception:
+        w = None
+    today = now.strftime("%Y-%m-%d")
+    rem = [r for r in features.list_reminders() if r["at"].startswith(today)]
+    lines = ["Arc reactor · online", f"CPU {st['cpu_percent']:.0f}% · memory {st['ram_percent']:.0f}%"]
+    if st.get("gpu_temp_c") is not None:
+        lines.append(f"GPU {st['gpu_percent']:.0f}% · {st['gpu_temp_c']:.0f}°C")
+    lines += [f"Neural link · {brain_status()['using']}", "Voice systems · online"]
+    if w and not w.get("error"):
+        lines.append(f"Atmosphere · {round(w['now_c'])}°, {w['sky_now']}")
+    lines += [f"Reminders today · {len(rem)}", "All systems nominal"]
+    part = "morning" if now.hour < 12 else "afternoon" if now.hour < 18 else "evening"
+    say = f"Welcome home, {{TITLE}}. Good {part}. It's {now.hour % 12 or 12}:{now:%M}"
+    if w and not w.get("error"):
+        say += f", {round(w['now_c'])} degrees and {w['sky_now']} outside"
+    say += "." + (f" You have {len(rem)} reminder{'s' if len(rem) != 1 else ''} today." if rem else "")
+    if held:
+        say += " While you were away: " + " ".join(held[:6])
+    features._panel({"type": "bootup", "lines": lines, "say": persona(features.address(say))})
+    return {"booting": True}
+
+
+WEATHER_CACHE = {"at": 0, "w": None}
+
+
+def ambient():
+    """What the HUD's ambient light follows: the sky outside, day or night, and how soon the next timer ends."""
+    if time.time() - WEATHER_CACHE["at"] > 1200:
+        WEATHER_CACHE["at"] = time.time()
+        try:
+            WEATHER_CACHE["w"] = features.weather()
+        except Exception:
+            WEATHER_CACHE["w"] = None
+    w, now = WEATHER_CACHE["w"] or {}, datetime.datetime.now()
+    soon = [(datetime.datetime.strptime(r["at"][:16], "%Y-%m-%d %H:%M") - now).total_seconds()
+            for r in features.list_reminders() if r["text"].lower().startswith("timer")]
+    return {"sky": w.get("sky_now", ""), "temp": w.get("now_c"), "hour": now.hour + now.minute / 60,
+            "timer_s": min((x for x in soon if x > -5), default=None)}
+
+
+FUNCS["boot_up"] = lambda: boot_up()
+TOOLS.append({"name": "boot_up", "description": "Run the Iron Man boot-up sequence on his HUD ('boot up', 'wake up "
+              "Jarvis', 'run the boot sequence'). It speaks its own welcome, so just say nothing or a word.",
+              "input_schema": {"type": "object", "properties": {}}})
 
 
 def jarvis_power(action):
@@ -1354,6 +1411,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"window": bool(LIVE.get("window_open")), "version": VERSION})
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
+        if self.path == "/api/ambient":
+            return self.send_json(ambient())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
             return self.send_json({**speech.status, "voices": list(speech.KOKORO_VOICES), "split": speech.SPLIT_VOICES,
                                    "auto": speech.PERSONA_KOKORO.get(personas.current())})
@@ -1509,6 +1568,12 @@ class Handler(SimpleHTTPRequestHandler):
             if not re.match(r"https?://", url) or not LIVE.get("page_price"):
                 return self.send_json({"error": "Needs a web link, and the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["page_price"](url))
+        if self.path == "/api/bootup":  # Settings' "Play the boot-up"
+            if not self.local():
+                return self.send_error(403)
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            threading.Thread(target=boot_up, daemon=True).start()
+            return self.send_json({"ok": True})
         if self.path == "/api/brain":  # merging the split avatars: the one he clicked becomes the brain
             r = set_brain(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["brain"])
             return self.send_json(r, 400 if r.get("error") else 200)
@@ -1936,7 +2001,10 @@ if __name__ == "__main__":
                 print(datetime.datetime.now(), "page not ready:", str(e)[:120])
 
         js = lambda code: threading.Thread(target=run_js, args=(code,), daemon=True).start()
-        speak_now = lambda text: js(f"announce({json.dumps(features.address(text))})")
+        def speak_now(text):  # the HUD says it; phones in holo mode say it too
+            text = features.address(text)
+            push_event({"type": "say", "text": text})
+            js(f"announce({json.dumps(text)})")
         st = {"held": [], "game": None, "away": False, "voice_at": 0.0, "mode": "idle", "quiet": False}
         LIVE["st"] = st
         presence = awareness.Presence()
@@ -1999,7 +2067,11 @@ if __name__ == "__main__":
                     st["away"] = presence.away
                     was_game, st["game"] = st["game"], sit.get("game")
                     if change == "back":
-                        deliver_held("Welcome back, sir.")
+                        if presence.last_gone >= 3 * 3600 and features.settings().get("bootup", True):
+                            held, st["held"] = st["held"][:6], []
+                            boot_up(held)  # long time away: the full Iron Man welcome
+                        else:
+                            deliver_held("Welcome back, sir.")
                     quiet = bool(features.settings().get("quiet"))
                     was_quiet, st["quiet"] = st["quiet"], quiet
                     if (was_game and not st["game"] or was_quiet and not quiet) and not st["away"] and not st["game"] \
@@ -2079,6 +2151,31 @@ if __name__ == "__main__":
                                                   js(f"followUp({'true' if on else 'false'})")),
                             on_hold_cmd=do_hold)
 
+        def music_meter():
+            """How loud whatever the PC is playing is (0-1), fed to the HUD's ambient light while it's on."""
+            meter = None
+            while True:
+                s = features.settings()
+                if not (s.get("ambient") and s.get("ambient_music", True)) or not LIVE.get("window_open"):
+                    meter = None
+                    time.sleep(2)
+                    continue
+                try:
+                    if meter is None:
+                        import comtypes
+                        from pycaw.pycaw import AudioUtilities, IAudioMeterInformation
+                        comtypes.CoInitialize()
+                        dev = AudioUtilities.GetSpeakers()
+                        dev = getattr(dev, "_dev", dev)
+                        meter = dev.Activate(IAudioMeterInformation._iid_, comtypes.CLSCTX_ALL, None).QueryInterface(
+                            IAudioMeterInformation)
+                    main.evaluate_js(f"ambLevel({meter.GetPeakValue():.3f})")
+                    time.sleep(0.1)
+                except Exception as e:
+                    print(datetime.datetime.now(), "ambient music level unavailable:", repr(e)[:160])
+                    meter = None
+                    time.sleep(60)
+        threading.Thread(target=music_meter, daemon=True).start()
         main.events.loaded += on_loaded
         # not private mode: panel positions, closed panels and other HUD choices are kept between launches
         webview.start(private_mode=False, storage_path=str(HERE / "webdata"))

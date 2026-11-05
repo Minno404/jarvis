@@ -83,7 +83,7 @@ class Presence:
     """Turns idle time into 'away' and 'back' moments."""
 
     def __init__(self):
-        self.away_since = None
+        self.away_since, self.last_gone = None, 0  # last_gone: how long the last time away lasted (seconds)
 
     def update(self, idle_s, now=None):
         now = now or datetime.datetime.now()
@@ -92,7 +92,7 @@ class Presence:
             return "away"
         if self.away_since is not None and idle_s < 5:
             gone = (now - self.away_since).total_seconds()
-            self.away_since = None
+            self.away_since, self.last_gone = None, gone
             return "back" if gone >= AWAY_AFTER_S else None
         return None
 
