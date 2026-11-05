@@ -15,4 +15,4 @@ python -c "import pycaw" 2>nul || python -m pip install pycaw
 rem Jarvis.exe shows as "Jarvis" with his icon in Task Manager and the taskbar (falls back to pythonw)
 set "JEXE=pythonw"
 for /f "delims=" %%e in ('python appexe.py') do set "%%e"
-start "" "%JEXE%" server.py
+start "" "%JEXE%" server.py %*

@@ -1,4 +1,4 @@
 {
- "version": "1.25.0",
- "notes": "\"What can you do?\" shows every command in a searchable panel."
+ "version": "1.26.0",
+ "notes": "Start with Windows, and close to the system tray (Settings > Startup & closing)."
 }

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.25.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.26.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -688,6 +688,30 @@ def apply_prefs():
         LIVE["voice"].set_mode(s.get("listen_mode", "wake"))
 
 
+def startup_link():
+    """Where the 'start with Windows' shortcut lives (the user's Startup folder)."""
+    return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Jarvis.lnk"
+
+
+def set_autostart(on):
+    """Start Jarvis when Windows starts: a shortcut to Jarvis.bat in the Startup folder (made by PowerShell, so it
+    lands in the real folder even with the Microsoft Store Python)."""
+    link = startup_link()
+    if on:
+        ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk');"
+              f"$s.TargetPath='{HERE / 'Jarvis.bat'}';$s.Arguments='--startup';$s.WorkingDirectory='{HERE}';"
+              f"$s.IconLocation='{HERE / 'jarvis.ico'}';$s.WindowStyle=7;$s.Save()")
+    else:
+        ps = "Remove-Item -LiteralPath ([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk') -ErrorAction SilentlyContinue"
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=30,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError) as e:
+        raise ValueError(f"Couldn't change the startup setting: {e}")
+    if link.exists() != bool(on):
+        raise ValueError("Windows didn't let Jarvis change its startup setting.")
+
+
 def save_prefs(d):
     """Listening mode, push-to-talk key and avatar choices from the HUD's settings."""
     s = features.settings()
@@ -723,7 +747,9 @@ def save_prefs(d):
             s[k] = d[k] or ""
             if d[k] in speech.KOKORO_VOICES and not speech.kokoro_ready():
                 speech.install_kokoro()  # first time: installs and downloads in the background
-    for k in ("ambient", "ambient_music", "bootup"):
+    if "autostart" in d:
+        set_autostart(bool(d["autostart"]))
+    for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
         if k in d:
             s[k] = bool(d[k])
     if "text_size" in d:
@@ -740,9 +766,9 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "split_claude_voice",
-                                                            "split_gpt_voice")}})
-    return {**s, "voice": speech.status}
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "split_claude_voice",
+                                                            "split_gpt_voice")}, "autostart": startup_link().exists()})
+    return {**s, "voice": speech.status, "autostart": startup_link().exists()}
 
 
 def models():
@@ -1382,7 +1408,8 @@ class Handler(SimpleHTTPRequestHandler):
             # settings first: live status ("brain", "persona") must win over the saved setting of the same name
             return self.send_json({**features.settings(), "memories": len(features.memories()),
                                    "protocols": len(features.list_routines()), "mt5": mt5_on, "version": VERSION,
-                                   "brain": brain_status(), "persona": personas.get()})
+                                   "brain": brain_status(), "persona": personas.get(),
+                                   "autostart": os.name == "nt" and startup_link().exists()})
         if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
             f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name
@@ -1937,9 +1964,15 @@ if __name__ == "__main__":
 
         api = Api()
         # no Windows title bar: the HUD has its own minimise / maximise / close and a drag strip along the top
+        to_tray = lambda: bool(features.settings().get("close_to_tray")) and bool(LIVE.get("tray_ok"))
+        try:
+            import pystray  # noqa: F401  (the tray icon is how he gets the window back)
+            LIVE["tray_ok"] = True
+        except ImportError:
+            pass
         main = webview.create_window("JARVIS", f"{url}/?v={VERSION}", width=1440, height=900, min_size=(420, 600),
                                      background_color="#03070c", js_api=api, text_select=True, frameless=True,
-                                     easy_drag=False)
+                                     easy_drag=False, hidden="--startup" in sys.argv and to_tray())
         win = {"max": False}
         main.events.maximized += lambda: win.update(max=True)
         main.events.restored += lambda: win.update(max=False)
@@ -1948,6 +1981,20 @@ if __name__ == "__main__":
         main.events.minimized += lambda: (mini.send("show"), show_pins(True))
         LIVE["window_open"], LIVE["show_window"] = True, open_main
         LIVE["shot_hide"], LIVE["shot_show"] = main.minimize, open_main  # out of the way for "what's on my screen"
+
+        quitting = {"now": False}
+
+        def closing():
+            """Close to the tray (Settings): the window hides and Jarvis keeps running by the clock."""
+            if quitting["now"] or not to_tray():
+                return True
+            threading.Timer(0.05, lambda: (main.hide(), mini.send("hide"), show_pins(False))).start()
+            return False  # cancels the close
+        main.events.closing += closing
+
+        def quit_jarvis():
+            quitting["now"] = True
+            main.destroy()
 
         def closed():  # closing the main window quits everything (pinned panels' hidden pages included)
             LIVE["window_open"] = False
@@ -1987,7 +2034,7 @@ if __name__ == "__main__":
                 pystray.MenuItem("Quiet mode", lambda *_: FUNCS["quiet_mode"](on=not quiet()), checked=quiet),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart", lambda *_: (LIVE["tray"].stop(), updater.restart())),
-                pystray.MenuItem("Quit", lambda *_: main.destroy()))
+                pystray.MenuItem("Quit", lambda *_: quit_jarvis()))
             LIVE["tray"] = pystray.Icon("Jarvis", Image.open(HERE / "jarvis.ico"), "Jarvis", menu)
             LIVE["tray"].run()
         threading.Thread(target=tray, daemon=True).start()
