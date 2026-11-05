@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.18.0** (shown at the bottom right of the HUD)
+**Version 1.18.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.18.1** (5 Nov 2026): fixes the tray icon and taskbar logo (the icon file was looked for in the wrong folder).
+  Jarvis.exe is now a small launcher built with Windows' own C# compiler, so it works with the Microsoft Store
+  Python too.
 - **1.18.0** (5 Nov 2026): Jarvis shows as "Jarvis" with his own icon in Task Manager and on the taskbar (Jarvis.exe,
   a renamed pythonw made on first launch), and lives in the system tray by the clock: click to open, right-click
   for mini core, quiet mode, restart and quit. Windows 11 tucks new tray icons behind the ^ arrow: drag it out next

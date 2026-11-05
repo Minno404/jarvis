@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.18.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.18.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1715,7 +1715,7 @@ if __name__ == "__main__":
                 except Exception:
                     hwnd = u.FindWindowW(None, "JARVIS")
                 for size, which in ((16, 0), (32, 1)):  # small, big
-                    ico = u.LoadImageW(None, str(HERE / "web" / "jarvis.ico"), 1, size, size, 0x10)  # LR_LOADFROMFILE
+                    ico = u.LoadImageW(None, str(HERE / "jarvis.ico"), 1, size, size, 0x10)  # LR_LOADFROMFILE
                     u.SendMessageW(ctypes.c_void_p(hwnd), 0x80, which, ctypes.c_void_p(ico))  # WM_SETICON
             except Exception as e:
                 print(datetime.datetime.now(), "window icon:", repr(e))
@@ -1736,7 +1736,7 @@ if __name__ == "__main__":
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart", lambda *_: (LIVE["tray"].stop(), updater.restart())),
                 pystray.MenuItem("Quit", lambda *_: main.destroy()))
-            LIVE["tray"] = pystray.Icon("Jarvis", Image.open(HERE / "web" / "jarvis.ico"), "Jarvis", menu)
+            LIVE["tray"] = pystray.Icon("Jarvis", Image.open(HERE / "jarvis.ico"), "Jarvis", menu)
             LIVE["tray"].run()
         threading.Thread(target=tray, daemon=True).start()
         mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)
