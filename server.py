@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.17.3"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.18.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1553,6 +1553,11 @@ if __name__ == "__main__":
             "--disable-renderer-backgrounding --disable-backgrounding-occluded-windows")
         import webview  # pip install pywebview; uses the Edge engine built into Windows
         import mini
+        try:  # his own taskbar button and icon, not grouped under Python
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Minno404.Jarvis")
+        except Exception:
+            pass
         try:
             import voice  # optional: "Hey Jarvis" needs openwakeword, faster-whisper and sounddevice
         except Exception as e:
@@ -1695,8 +1700,45 @@ if __name__ == "__main__":
         def closed():  # closing the main window quits everything (pinned panels' hidden pages included)
             LIVE["window_open"] = False
             mini.send("quit")
+            if LIVE.get("tray"):
+                LIVE["tray"].stop()  # or its icon lingers by the clock until you hover it
             threading.Timer(0.5, lambda: os._exit(0)).start()
         main.events.closed += closed
+
+        def set_icon():  # the Jarvis logo on the window and its taskbar button
+            try:
+                import ctypes
+                u = ctypes.windll.user32
+                u.LoadImageW.restype = u.FindWindowW.restype = ctypes.c_void_p
+                try:
+                    hwnd = main.native.Handle.ToInt64()
+                except Exception:
+                    hwnd = u.FindWindowW(None, "JARVIS")
+                for size, which in ((16, 0), (32, 1)):  # small, big
+                    ico = u.LoadImageW(None, str(HERE / "web" / "jarvis.ico"), 1, size, size, 0x10)  # LR_LOADFROMFILE
+                    u.SendMessageW(ctypes.c_void_p(hwnd), 0x80, which, ctypes.c_void_p(ico))  # WM_SETICON
+            except Exception as e:
+                print(datetime.datetime.now(), "window icon:", repr(e))
+        main.events.shown += set_icon
+
+        def tray():
+            """Jarvis in the system tray, by the clock and wifi: click to open, right-click for more."""
+            try:
+                import pystray
+                from PIL import Image
+            except ImportError:
+                return print(datetime.datetime.now(), "no tray icon: pip install pystray")
+            quiet = lambda *_: bool(features.settings().get("quiet"))
+            menu = pystray.Menu(
+                pystray.MenuItem("Open Jarvis", lambda *_: open_main(), default=True),
+                pystray.MenuItem("Mini core", lambda *_: api.mini(True)),
+                pystray.MenuItem("Quiet mode", lambda *_: FUNCS["quiet_mode"](on=not quiet()), checked=quiet),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("Restart", lambda *_: (LIVE["tray"].stop(), updater.restart())),
+                pystray.MenuItem("Quit", lambda *_: main.destroy()))
+            LIVE["tray"] = pystray.Icon("Jarvis", Image.open(HERE / "web" / "jarvis.ico"), "Jarvis", menu)
+            LIVE["tray"].run()
+        threading.Thread(target=tray, daemon=True).start()
         mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)
         if features.settings().get("theme"):
             mini.send("colour", features.settings()["theme"])
