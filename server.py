@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.20.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.21.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -587,7 +587,8 @@ import coach      # trade replays, pre-trade checklist, tilt detector (see coach
 import personas   # voices and personalities: Jarvis, FRIDAY, EDITH, Jarvo (see personas.py)
 import speech     # the voice itself: online neural, or Kokoro on this PC (see speech.py)
 import undo       # "undo that": a short history of what Jarvis changed (see undo.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, *custom_loader.load()):
+import life       # recipes, bills, habits, PC clean-up, game mode, finding files (see life.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1917,6 +1918,11 @@ if __name__ == "__main__":
                             say(persona(f"Budget note, {{TITLE}}: {w}"))
                 except Exception as e:  # no Spend Breakdown or no statements yet
                     print(datetime.datetime.now(), "spending plan:", repr(e))
+                try:
+                    for line in life.tick(st["game"]):  # game mode, and bills coming up
+                        say(persona(line))
+                except Exception as e:
+                    print(datetime.datetime.now(), "life:", repr(e))
                 try:
                     watch.tick()
                 except Exception as e:  # e.g. MT5 closing mid-check; try again next time

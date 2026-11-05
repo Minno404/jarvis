@@ -17,7 +17,10 @@ _undoing = {"now": False}  # while undoing, the reversing action isn't itself re
 FILE_TOOLS = {"add_trade": ["journal.json"], "delete_trade": ["journal.json"], "remember": ["memory.json"],
               "forget": ["memory.json"], "add_reminder": ["reminders.json"], "cancel_reminder": ["reminders.json"],
               "add_alert": ["alerts.json"], "cancel_alert": ["alerts.json"], "save_routine": ["routines.json"],
-              "set_spending_plan": ["plan"], "set_trading_rules": ["settings.json"]}
+              "set_spending_plan": ["plan"], "set_trading_rules": ["settings.json"],
+              "add_bill": ["bills.json"], "bill_paid": ["bills.json"], "remove_bill": ["bills.json"],
+              "add_habit": ["habits.json"], "log_habit": ["habits.json"], "remove_habit": ["habits.json"],
+              "game_mode": ["settings.json"]}
 LIVE_TOOLS = ("hud_background", "hud_colour", "set_persona", "set_brain", "hud_panel", "open_app", "tv_power", "quiet_mode")
 SAY = {"add_trade": "logging that trade", "delete_trade": "deleting that trade", "remember": "remembering that",
        "forget": "forgetting that", "add_reminder": "that reminder", "cancel_reminder": "cancelling that reminder",
@@ -25,7 +28,9 @@ SAY = {"add_trade": "logging that trade", "delete_trade": "deleting that trade",
        "set_spending_plan": "the budget change", "set_trading_rules": "the trading rules change",
        "hud_colour": "the colour change", "hud_background": "the background change", "set_persona": "the personality switch", "set_brain": "the brain switch",
        "hud_panel": "that panel change", "open_app": "opening {name}", "tv_power": "the TV power change",
-       "quiet_mode": "the quiet mode change"}
+       "quiet_mode": "the quiet mode change", "add_bill": "that bill", "bill_paid": "marking that bill paid",
+       "remove_bill": "removing that bill", "add_habit": "that habit", "log_habit": "that habit log",
+       "remove_habit": "removing that habit", "game_mode": "the game mode change"}
 
 
 def _path(rel):

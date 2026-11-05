@@ -231,6 +231,10 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 .prog{margin:8px 0}.prog .row{border:0;padding:0 0 4px}.prog .bar{height:6px}
 .prog .bar i.warnbar{background:var(--amber);box-shadow:0 0 8px var(--amber)}
 .prog .bar i.over{background:var(--red);box-shadow:0 0 8px var(--red)}
+.recipe{max-height:min(60vh,calc(520px*var(--s)));overflow-y:auto;user-select:text;line-height:1.45}
+.recipe h4{margin:8px 0 4px;font-family:var(--display);font-size:calc(10px*var(--s)*var(--fs));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.recipe ul{margin:0;padding-left:18px}.recipe ol{margin:0;padding-left:26px}.recipe li{margin:2px 0}.recipe .rmeta{color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
+.recipe .need,.recipe li.need{color:var(--amber)}.recipe em{font-style:normal;font-size:.8em;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--amber);padding:0 4px;margin-left:4px}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
 .hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
@@ -825,6 +829,13 @@ function showPanel(ev){
     for(const it of ev.items||[]){const li=document.createElement('li'),sp=document.createElement('span');sp.textContent=it.text;
       if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';if(it.status)li.className='st-'+it.status;li.append(sp);ul.append(li)}p.append(ul)}
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
+  else if(ev.kind==='recipe'){const d=document.createElement('div'),miss=new Set((ev.missing||[]).map(m=>m.toLowerCase()));d.className='recipe';
+    const need=i=>[...miss].some(m=>i.toLowerCase().includes(m));
+    d.innerHTML=`<div class="rmeta">${[ev.minutes&&ev.minutes+' min',ev.serves&&'serves '+ev.serves].filter(Boolean).map(esc).join(' · ')}</div>`
+      +`<h4>Ingredients</h4><ul>${(ev.ingredients||[]).map(i=>`<li class="${need(i)?'need':''}">${esc(i)}${need(i)?' <em>need</em>':''}</li>`).join('')}</ul>`
+      +((ev.missing||[]).filter(m=>!(ev.ingredients||[]).some(i=>i.toLowerCase().includes(m.toLowerCase()))).map(m=>`<div class="need">+ ${esc(m)} <em>need</em></div>`).join(''))
+      +`<h4>Method</h4><ol>${(ev.steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`;
+    p.classList.add('wide');p.append(d)}
   else if(ev.kind==='countdown'){const c=document.createElement('canvas');p.append(c);const end=Date.now()+ev.seconds*1000;
     const tickC=()=>{if(!p.isConnected)return;const left=Math.max(0,(end-Date.now())/1000);drawCountdown(c,left,ev.seconds);
       if(left>0)setTimeout(tickC,250);else{sfx('alert');p.classList.add('flash');setTimeout(()=>closePanel(p),8000)}};tickC()}
@@ -832,7 +843,7 @@ function showPanel(ev){
     requestAnimationFrame(drawIt);new ResizeObserver(()=>requestAnimationFrame(drawIt)).observe(c)}
   if(ev.note){const n=document.createElement('div');n.className='note';n.textContent=ev.note;p.append(n)}
   movable(p,null);
-  if(ev.kind!=='countdown')setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
+  if(ev.kind!=='countdown'&&!ev.stay)setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
 }
 const fmtNum=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString():Math.abs(v)>=100?Math.round(v):(+v).toFixed(2).replace(/\.00$/,'');
 const PALETTE=()=>{const a=css('--rgb');return[`rgb(${a})`,'#ffb347','#b98cff','#4dff9a','#ff6bd6','#ffe14d','#3d8bff','#ff8a3d',`rgba(${a},.55)`,'#c8d6e0','#ff5a5a','#3dffe0']};
