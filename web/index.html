@@ -182,7 +182,7 @@ body[data-bg=image]::before,body[data-bg=stars]::before,body[data-bg=rain]::befo
 /* Settings */
 .settings{max-width:480px;max-height:calc(100vh - 32px);overflow:auto}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
 .settings legend{color:var(--cyan);font-family:var(--display);font-size:calc(11px*var(--fs));letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
-.settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio]{flex:none;accent-color:var(--cyan)}
+.settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio],.settings input[type=checkbox]{flex:none;accent-color:var(--cyan);width:auto;padding:0}
 .settings .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}.settings .keyrow button{padding:6px 12px}
 .settings #pttName{font-family:var(--display);color:var(--text);min-width:120px}.settings .hint{color:var(--mute);font-size:calc(11px*var(--fs));line-height:1.5;margin:6px 0 0}
 .settings input[type=range]{accent-color:var(--cyan);padding:0}
@@ -411,6 +411,10 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
       <div class="keyrow"><span class="hint">See-through</span><input type="range" id="panelAlpha" min="0.05" max="0.9" step="0.05" style="flex:1;direction:rtl"></div>
       <div class="keyrow"><span class="hint">Text size</span><input type="range" id="textSize" min="0.7" max="1.3" step="0.05" style="flex:1"><span class="hint" id="textSizeVal"></span></div>
       <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
+    </fieldset>
+    <fieldset><legend>Startup &amp; closing</legend>
+      <label><input type="checkbox" id="autoStart"> Start Jarvis when Windows starts (he waits in the tray by the clock if the option below is on)</label>
+      <label><input type="checkbox" id="closeTray"> Closing the window keeps Jarvis running in the system tray (bottom right, by the clock); Quit from his tray icon to close him fully</label>
     </fieldset>
     <fieldset><legend>Ambient &amp; boot-up</legend>
       <label><input type="checkbox" id="ambOn"> Ambient light: the edges of the HUD glow with the time of day and the weather, and pulse red as a timer runs out</label>
@@ -918,6 +922,8 @@ function ambFrame(){if(!ambOn)return;ambT*=.93;ambK+=(ambT-ambK)*.3;$('amb').sty
   if(ambStorm&&Math.random()<.0009){const el=$('amb');el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
   requestAnimationFrame(ambFrame)}
 $('ambOn').onchange=()=>savePref({ambient:$('ambOn').checked});
+$('autoStart').onchange=()=>savePref({autostart:$('autoStart').checked});
+$('closeTray').onchange=()=>savePref({close_to_tray:$('closeTray').checked});
 $('ambMusic').onchange=()=>savePref({ambient_music:$('ambMusic').checked});
 $('bootOn').onchange=()=>savePref({bootup:$('bootOn').checked});
 $('bootTest').onclick=()=>{$('settingsModal').hidden=true;fetch('/api/bootup',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})};
@@ -1109,7 +1115,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -1283,6 +1289,7 @@ function showPrefs(p){
   if(prefs.listen_mode==='ptt'&&!prefs.ptt_key)$('setMsg').textContent='Push-to-talk only needs a key: set one above.';
   setAvatar(prefs.avatar,prefs.avatar_style);
   if(prefs.text_size!=null){setFs(prefs.text_size);$('textSize').value=prefs.text_size}
+  $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
   $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;
   setAmbient(!!prefs.ambient&&!PIN);
   if(prefs.panel_alpha!=null){document.documentElement.style.setProperty('--pa',prefs.panel_alpha);$('panelAlpha').value=prefs.panel_alpha}
@@ -1290,7 +1297,7 @@ function showPrefs(p){
 async function savePref(d){
   $('setMsg').textContent='';
   try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})).json();
-    if(r.error)throw new Error(r.error);showPrefs(r);$('setMsg').textContent='Saved.'}catch(e){$('setMsg').textContent=e.message||'Couldn\'t save.'}
+    if(r.error)throw new Error(r.error);showPrefs(r);$('setMsg').textContent='Saved.'}catch(e){$('setMsg').textContent=e.message||'Couldn\'t save.';showPrefs({})}
 }
 async function loadModels(){
   let c={models:[]};try{c=await (await fetch('/api/custom')).json()}catch(e){}
