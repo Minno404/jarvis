@@ -687,7 +687,11 @@ if(matchMedia('(pointer:coarse)').matches&&!PIN){
 }
 // iPhones mute page sound in Silent mode unless the page says it's media playback, like music or a video
 let mediaOn=false;
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent));
+let touched=!IOS;  // iOS: sound has to start from a real tap, or Silent mode mutes it for good (holo mode's "tap to wake")
+if(IOS)['touchend','click','keydown'].forEach(ev=>addEventListener(ev,()=>{if(!touched){touched=true;audio()}},{capture:true}));
 function audio(){
+  if(!touched)return;  // a sound before his first tap (HUD beeps at start-up) would lock iOS into muting
   try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
   // ...and a silent looping media clip, which is what reliably makes iOS treat the page like a music app
   if(!mediaOn&&(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent)))){
