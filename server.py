@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.16.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.17.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1214,8 +1214,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
         if self.path == "/api/boot":
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
-            return self.send_json({"memories": len(features.memories()), "protocols": len(features.list_routines()),
-                                   "mt5": mt5_on, "version": VERSION, "brain": brain_status(), "persona": personas.get(), **features.settings()})
+            # settings first: live status ("brain", "persona") must win over the saved setting of the same name
+            return self.send_json({**features.settings(), "memories": len(features.memories()),
+                                   "protocols": len(features.list_routines()), "mt5": mt5_on, "version": VERSION,
+                                   "brain": brain_status(), "persona": personas.get()})
         if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
             f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name
@@ -1567,6 +1569,18 @@ if __name__ == "__main__":
                 mini.send("show" if show else "hide")
                 show_pins(show)
 
+            def win(self, action, w=None, h=None):  # the HUD's own window buttons and resize corner
+                if action == "min":
+                    main.minimize()
+                elif action == "max":
+                    main.restore() if win["max"] else main.maximize()
+                elif action == "close":
+                    main.destroy()
+                elif action == "size":
+                    if not win["max"]:
+                        main.resize(max(420, int(w)), max(600, int(h)))
+                return {"max": win["max"]}
+
             def pinned(self):
                 return [p["id"] for p in features.settings().get("pins", [])]
 
@@ -1621,12 +1635,20 @@ if __name__ == "__main__":
                     voice.hold()
 
         api = Api()
+        # no Windows title bar: the HUD has its own minimise / maximise / close and a drag strip along the top
         main = webview.create_window("JARVIS", f"{url}/?v={VERSION}", width=1440, height=900, min_size=(420, 600),
-                                     background_color="#03070c", js_api=api, text_select=True)
+                                     background_color="#03070c", js_api=api, text_select=True, frameless=True,
+                                     easy_drag=False)
+        win = {"max": False}
+        main.events.maximized += lambda: win.update(max=True)
+        main.events.restored += lambda: win.update(max=False)
         for p in features.settings().get("pins", [])[:3]:
             make_pin(p)  # hidden until Jarvis goes out of focus
         main.events.minimized += lambda: (mini.send("show"), show_pins(True))
-        main.events.closed += lambda: mini.send("quit")  # closing the main window quits
+        def closed():  # closing the main window quits everything (pinned panels' hidden pages included)
+            mini.send("quit")
+            threading.Timer(0.5, lambda: os._exit(0)).start()
+        main.events.closed += closed
         mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)
         if features.settings().get("theme"):
             mini.send("colour", features.settings()["theme"])

@@ -1,4 +1,4 @@
 {
- "version": "1.16.0",
- "notes": "Pinned panels are see-through and follow the See-through slider."
+ "version": "1.17.0",
+ "notes": "No title bar (window buttons in the HUD), slim HUD-coloured scrollbars, Brain row fix."
 }

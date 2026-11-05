@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.16.0** (shown at the bottom right of the HUD)
+**Version 1.17.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,11 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.17.0** (5 Nov 2026):
+  - No Windows title bar: minimise, maximise and close are small buttons in the HUD's top-right corner. Drag the
+    window by the strip along the top (double-click it to maximise) and resize it from the bottom-right corner.
+  - Slim scrollbars in the HUD colour.
+  - Fixed the Systems panel's Brain row showing blank, and closing Jarvis now always closes him fully.
 - **1.16.0** (5 Nov 2026): pinned panels are see-through, following Settings → Panels → See-through (lower =
   more see-through), so they sit over a game without getting in the way. They're drawn like the mini core now:
   drag them anywhere, resize from the corner, and click the x to unpin.
