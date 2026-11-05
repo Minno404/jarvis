@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.22.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.23.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -923,16 +923,51 @@ def chat(text):
     return "".join(p for p in chat_stream(text) if p)
 
 
+SCREEN_Q = re.compile(r"\b(?:on|at|of) (?:my|the) (?:screen|monitor|display)\b|\bmy screen\b|\bthis (?:error|popup|pop-up|"
+                      r"message|window|warning)\b|\bwhat am i looking at\b|\bexplain (?:this|what'?s (?:up|on))\b|"
+                      r"\bwhat (?:does|is) (?:this|that) (?:mean|say)\b|\bread (?:this|my screen)\b", re.I)
+
+
+def screen_photo():
+    """A screenshot saved like a photo he sent, for the brain to look at. Jarvis's own window steps aside for it."""
+    try:
+        from PIL import ImageGrab
+        hide, show = LIVE.get("shot_hide"), LIVE.get("shot_show")
+        mine = hide and awareness.foreground()[1].strip().upper() == "JARVIS"
+        if mine:
+            hide()
+            time.sleep(0.5)
+        try:
+            img = ImageGrab.grab(all_screens=True)
+        finally:
+            if mine:
+                show()
+        img.thumbnail((2400, 2400))
+        UPLOADS.mkdir(exist_ok=True)
+        name = os.urandom(8).hex() + ".png"
+        img.save(UPLOADS / name)
+        return name
+    except Exception as e:
+        print(datetime.datetime.now(), "screen look:", repr(e))
+        return None
+
+
 def chat_stream(text, photo=None):
     """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now).
     photo: the name of a picture he sent (in uploads/), for Jarvis to look at."""
-    if photo and PHOTO.fullmatch(photo) and (UPLOADS / photo).exists():
+    shot = not photo and SCREEN_Q.search(text or "") and screen_photo()  # "what's this error?": look first
+    if shot:
+        text, photo = text + (f"\n[A screenshot of his screen right now: uploads/{shot}. Look at it, then explain "
+                              "what's on it in plain English: what it means and what to do.]"), None
+        if brain_status()["using"] == "ChatGPT":
+            photo = shot  # ChatGPT gets it attached
+    elif photo and PHOTO.fullmatch(photo) and (UPLOADS / photo).exists():
         text = (text or "What's in this photo?") + (f"\n[He sent you a photo: uploads/{photo}. Look at it "
                                                      "before you answer.]")
     else:
         photo = None
     try:  # everyday commands ("pause the music", "TV volume 15") are done right here: no Claude, no tokens
-        fast = None if photo else quick.quick(text)
+        fast = None if photo or shot else quick.quick(text)
     except Exception as e:
         fast = f"That didn't work, sir. {e}"
     if fast:
@@ -1384,7 +1419,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/tts":
             try:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-                audio, mime = tts(body["text"], body.get("side"))
+                audio, mime = (speech.say_lang(body["text"], body["lang"]) if body.get("lang")
+                               else tts(body["text"], body.get("side")))
                 if not audio:
                     raise RuntimeError("no audio returned")
             except Exception as e:  # the page falls back to the built-in Windows voice
@@ -1466,6 +1502,13 @@ class Handler(SimpleHTTPRequestHandler):
             if not LIVE.get("shop"):
                 return self.send_json({"error": "Price checks need the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["shop"]([str(i)[:60] for i in items][:25]))
+        if self.path == "/api/page_price":  # a product page's price (life.py's price watch), from this PC only
+            if not self.local():
+                return self.send_error(403)
+            url = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("url", "")
+            if not re.match(r"https?://", url) or not LIVE.get("page_price"):
+                return self.send_json({"error": "Needs a web link, and the Jarvis app window (not browser mode)."})
+            return self.send_json(LIVE["page_price"](url))
         if self.path == "/api/brain":  # merging the split avatars: the one he clicked becomes the brain
             r = set_brain(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["brain"])
             return self.send_json(r, 400 if r.get("error") else 200)
@@ -1726,6 +1769,32 @@ if __name__ == "__main__":
                         out[store] = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
             return out
         LIVE["shop"] = shop_prices
+        PAGE_PRICE = """(()=>{const out={};for(const s of document.querySelectorAll('script[type="application/ld+json"]')){try{
+            const d=JSON.parse(s.textContent);for(const x of [].concat(d['@graph']||d)){if(![].concat(x['@type']||[]).includes('Product'))continue;
+              out.name=out.name||x.name;const o=[].concat(x.offers||[])[0];if(!o||out.price)continue;
+              out.price=+(o.lowPrice||o.price||(o.priceSpecification&&[].concat(o.priceSpecification)[0].price)||0)||undefined;out.currency=o.priceCurrency}}catch(e){}}
+          if(!out.price){const m=document.querySelector('meta[property="product:price:amount"],meta[property="og:price:amount"],[itemprop="price"]');
+            if(m)out.price=+String(m.getAttribute('content')||m.textContent).replace(/[^0-9.]/g,'')||undefined}
+          out.name=out.name||document.title;return JSON.stringify(out)})()"""
+
+        def page_price(url):
+            """A product page's name and price, read the way a browser sees it (the shop's own product data)."""
+            ready = threading.Event()
+            w = webview.create_window("Jarvis · price check", url, hidden=True, width=1100, height=800)
+            w.events.loaded += ready.set
+            try:
+                ready.wait(45)
+                for _ in range(6):  # pages that build themselves after loading
+                    time.sleep(2)
+                    r = json.loads(w.evaluate_js(PAGE_PRICE) or "{}")
+                    if r.get("price"):
+                        return r
+                return {"error": "I couldn't find a price on that page.", "name": r.get("name")}
+            except Exception as e:
+                return {"error": f"{type(e).__name__}: {str(e)[:160]}"}
+            finally:
+                w.destroy()
+        LIVE["page_price"] = page_price
 
         def show_pins(show):
             mini.send("pins_show", bool(show))
@@ -1812,6 +1881,7 @@ if __name__ == "__main__":
             make_pin(p)  # hidden until Jarvis goes out of focus
         main.events.minimized += lambda: (mini.send("show"), show_pins(True))
         LIVE["window_open"], LIVE["show_window"] = True, open_main
+        LIVE["shot_hide"], LIVE["shot_show"] = main.minimize, open_main  # out of the way for "what's on my screen"
 
         def closed():  # closing the main window quits everything (pinned panels' hidden pages included)
             LIVE["window_open"] = False

@@ -7,6 +7,7 @@ import datetime
 import random
 import re
 
+import calc
 import features
 import hud
 
@@ -49,6 +50,29 @@ def quick(text):
     R, t = features.REGISTRY, _clean(text)
     if not t:
         return None
+    sums = calc.answer(text)  # sums, tips, splits, conversions
+    if sums:
+        return sums
+    # --- voice notes ---
+    m = re.match(r"^\W*(?:(?:hey |ok )?jarvis\W*)?(?:take a note|make a note|note to self|note)(?: that)?[:,]?\s+(.{3,})$",
+                 text.strip(), re.I)
+    if m and "add_note" in R:
+        return _ok(R["add_note"](m.group(1).strip().rstrip(".")), "Noted, {TITLE}.")
+    if re.fullmatch(r"(?:read|what are|show|read me) (?:back )?my (?:latest |recent )?notes(?: this week| today)?", t) and "notes" in R:
+        r = R["notes"](days=7)
+        ns = r.get("notes", [])[-5:]
+        if not ns:
+            return "You've no notes this week, {TITLE}."
+        return f"Your last {len(ns)} note{'s' if len(ns) > 1 else ''}: " + " ".join(f"{n['text']}." for n in ns)
+    # --- workout ---
+    m = re.fullmatch(r"(stop|end|cancel|pause|resume|skip)(?: the| my)? (?:workout|exercise)", t)
+    if m:
+        try:
+            features._panel({"type": "workout_ctl", "do": m.group(1)})
+        except OSError:
+            pass
+        return {"stop": "Workout stopped. Good effort, {TITLE}.", "end": "Workout over. Good effort, {TITLE}.",
+                "cancel": "Workout cancelled.", "pause": "Paused.", "resume": "Back to it.", "skip": "Skipping."}[m.group(1)]
     if re.fullmatch(r"(?:what s|what is) the time|what time is it", t):
         now = datetime.datetime.now()
         return f"It's {now.hour % 12 or 12}:{now:%M} {now:%p}, {{TITLE}}."
@@ -237,6 +261,10 @@ def selftest():
         calls.clear()
         assert quick(said) is None or calls[0][0] == "open_app", said
     assert quick("open the thing I used yesterday") is None  # app not found: Claude handles it
+    assert quick("what's 15% of 240") == "15% of 240 is 36."
+    features.REGISTRY["add_note"] = rec("add_note")
+    calls.clear()
+    assert quick("Jarvis, take a note: ask the landlord about the leak") and calls[0] == ("add_note", ("ask the landlord about the leak",), {})
     assert quick("what time is it").startswith("It's")
     print("quick self-test passed")
 

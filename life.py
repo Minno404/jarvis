@@ -540,18 +540,182 @@ def open_file(path, show_in_folder=False):
     return {"opened": p.name}
 
 
+# ---------- Voice notes ----------
+def add_note(text):
+    """Save a quick note ('note: ask the landlord about the leak')."""
+    ns = _load("notes.json", [])
+    n = {"id": max((x["id"] for x in ns), default=0) + 1, "text": str(text).strip(), "at": time.strftime("%Y-%m-%d %H:%M")}
+    _save("notes.json", (ns + [n])[-2000:])
+    return {"noted": n["text"], "id": n["id"]}
+
+
+def notes(search=None, days=None):
+    """His notes, oldest first: all of them, the last N days, or ones containing words."""
+    ns = _load("notes.json", [])
+    if days:
+        cut = (datetime.datetime.now() - datetime.timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M")
+        ns = [n for n in ns if n["at"] >= cut]
+    if search:
+        ws = search.lower().split()
+        ns = [n for n in ns if all(w in n["text"].lower() for w in ws)]
+    return {"notes": ns[-40:], "count": len(ns)}
+
+
+def delete_note(id=None, text=None):
+    """Delete a note by id, or the latest one containing text."""
+    ns = _load("notes.json", [])
+    hit = next((n for n in reversed(ns) if (id and n["id"] == int(id)) or (text and text.lower() in n["text"].lower())), None)
+    if not hit:
+        return {"error": "No note like that."}
+    _save("notes.json", [n for n in ns if n is not hit])
+    return {"deleted": hit["text"]}
+
+
+# ---------- Workout coach ----------
+def workout(title, exercises, rounds=1, rest_between_rounds=60):
+    """Run a timed workout on the HUD: Jarvis calls out each exercise, counts it down and announces what's next.
+    exercises: [{name, seconds, rest, tip}]."""
+    ex = []
+    for e in exercises[:30]:
+        if isinstance(e, str):
+            e = {"name": e}
+        ex.append({"name": str(e.get("name", "Exercise")), "seconds": max(5, min(600, int(e.get("seconds") or 40))),
+                   "rest": max(0, min(300, int(e.get("rest") if e.get("rest") is not None else 20))),
+                   "tip": str(e.get("tip") or "")[:120]})
+    if not ex:
+        return {"error": "No exercises."}
+    rounds = max(1, min(10, int(rounds or 1)))
+    total = rounds * sum(e["seconds"] + e["rest"] for e in ex) + (rounds - 1) * int(rest_between_rounds or 0)
+    try:
+        features._panel({"type": "panel", "kind": "workout", "title": title, "stay": True, "exercises": ex,
+                         "rounds": rounds, "round_rest": int(rest_between_rounds or 0)})
+    except OSError:
+        return {"error": "The HUD isn't open."}
+    log = _load("workouts.json", [])
+    _save("workouts.json", (log + [{"title": title, "at": time.strftime("%Y-%m-%d %H:%M"), "minutes": round(total / 60)}])[-500:])
+    return {"started": title, "minutes": round(total / 60, 1),
+            "note": "It runs on the HUD and calls each exercise out itself, so just give a short intro."}
+
+
+# ---------- Translator ----------
+def translate_say(text, language, original="", pronunciation=""):
+    """Show a translation on the HUD and say it out loud in a native voice. language: a code like ja, fr, es."""
+    try:
+        features._panel({"type": "panel", "kind": "translate", "title": f"In {LANG_NAMES.get(language[:2].lower(), language)}",
+                         "stay": True, "text": text, "lang": language[:5].lower(), "original": original,
+                         "pron": pronunciation})
+    except OSError:
+        return {"error": "The HUD isn't open."}
+    return {"shown": text, "note": "It's being spoken in a native voice; don't repeat the translation yourself."}
+
+
+LANG_NAMES = {"ja": "Japanese", "zh": "Chinese", "ko": "Korean", "fr": "French", "es": "Spanish", "de": "German",
+              "it": "Italian", "pt": "Portuguese", "hi": "Hindi", "id": "Indonesian", "th": "Thai", "vi": "Vietnamese",
+              "ar": "Arabic", "ru": "Russian", "nl": "Dutch", "tl": "Filipino", "fil": "Filipino", "el": "Greek",
+              "tr": "Turkish", "pl": "Polish", "sv": "Swedish", "ms": "Malay", "en": "English"}
+
+
+# ---------- Price watch ----------
+def _page_price(url):
+    import json
+    import urllib.request
+    req = urllib.request.Request("http://127.0.0.1:8765/api/page_price", data=json.dumps({"url": url}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=90) as r:
+        return json.loads(r.read())
+
+
+def _current(w):
+    """(price, where) right now for a watch: from its product page, or Woolworths/Coles for groceries."""
+    if w.get("url"):
+        r = _page_price(w["url"])
+        return (float(r["price"]), r.get("name") or w["url"]) if r.get("price") else (None, r.get("error", "no price on the page"))
+    res = _shop([_term(w["name"])])
+    best = None
+    for store, found in res.items():
+        p = _pick(found.get(_term(w["name"]))) if isinstance(found, dict) else None
+        if p and (not best or p["price"] < best[0]):
+            best = (p["price"], f"{store}: {p['name']}")
+    return best or (None, "not found at Woolworths or Coles")
+
+
+def watch_price(name, target, url=None):
+    """Watch a price and tell him when it drops to target or below. url: the product's page (needed for anything
+    that isn't groceries); without one, Woolworths and Coles are checked."""
+    ws = _load("price_watch.json", [])
+    ws = [w for w in ws if w["name"].lower() != name.lower()]
+    w = {"name": name, "target": float(target), "url": url or "", "price": None, "where": "", "checked": 0, "told": None}
+    try:
+        w["price"], w["where"] = _current(w)
+        w["checked"] = time.time()
+    except Exception as e:
+        w["where"] = f"couldn't check yet: {e}"
+    _save("price_watch.json", ws + [w])
+    return {"watching": name, "target": w["target"], "price_now": w["price"], "where": w["where"],
+            "note": "Checked every 6 hours; he hears about it when it hits the target."}
+
+
+def price_watches():
+    """The prices he's watching: target, latest price and where."""
+    return {"watching": [{k: w[k] for k in ("name", "target", "price", "where", "url")} for w in _load("price_watch.json", [])]}
+
+
+def stop_watching(name):
+    ws = _load("price_watch.json", [])
+    keep = [w for w in ws if name.lower() not in w["name"].lower()]
+    if len(keep) == len(ws):
+        return {"error": f"Not watching '{name}'"}
+    _save("price_watch.json", keep)
+    return {"stopped": name}
+
+
+def check_prices(force=False):
+    """Check the watched prices that are due (every 6 hours). Returns lines to say."""
+    ws, out = _load("price_watch.json", []), []
+    for w in ws:
+        if not force and time.time() - w.get("checked", 0) < 6 * 3600:
+            continue
+        try:
+            price, where = _current(w)
+        except Exception as e:
+            print(datetime.datetime.now(), "price watch", w["name"], repr(e))
+            w["checked"] = time.time() - 5 * 3600  # try again in an hour
+            continue
+        w["checked"] = time.time()
+        if price is None:
+            continue
+        w["price"], w["where"] = price, where
+        if price <= w["target"] and (w.get("told") is None or price < w["told"]):
+            w["told"] = price
+            out.append(f"{w['name']} is down to ${price:,.2f}, at or under your ${w['target']:,.2f} target ({where})")
+        elif price > w["target"]:
+            w["told"] = None
+    _save("price_watch.json", ws)
+    return out
+
+
 # ---------- For the watcher ----------
 _game = GameMode()
+_said = []  # price alerts found in the background, waiting to be said
+_checking = {"at": 0}
 
 
 def tick(game):
-    """Every 10 s from Jarvis's watcher: game mode, and bill warnings (returns lines to say)."""
+    """Every 10 s from Jarvis's watcher: game mode, bill warnings and price watches (returns lines to say)."""
     _game.tick(game)
-    return [f"Heads up, {{TITLE}}: {w}." for w in bill_warnings()]
+    if time.time() - _checking["at"] > 1800 and _load("price_watch.json", []):
+        _checking["at"] = time.time()
+        import threading
+        threading.Thread(target=lambda: _said.extend(check_prices()), daemon=True).start()
+    lines = [f"Heads up, {{TITLE}}: {w}." for w in bill_warnings()]
+    while _said:
+        lines.append(f"Good news, {{TITLE}}: {_said.pop(0)}.")
+    return lines
 
 
 FUNCS = {f.__name__: f for f in (recipe, show_recipe, price_check, shopping_list_add, shopping_list,
-                                 shopping_list_remove, add_bill, bills, bill_paid, remove_bill, add_habit, log_habit,
+                                 shopping_list_remove, add_note, notes, delete_note, workout, translate_say,
+                                 watch_price, price_watches, stop_watching, add_bill, bills, bill_paid, remove_bill, add_habit, log_habit,
                                  habits, remove_habit, cleanup_scan, cleanup_run, memory_hogs, game_mode, find_files,
                                  open_file)}
 TOOLS = [
@@ -574,6 +738,33 @@ TOOLS = [
          "item": S, "everything": {"type": "boolean"}}}},
     {"name": "price_check", "description": "How much groceries cost right now at Woolworths and Coles.",
      "input_schema": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": S}}}},
+    {"name": "add_note", "description": "Save a quick note he dictates ('note: ...', 'remember to write down...').",
+     "input_schema": {"type": "object", "required": ["text"], "properties": {"text": S}}},
+    {"name": "notes", "description": "His saved notes: search words and/or the last N days.",
+     "input_schema": {"type": "object", "properties": {"search": S, "days": I}}},
+    {"name": "delete_note", "description": "Delete a note by id or by words in it.",
+     "input_schema": {"type": "object", "properties": {"id": I, "text": S}}},
+    {"name": "workout", "description": "Run a workout on his HUD: it times each exercise, calls it out and announces "
+     "what's next, by itself. Build it to what he asks (length, level, equipment, body part): exercises "
+     "[{name, seconds, rest, tip}], rounds. Bodyweight unless he says otherwise. 'stop/pause the workout' works by "
+     "voice.", "input_schema": {"type": "object", "required": ["title", "exercises"], "properties": {
+         "title": S, "exercises": {"type": "array", "items": {"type": "object"}}, "rounds": I,
+         "rest_between_rounds": I}}},
+    {"name": "translate_say", "description": "Translate for him: show the translation and say it out loud in a native "
+     "voice. text = the translation in that language's own script; language = code (ja, zh, ko, fr, es, de, it, pt, "
+     "hi, id, th, vi, ar, ru, nl, tl, el, tr, pl); pronunciation = how to say it in English letters for non-Latin "
+     "scripts; original = what he said.", "input_schema": {"type": "object", "required": ["text", "language"],
+                                                           "properties": {"text": S, "language": S, "original": S,
+                                                                          "pronunciation": S}}},
+    {"name": "watch_price", "description": "Watch a price and tell him when it drops to his target. For anything that "
+     "isn't groceries he needs to give the product's link (url) from the shop's website (JB Hi-Fi, Amazon, Big W...); "
+     "ask for it. Groceries without a link are checked at Woolworths and Coles.",
+     "input_schema": {"type": "object", "required": ["name", "target"], "properties": {
+         "name": S, "target": {"type": "number"}, "url": S}}},
+    {"name": "price_watches", "description": "The prices he's watching, with the latest price.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "stop_watching", "description": "Stop watching a price.",
+     "input_schema": {"type": "object", "required": ["name"], "properties": {"name": S}}},
     {"name": "show_recipe", "description": "Show a recipe from before again (the last one, or by name).",
      "input_schema": {"type": "object", "properties": {"title": S}}},
     {"name": "add_bill", "description": "Track a bill or renewal (rego, insurance, phone, subscriptions). Jarvis warns "
@@ -666,6 +857,15 @@ def selftest():
         assert shopping_list_remove("soy")["left"] == ["spring onions"]
         _shop = lambda terms: (_ for _ in ()).throw(OSError("down"))
         assert shopping_list_add(["milk"])["price_problems"] and len(shopping_list()["items"]) == 2  # listed anyway
+        _shop = real_shop
+        assert add_note("ask the landlord about the leak")["id"] == 1 and notes("landlord")["count"] == 1
+        assert delete_note(text="landlord")["deleted"] and notes()["count"] == 0
+        _shop = lambda terms: {"Coles": {terms[0]: [{"name": "Coles Coffee", "price": 9.0, "available": True}]}}
+        w = watch_price("coffee beans", 10)
+        assert w["price_now"] == 9.0 and w["where"] == "Coles: Coles Coffee"
+        assert check_prices(force=True) == ["coffee beans is down to $9.00, at or under your $10.00 target (Coles: Coles Coffee)"]
+        assert check_prices(force=True) == []  # told once per drop
+        assert stop_watching("coffee")["stopped"] and price_watches()["watching"] == []
         _shop = real_shop
         assert "error" in cleanup_run(["temp"])  # never without a scan first
         assert game_mode(close=["Chrome", "spotify.exe"])["close"] == ["chrome.exe", "spotify.exe"]
