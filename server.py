@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.19.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.20.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -713,6 +713,13 @@ def save_prefs(d):
         s["panel_alpha"] = max(0.05, min(0.9, float(d["panel_alpha"])))
         if LIVE.get("pin_alpha"):
             threading.Timer(0.1, LIVE["pin_alpha"]).start()  # pinned panels fade to match
+    for k in ("split_claude_voice", "split_gpt_voice"):
+        if k in d:
+            if d[k] and d[k] not in speech.SPLIT_VOICES:
+                raise ValueError("Unknown voice")
+            s[k] = d[k] or ""
+            if d[k] in speech.KOKORO_VOICES and not speech.kokoro_ready():
+                speech.install_kokoro()  # first time: installs and downloads in the background
     if "text_size" in d:
         s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
@@ -727,7 +734,8 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha", "text_size")}})
+                                                            "panel_alpha", "text_size", "split_claude_voice",
+                                                            "split_gpt_voice")}})
     return {**s, "voice": speech.status}
 
 
@@ -1159,12 +1167,14 @@ VOICE = os.environ.get("JARVIS_VOICE", "en-GB-RyanNeural")
 
 def tts(text, side=None):
     """Speech audio for the HUD: (bytes, mime type), in the current personality's voice (see speech.py).
-    side "gpt": the ChatGPT avatar in split mode, which gets a different voice."""
-    p = personas.get()
+    side "claude" / "gpt": an avatar in split mode, each with the voice picked in Settings (Split mode voices)."""
+    s = features.settings()
+    speed = float(s.get("voice_speed") or 1.0)
     if side == "gpt":
-        key = "friday" if p["key"] != "friday" else "jarvis"
-        return speech.say(text, {"key": key, **personas.PERSONAS[key]}, speech.PERSONA_KOKORO[key])
-    return speech.say(text, p)
+        return speech.say_voice(text, s.get("split_gpt_voice") or "Emma (British woman)", speed)
+    if side == "claude" and s.get("split_claude_voice"):  # "" = the same voice as Jarvis
+        return speech.say_voice(text, s["split_claude_voice"], speed)
+    return speech.say(text, personas.get())
 
 
 # ---------- Web server ----------
@@ -1310,7 +1320,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
-            return self.send_json({**speech.status, "voices": list(speech.KOKORO_VOICES),
+            return self.send_json({**speech.status, "voices": list(speech.KOKORO_VOICES), "split": speech.SPLIT_VOICES,
                                    "auto": speech.PERSONA_KOKORO.get(personas.current())})
         if self.path == "/api/custom":  # add-on files for the HUD to load (custom/*.js, *.css), and 3D models
             return self.send_json({"files": custom_loader.web_files(), "errors": custom_loader.errors, "models": models()})

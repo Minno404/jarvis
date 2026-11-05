@@ -146,19 +146,52 @@ def install_kokoro():
     return status
 
 
-def say(text, persona, kokoro_voice=None):
-    """Audio for one piece of speech: (bytes, mime type). persona: the personas.py entry in use.
-    kokoro_voice: use this Kokoro voice instead of the one in Settings (split mode's second avatar)."""
+def say(text, persona):
+    """Audio for one piece of speech: (bytes, mime type). persona: the personas.py entry in use."""
     s = features.settings()
     words = speakable(text)
     if s.get("voice_engine") == "kokoro" and kokoro_ready():
         try:
-            name = kokoro_voice or s.get("kokoro_voice") or PERSONA_KOKORO.get(persona.get("key"), "George (British man)")
+            name = s.get("kokoro_voice") or PERSONA_KOKORO.get(persona.get("key"), "George (British man)")
             return kokoro(words, name, float(s.get("voice_speed") or 1.0)), "audio/wav"
         except Exception as e:  # fall back to the online voice rather than go silent
             print("Kokoro voice failed, using the online voice:", repr(e))
-    voice = os.environ.get("JARVIS_VOICE") or persona["voice"]
-    return edge(words, voice, persona["rate"]), "audio/mpeg"
+    return _edge_or_ryan(words, os.environ.get("JARVIS_VOICE") or persona["voice"], persona["rate"])
+
+
+# online voices that can be picked for split mode's avatars (next to all the Kokoro ones)
+ONLINE_VOICES = {"Sonia (British woman, online)": "en-GB-SoniaNeural", "Ryan (British man, online)": "en-GB-RyanNeural",
+                 "Natasha (Australian woman, online)": "en-AU-NatashaNeural",
+                 "William (Australian man, online)": "en-AU-WilliamNeural",
+                 "Aria (American woman, online)": "en-US-AriaNeural", "Guy (American man, online)": "en-US-GuyNeural"}
+SPLIT_VOICES = [*KOKORO_VOICES, *ONLINE_VOICES]
+
+
+def say_voice(text, name, speed=1.0):
+    """Speech in one named voice from SPLIT_VOICES (split mode). A Kokoro voice installs Kokoro the first time;
+    until it's ready (or if it fails) an online voice stands in."""
+    words = speakable(text)
+    if name in KOKORO_VOICES:
+        if kokoro_ready():
+            try:
+                return kokoro(words, name, speed), "audio/wav"
+            except Exception as e:
+                print("Kokoro voice failed, using an online voice:", repr(e))
+        elif status["kokoro"] not in ("installing", "downloading"):
+            install_kokoro()
+        name = "Ryan (British man, online)" if "man)" in name and "woman" not in name else "Sonia (British woman, online)"
+    return _edge_or_ryan(words, ONLINE_VOICES.get(name, "en-GB-SoniaNeural"), f"{round((speed - 1) * 100):+d}%")
+
+
+def _edge_or_ryan(words, voice, rate):
+    """The online voice, or Jarvis's own Ryan if that one returns nothing (Microsoft drops voices now and then)."""
+    try:
+        return edge(words, voice, rate), "audio/mpeg"
+    except Exception as e:
+        if voice == "en-GB-RyanNeural":
+            raise
+        print(f"online voice {voice} failed, using Ryan:", repr(e))
+        return edge(words, "en-GB-RyanNeural", rate), "audio/mpeg"
 
 
 if VOICES_DIR.exists() and kokoro_ready():
