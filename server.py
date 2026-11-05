@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.28.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.28.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1346,6 +1346,19 @@ def phone_key():
     return KEY_FILE.read_text().strip()
 
 
+def tailscale_name():
+    """This PC's Tailscale name (e.g. my-pc.tail1234.ts.net), or None."""
+    exe = shutil.which("tailscale") or next((p for p in (r"C:\Program Files\Tailscale\tailscale.exe",) if os.path.exists(p)), None)
+    if not exe:
+        return None
+    try:
+        r = subprocess.run([exe, "status", "--json"], capture_output=True, text=True, timeout=5,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return (json.loads(r.stdout).get("Self") or {}).get("DNSName", "").rstrip(".") or None
+    except Exception:
+        return None
+
+
 def phone_urls():
     """Addresses your phone can use: home Wi-Fi, plus Tailscale (100.64-127.x.x) for anywhere."""
     import socket
@@ -1359,7 +1372,10 @@ def phone_urls():
         pass
     tailscale = lambda ip: ip.startswith("100.") and 64 <= int(ip.split(".")[1]) <= 127
     lan = lambda ip: ip.startswith(("192.168.", "10.")) or (ip.startswith("172.") and 16 <= int(ip.split(".")[1]) <= 31)
-    out = [{"where": "Anywhere (Tailscale)", "url": f"http://{ip}:{PORT}/?key={phone_key()}"} for ip in sorted(ips) if tailscale(ip)]
+    ts = [ip for ip in sorted(ips) if tailscale(ip)]
+    name = tailscale_name()
+    # Tailscale: no key needed (only his own devices can reach this address), so this one link works anywhere
+    out = [{"where": "Anywhere (Tailscale): no pairing needed", "url": f"http://{name or ts[0]}:{PORT}/"}] if ts else []
     out += [{"where": "Home Wi-Fi", "url": f"http://{ip}:{PORT}/?key={phone_key()}"} for ip in sorted(ips) if lan(ip)]
     try:
         import segno  # pip install segno: draws QR codes, no other dependencies
@@ -1392,9 +1408,21 @@ class Handler(SimpleHTTPRequestHandler):
     def local(self):
         return self.client_address[0] in ("127.0.0.1", "::1")
 
+    def tailnet(self):
+        """Coming in through Tailscale: only his own devices (signed in to his Tailscale account) can do that."""
+        ip = self.client_address[0]
+        if ip.startswith("fd7a:115c:a1e0:"):
+            return True
+        p = ip.split(".")
+        return len(p) == 4 and p[0] == "100" and 64 <= int(p[1]) <= 127
+
     def allowed(self):
-        """This PC always; a phone once it has opened the pairing link (it then keeps a cookie)."""
+        """This PC always; his devices on Tailscale; a phone once it has opened the pairing link (it keeps a cookie)."""
         if self.local():
+            return True
+        if self.tailnet() and features.settings().get("trust_tailscale", True):
+            if not self.path.startswith(("/api/events", "/api/stats", "/api/status")):
+                WAKER.phone_used()
             return True
         import hmac
         from http.cookies import SimpleCookie
