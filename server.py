@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.26.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.26.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -642,8 +642,11 @@ def _args(tool):
 CLI_PROMPT = SYSTEM + """
 Your tools are commands. Run one with the Bash tool exactly like this, JSON arguments in single quotes:
   python server.py tool <name> '{"arg": "value"}'
-It prints JSON. Do not run any other commands, and do not read or edit files, with one exception: after
-the screenshot tool, or when he sends you a photo (uploads/...), use the Read tool on that image file to see it.
+It prints JSON. Do not run any other commands and do not edit files. You may use the Read tool to read files
+when it helps you answer: your own docs and code here (README.md, CUSTOM.md, *.py, custom/...), the screenshot
+image after the screenshot tool, or a photo he sends you (uploads/...). To change or add to anything, including
+yourself (new panels, features, fixes), don't do it in chat: hand it to the coder with dev_task (project
+"jarvis" for changes to you; it reads CUSTOM.md and builds in custom/, kept through updates) and say it's on it.
 The tools, as name(arguments; * = required):
 """ + "\n".join(f"- {t['name']}({_args(t)}): {t['description']}" for t in TOOLS)
 

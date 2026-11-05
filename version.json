@@ -1,4 +1,4 @@
 {
- "version": "1.26.0",
- "notes": "Start with Windows, and close to the system tray (Settings > Startup & closing)."
+ "version": "1.26.1",
+ "notes": "Jarvis can read his own files to answer questions; changes to him go to the coder."
 }
