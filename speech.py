@@ -167,6 +167,21 @@ ONLINE_VOICES = {"Sonia (British woman, online)": "en-GB-SoniaNeural", "Ryan (Br
 SPLIT_VOICES = [*KOKORO_VOICES, *ONLINE_VOICES]
 
 
+LANG_VOICES = {"ja": "ja-JP-NanamiNeural", "zh": "zh-CN-XiaoxiaoNeural", "ko": "ko-KR-SunHiNeural",
+               "fr": "fr-FR-DeniseNeural", "es": "es-ES-ElviraNeural", "de": "de-DE-KatjaNeural",
+               "it": "it-IT-ElsaNeural", "pt": "pt-BR-FranciscaNeural", "hi": "hi-IN-SwaraNeural",
+               "id": "id-ID-GadisNeural", "th": "th-TH-PremwadeeNeural", "vi": "vi-VN-HoaiMyNeural",
+               "ar": "ar-SA-ZariyahNeural", "ru": "ru-RU-SvetlanaNeural", "nl": "nl-NL-ColetteNeural",
+               "tl": "fil-PH-BlessicaNeural", "fi": "fil-PH-BlessicaNeural", "el": "el-GR-AthinaNeural",
+               "tr": "tr-TR-EmelNeural", "pl": "pl-PL-ZofiaNeural", "sv": "sv-SE-SofieNeural",
+               "ms": "ms-MY-YasminNeural", "en": "en-GB-SoniaNeural"}
+
+
+def say_lang(text, lang):
+    """A translation spoken in a native voice for its language (online voices; text is said as written)."""
+    return edge(text, LANG_VOICES.get(lang.lower()[:2], "en-GB-SoniaNeural"), "-5%"), "audio/mpeg"
+
+
 def say_voice(text, name, speed=1.0):
     """Speech in one named voice from SPLIT_VOICES (split mode). A Kokoro voice installs Kokoro the first time;
     until it's ready (or if it fails) an online voice stands in."""

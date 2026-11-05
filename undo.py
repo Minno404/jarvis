@@ -20,7 +20,8 @@ FILE_TOOLS = {"add_trade": ["journal.json"], "delete_trade": ["journal.json"], "
               "set_spending_plan": ["plan"], "set_trading_rules": ["settings.json"],
               "add_bill": ["bills.json"], "bill_paid": ["bills.json"], "remove_bill": ["bills.json"],
               "add_habit": ["habits.json"], "log_habit": ["habits.json"], "remove_habit": ["habits.json"],
-              "game_mode": ["settings.json"]}
+              "game_mode": ["settings.json"], "add_note": ["notes.json"], "delete_note": ["notes.json"],
+              "watch_price": ["price_watch.json"], "stop_watching": ["price_watch.json"]}
 LIVE_TOOLS = ("hud_background", "hud_colour", "set_persona", "set_brain", "hud_panel", "open_app", "tv_power", "quiet_mode")
 SAY = {"add_trade": "logging that trade", "delete_trade": "deleting that trade", "remember": "remembering that",
        "forget": "forgetting that", "add_reminder": "that reminder", "cancel_reminder": "cancelling that reminder",
@@ -30,7 +31,8 @@ SAY = {"add_trade": "logging that trade", "delete_trade": "deleting that trade",
        "hud_panel": "that panel change", "open_app": "opening {name}", "tv_power": "the TV power change",
        "quiet_mode": "the quiet mode change", "add_bill": "that bill", "bill_paid": "marking that bill paid",
        "remove_bill": "removing that bill", "add_habit": "that habit", "log_habit": "that habit log",
-       "remove_habit": "removing that habit", "game_mode": "the game mode change"}
+       "remove_habit": "removing that habit", "game_mode": "the game mode change", "add_note": "that note",
+       "delete_note": "deleting that note", "watch_price": "that price watch", "stop_watching": "stopping that price watch"}
 
 
 def _path(rel):

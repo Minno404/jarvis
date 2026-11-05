@@ -238,6 +238,11 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 .shrow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(var(--line-rgb),.5)}
 .shrow b{font-weight:400;color:var(--text)}.shrow small{display:block;color:var(--mute);font-size:.82em}.shp{text-align:right;flex:none;white-space:nowrap}
 .st-woolworths{color:#4dcf7a}.st-coles{color:#ff6b6b}.shtot{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 4px;color:var(--mute)}.shtot .best{color:var(--cyan)}
+.workout{text-align:center;padding:4px 0}.wround,.wnext,.wtip{color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
+.wname{font-family:var(--display);font-size:calc(22px*var(--s)*var(--fs));letter-spacing:.08em;color:var(--cyan);margin:6px 0 2px}.wname.rest{color:var(--amber)}
+.wtime{font-family:var(--display);font-size:calc(46px*var(--s)*var(--fs));font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.workout .bar{margin:6px 0}.wtip{min-height:1.2em;margin:4px 0}.wbtns{display:flex;gap:6px;justify-content:center;margin-top:8px}
+.trans .tbig{font-size:calc(24px*var(--s)*var(--fs));line-height:1.35;color:var(--text);margin:4px 0}.trans .tpron{color:var(--cyan);margin-bottom:4px}.trans .chip{margin-top:8px}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
 .hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
@@ -602,11 +607,11 @@ function stopSpeaking(){  // "Hey Jarvis" while he talks, Esc, or clicking the c
 function audio(){
   try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
-function voice(side){
+function voice(side,lang){
   let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false,sent=0;
   const gen=voiceGen,cut=()=>gen!==voiceGen;
   const done=()=>{if(cut())return;if(side&&actx&&speechAt>actx.currentTime+.1)return;voiceOn=false;if(split)split.speaker=null;setMode('idle')};
-  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,side})})
+  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,side,lang})})
     .then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(b=>actx.decodeAudioData(b)).catch(()=>null);
   const queue=t=>{t=t.trim();if(!t||!actx||cut())return;const c=clip(t);chain=chain.then(async()=>{const buf=await c;if(!buf||cut())return;
     const src=actx.createBufferSource();src.buffer=buf;src.connect(analyser);at=Math.max(at,speechAt,actx.currentTime+.03);src.start(at);
@@ -807,10 +812,40 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
+// Workout coach: times each exercise, calls it out and says what's next (from life.py's workout tool)
+let wk=null;
+function runWorkout(p,ev){
+  if(wk)wk.stop(true);
+  const steps=[],ex=ev.exercises||[];
+  for(let r=1;r<=(ev.rounds||1);r++)ex.forEach((e,i)=>{steps.push({go:1,name:e.name,secs:e.seconds,tip:e.tip,round:r});
+    const lastEx=i===ex.length-1,lastRound=r===(ev.rounds||1);
+    if(lastEx&&!lastRound&&ev.round_rest)steps.push({name:'Rest between rounds',secs:ev.round_rest,round:r});
+    else if(e.rest&&!(lastEx&&lastRound))steps.push({name:'Rest',secs:e.rest,round:r})});
+  const box=document.createElement('div');box.className='workout';p.classList.add('wide');p.append(box);
+  box.innerHTML='<div class="wround"></div><div class="wname"></div><div class="wtime"></div><div class="bar"><i></i></div><div class="wtip"></div><div class="wnext"></div>'
+    +'<div class="wbtns"><button type="button" class="chip" data-w="pause">Pause</button><button type="button" class="chip" data-w="skip">Skip</button><button type="button" class="chip" data-w="stop">Stop</button></div>';
+  const q=c=>box.querySelector(c),say=t=>{try{audio();const v=voice();v.push(t+' ');v.end()}catch(e){}};
+  const nextGo=i=>steps.slice(i+1).find(s=>s.go);
+  const me={i:-1,left:0,paused:false};
+  const draw=()=>{const st=steps[me.i];if(!st)return;const n=nextGo(me.i);
+    q('.wround').textContent=`Round ${st.round} of ${ev.rounds||1} · ${me.i+1}/${steps.length}`;q('.wname').textContent=st.name;q('.wname').className='wname'+(st.go?'':' rest');
+    q('.wtime').textContent=`${Math.floor(me.left/60)}:${String(me.left%60).padStart(2,'0')}`;q('.bar i').style.width=(100-me.left/st.secs*100)+'%';
+    q('.wtip').textContent=st.tip||'';q('.wnext').textContent=n?'Next: '+n.name:'Last one!';q('[data-w=pause]').textContent=me.paused?'Resume':'Pause'};
+  const next=()=>{me.i++;const st=steps[me.i];
+    if(!st){clearInterval(me.t);q('.wname').textContent='Done!';q('.wtime').textContent='';q('.wnext').textContent='';q('.wtip').textContent='';q('.wround').textContent='';q('.wbtns').hidden=true;
+      say('Workout complete. Great work.');wk=null;setTimeout(()=>closePanel(p),20000);return}
+    me.left=st.secs;draw();
+    if(st.go)say(`${st.name}. ${st.secs} seconds.${st.tip?' '+st.tip:''}`);else{const n=nextGo(me.i);say(n?`Rest. Next up, ${n.name}.`:'Rest.')}};
+  me.t=setInterval(()=>{if(!p.isConnected)return me.stop(true);if(me.paused)return;me.left--;if(me.left>0&&me.left<=3)sfx('panel');if(me.left<=0)next();else draw()},1000);
+  me.stop=(quiet)=>{clearInterval(me.t);wk=null;if(!quiet)closePanel(p)};
+  me.ctl=d=>{if(d==='pause')me.paused=true;else if(d==='resume')me.paused=false;else if(d==='skip')next();else me.stop();if(wk)draw()};
+  box.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>me.ctl(b.dataset.w==='pause'&&me.paused?'resume':b.dataset.w));
+  wk=me;setTimeout(next,2500);  // a moment for his intro first
+}
 function closePanel(p){if(p.classList.contains('out'))return;sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
 function showPanel(ev){
   const p=document.createElement('div'),h=document.createElement('h3'),x=document.createElement('button');
@@ -839,6 +874,11 @@ function showPanel(ev){
       +((ev.missing||[]).filter(m=>!(ev.ingredients||[]).some(i=>i.toLowerCase().includes(m.toLowerCase()))).map(m=>`<div class="need">+ ${esc(m)} <em>need</em></div>`).join(''))
       +`<h4>Method</h4><ol>${(ev.steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`;
     p.classList.add('wide');p.append(d)}
+  else if(ev.kind==='workout'){runWorkout(p,ev)}
+  else if(ev.kind==='translate'){const d=document.createElement('div');d.className='trans';
+    d.innerHTML=`<div class="tbig" lang="${esc(ev.lang)}">${esc(ev.text)}</div>${ev.pron?`<div class="tpron">${esc(ev.pron)}</div>`:''}`
+      +`${ev.original?`<div class="rmeta">"${esc(ev.original)}"</div>`:''}<button type="button" class="chip">Say it again</button>`;
+    const sayIt=()=>{audio();const v=voice(null,ev.lang);v.push(ev.text+' ');v.end()};d.querySelector('button').onclick=sayIt;p.append(d);sayIt()}
   else if(ev.kind==='shopping'){const d=document.createElement('div'),$$=v=>'$'+(+v).toFixed(2);d.className='recipe shop';
     d.innerHTML=(ev.rows||[]).map(r=>`<div class="shrow"><div><b>${esc(r.item)}</b>${r.best?`<small>${esc(r.best.name)}${r.best.size?' · '+esc(r.best.size):''}${r.best.special?' · <em>special</em>':''}</small>`:'<small>no price found</small>'}</div>`
       +`<div class="shp">${r.best?`<span class="st-${r.best.store.toLowerCase()}">${esc(r.best.store)}</span> ${$$(r.best.price)}`:''}${(r.other||[]).map(o=>`<small>${esc(o.store)} ${$$(o.price)}</small>`).join('')}</div></div>`).join('')

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.22.0** (shown at the bottom right of the HUD)
+**Version 1.23.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.23.0** (5 Nov 2026): instant calculator and converter (sums, tips, bill splits, units, currency; no tokens);
+  voice notes ("note: ..."); a workout coach that runs timed workouts on the HUD and calls each exercise out;
+  "what's this error?" / "explain my screen" (Jarvis looks at your screen first); a translator that speaks in a
+  native voice; and price watch (tells you when something drops to your price).
 - **1.22.0** (5 Nov 2026): meal ideas now come with a shopping list priced at Woolworths and Coles (cheapest store
   per item, totals, specials), kept between sessions: "add milk to my list", "what's on my list", "got the
   milk". Jarvis.exe works with the Microsoft Store Python (it keeps its own copy in pyruntime/), and if it
