@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.15.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.16.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -711,6 +711,8 @@ def save_prefs(d):
         s["kokoro_voice"] = d["kokoro_voice"] or ""
     if "panel_alpha" in d:
         s["panel_alpha"] = max(0.05, min(0.9, float(d["panel_alpha"])))
+        if LIVE.get("pin_alpha"):
+            threading.Timer(0.1, LIVE["pin_alpha"]).start()  # pinned panels fade to match
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     features._save("settings.json", s)
@@ -1498,7 +1500,10 @@ if __name__ == "__main__":
         httpd.serve_forever()
     else:
         # let Jarvis speak even when you talk to him from the mini window (no click in the main window)
-        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--autoplay-policy=no-user-gesture-required"
+        # (and keep pages running at full speed in the background: pinned panels are fed from hidden pages)
+        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (
+            "--autoplay-policy=no-user-gesture-required --disable-background-timer-throttling "
+            "--disable-renderer-backgrounding --disable-backgrounding-occluded-windows")
         import webview  # pip install pywebview; uses the Edge engine built into Windows
         import mini
         try:
@@ -1530,25 +1535,32 @@ if __name__ == "__main__":
             features._save("settings.json", {**s, "pins": [dict(p, **kw) if p["id"] == pid else p
                                                            for p in s.get("pins", [])]})
 
+        def pin_alpha():
+            """How solid pinned panels are: follows the HUD's See-through slider (lower = more see-through)."""
+            return min(1.0, 0.3 + float(features.settings().get("panel_alpha", 0.28)))
+
+        def pin_moved(pid, x, y, w, h):
+            save_pin(pid, x=x, y=y, w=w, h=h)
+
+        mini.pin_events.update(moved=pin_moved, close=lambda pid: api.unpin(pid))
+        LIVE["pin_alpha"] = lambda: mini.send("pin_alpha", pin_alpha())
+
         def make_pin(p):
+            """A pinned panel: a hidden page keeps the panel live and sends what it shows to a see-through
+            floating window drawn by mini.py (a browser window can't fade on Windows)."""
             from urllib.parse import quote
+            mini.send("pin_alpha", pin_alpha())
+            mini.send("pin_add", p["id"], p["title"], p.get("x"), p.get("y"), p.get("w", 300), p.get("h", 260))
             w = webview.create_window(f"Jarvis · {p['title']}", f"{url}/?pin={quote(p['id'])}&v={VERSION}", width=p.get("w", 300),
                                       height=p.get("h", 260), x=p.get("x"), y=p.get("y"), frameless=True,
                                       easy_drag=False, on_top=True, hidden=True, focus=False, min_size=(180, 110),
                                       background_color="#03070c", js_api=api)
 
-            def moved(x, y):
-                save_pin(p["id"], x=x, y=y)
-            w.events.moved += moved
             pins[p["id"]] = w
             return w
 
         def show_pins(show):
-            for w in list(pins.values()):
-                try:
-                    w.show() if show else w.hide()
-                except Exception as e:
-                    print(datetime.datetime.now(), "pinned panel:", repr(e))
+            mini.send("pins_show", bool(show))
 
         class Api:  # called from the page as window.pywebview.api.<name>
             def mini(self, show):
@@ -1574,9 +1586,14 @@ if __name__ == "__main__":
                 s = features.settings()
                 features._save("settings.json", {**s, "pins": [p for p in s.get("pins", []) if p["id"] != pid]})
                 w = pins.pop(pid, None)
+                mini.send("pin_remove", pid)
                 if w:
                     w.destroy()
+                push_event({"type": "pins"})  # the HUD's + / - buttons catch up
                 return {"unpinned": pid}
+
+            def pin_frame(self, pid, rows):  # what a pinned panel shows right now, from its hidden page
+                mini.send("pin_frame", pid, rows if isinstance(rows, list) else [])
 
             def resize_pin(self, pid, w, h):
                 w, h = max(180, int(w)), max(110, int(h))

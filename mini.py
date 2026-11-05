@@ -26,6 +26,7 @@ RINGS = [(110, 10, 6, 1, .7), (170, 3, 3, -.6, .85), (230, 14, 24, .35, .5),
          (300, 2, 2, -.25, .9), (350, 6, 60, .15, .35), (395, 1.5, 1, 0, 1)]  # radius, width, arcs, speed, fill
 
 _q = queue.Queue()
+pin_events = {"moved": None, "close": None}  # set by server.py: moved(pid, x, y, w, h), close(pid)
 
 
 def send(cmd, *args):
@@ -147,6 +148,101 @@ def _run(on_ask, on_open, size):
             cv.create_line(c + math.cos(a) * r1, c + math.sin(a) * r1, c + math.cos(a) * r2,
                            c + math.sin(a) * r2, fill=dim, width=1)
 
+    # --- pinned panels: see-through floating copies of HUD panels (drawn here so they can fade) ---
+    pins, pin_st = {}, {"visible": False, "alpha": 0.6}
+    MUTE, TEXT, BG = "#6f9fb4", "#cdeefb", "#08151d"
+
+    def pin_add(pid, title, x=None, y=None, w=300, h=260):
+        if pid in pins:
+            return
+        top = tk.Toplevel(root)
+        top.overrideredirect(True)
+        top.wm_attributes("-topmost", True)
+        top.attributes("-alpha", pin_st["alpha"])
+        top.configure(bg=BG)
+        x = sw - w - 40 - 320 * len(pins) if x is None else x
+        y = 60 if y is None else y
+        top.geometry(f"{int(w)}x{int(h)}+{int(x)}+{int(y)}")
+        c = tk.Canvas(top, bg=BG, highlightthickness=0, bd=0)
+        c.pack(fill="both", expand=True)
+        top.update()
+        p = {"top": top, "cv": c, "title": title, "rows": [], "hwnd": ctypes.windll.user32.GetParent(top.winfo_id()),
+             "drag": None}
+        pins[pid] = p
+
+        def press(e):
+            w_, h_ = top.winfo_width(), top.winfo_height()
+            if e.x > w_ - 26 and e.y < 24:  # the x: unpin
+                p["drag"] = ("close",)
+            elif e.x > w_ - 18 and e.y > h_ - 18:  # the corner grip: resize
+                p["drag"] = ("size", e.x_root, e.y_root, w_, h_)
+            else:
+                p["drag"] = ("move", e.x_root - top.winfo_x(), e.y_root - top.winfo_y())
+
+        def motion(e):
+            d = p["drag"]
+            if d and d[0] == "move":
+                top.geometry(f"+{e.x_root - d[1]}+{e.y_root - d[2]}")
+            elif d and d[0] == "size":
+                top.geometry(f"{max(180, d[3] + e.x_root - d[1])}x{max(110, d[4] + e.y_root - d[2])}")
+                pin_draw(pid)
+
+        def release(e):
+            d, p["drag"] = p["drag"], None
+            if d and d[0] == "close":
+                if pin_events["close"]:
+                    threading.Thread(target=pin_events["close"], args=(pid,), daemon=True).start()
+            elif d and pin_events["moved"]:
+                pin_events["moved"](pid, top.winfo_x(), top.winfo_y(), top.winfo_width(), top.winfo_height())
+        c.bind("<ButtonPress-1>", press)
+        c.bind("<B1-Motion>", motion)
+        c.bind("<ButtonRelease-1>", release)
+        ctypes.windll.user32.ShowWindow(p["hwnd"], 4 if pin_st["visible"] else 0)
+        pin_draw(pid)
+
+    def pin_draw(pid):
+        p = pins.get(pid)
+        if not p:
+            return
+        c, bright, dim = p["cv"], st["colours"][0], st["colours"][1]
+        w, h = p["top"].winfo_width(), p["top"].winfo_height()
+        c.delete("all")
+        c.create_rectangle(0, 0, w - 1, h - 1, outline=dim)
+        c.create_line(12, 0, 52, 0, fill=bright, width=2)
+        c.create_text(12, 14, text=p["title"].upper(), fill=bright, anchor="w", font=("Bahnschrift SemiBold", 9))
+        c.create_text(w - 12, 13, text="\u00d7", fill=MUTE, anchor="e", font=("Consolas", 11))
+        y, inner = 32, w - 24
+        for r in p["rows"]:
+            if y > h - 14:
+                break
+            if "h" in r:
+                y += 4
+                c.create_text(12, y, text=str(r["h"]).upper(), fill=bright, anchor="w", font=("Bahnschrift SemiBold", 8))
+                y += 16
+            elif "bar" in r:
+                c.create_rectangle(12, y - 6, 12 + inner, y - 3, fill="#12303e", outline="")
+                c.create_rectangle(12, y - 6, 12 + inner * max(0, min(100, float(r["bar"]))) / 100, y - 3,
+                                   fill=bright, outline="")
+                y += 6
+            elif "l" in r:
+                c.create_text(12, y, text=str(r["l"])[:40], fill=MUTE, anchor="w", font=("Consolas", 9))
+                c.create_text(w - 12, y, text=str(r.get("v", ""))[:30], fill=r.get("vc") or TEXT, anchor="e",
+                              font=("Consolas", 9))
+                y += 18
+            elif "t" in r:
+                c.create_text(12, y, text=str(r["t"]), fill=r.get("c") or MUTE, anchor="nw", width=inner,
+                              font=("Consolas", 9))
+                y += 18 * max(1, min(3, len(str(r["t"])) * 7 // max(60, inner) + 1))
+        for k in (6, 11, 16):  # resize grip
+            c.create_line(w - k, h - 2, w - 2, h - k, fill=dim)
+
+    def pins_show(on):
+        pin_st["visible"] = bool(on)
+        for p in pins.values():
+            if on:
+                ctypes.windll.user32.SetWindowPos(p["hwnd"], -1, 0, 0, 0, 0, 0x13)
+            ctypes.windll.user32.ShowWindow(p["hwnd"], 4 if on else 0)
+
     def tick():
         try:
             while True:
@@ -161,8 +257,26 @@ def _run(on_ask, on_open, size):
                     try:
                         st["colours"] = palette(args[0])
                         entry.configure(insertbackground=st["colours"][0], highlightcolor=st["colours"][0])
+                        for pid in pins:
+                            pin_draw(pid)
                     except (ValueError, IndexError, AttributeError):
                         pass  # not a colour: keep the current one
+                elif cmd == "pin_add":
+                    pin_add(*args)
+                elif cmd == "pin_remove":
+                    p = pins.pop(args[0], None)
+                    if p:
+                        p["top"].destroy()
+                elif cmd == "pin_frame":
+                    if args[0] in pins:
+                        pins[args[0]]["rows"] = args[1] or []
+                        pin_draw(args[0])
+                elif cmd == "pins_show":
+                    pins_show(args[0])
+                elif cmd == "pin_alpha":
+                    pin_st["alpha"] = max(0.2, min(1.0, float(args[0])))
+                    for p in pins.values():
+                        p["top"].attributes("-alpha", pin_st["alpha"])
                 elif cmd == "quit":
                     root.destroy()
                     return

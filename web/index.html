@@ -698,7 +698,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -927,6 +927,21 @@ function showPins(){document.querySelectorAll('.panel[data-id] .pinb').forEach(b
 document.querySelectorAll('.panel[data-id]').forEach(addPinButton);
 new MutationObserver(()=>document.querySelectorAll('.panel[data-id]').forEach(addPinButton)).observe(document.body,{childList:true,subtree:true});
 addEventListener('pywebviewready',async()=>{if(PIN)return;try{pinnedIds=new Set(await api().pinned())}catch(e){}showPins()});
+// A panel's content as simple rows (heading / label + value / bar / text) for the floating pinned window
+const hexOf=el=>{const m=el&&getComputedStyle(el).color.match(/\d+/g);return m?'#'+m.slice(0,3).map(v=>(+v).toString(16).padStart(2,'0')).join(''):null};
+function panelRows(p){
+  const rows=[],txt=el=>(el?.textContent||'').replace(/\s+/g,' ').trim(),title=p.querySelector('h2');
+  const walk=el=>{for(const c of el.children){
+    if(c===title||c.hidden||c.matches('.holo-x,.pin-grip,script,style')||getComputedStyle(c).display==='none')continue;
+    if(/^H[2-6]$/.test(c.tagName)){rows.push({h:txt(c)});continue}
+    if(c.classList.contains('row')){const [a,b]=c.children;rows.push({l:txt(a),v:txt(b),vc:hexOf(b?.querySelector('*')||b)});continue}
+    if(c.classList.contains('bar')){rows.push({bar:parseFloat(c.querySelector('i')?.style.width)||0});continue}
+    if(c.tagName==='TABLE'){for(const tr of c.querySelectorAll('tbody tr')){const td=[...tr.children];if(td.length<2){rows.push({t:txt(tr)});continue}
+      rows.push({l:td.slice(0,2).map(txt).join(' '),v:td.slice(2).map(txt).join(' · '),vc:hexOf(td[2])})}continue}
+    if(c.classList.contains('item')){rows.push({t:[...c.children].map(txt).join('  ')});continue}
+    if(c.children.length)walk(c);else if(txt(c))rows.push({t:txt(c),c:hexOf(c)})}};
+  walk(p);return rows.slice(0,40);
+}
 async function pinBoot(){  // inside a pinned panel's window
   let info={};try{info=await (await fetch('/api/boot')).json()}catch(e){}
   if(info.theme)setTheme(info.theme);
@@ -938,7 +953,10 @@ async function pinBoot(){  // inside a pinned panel's window
     const g=document.createElement('div');g.className='pin-grip';document.body.append(g);let st=null;
     g.onpointerdown=e=>{st={x:e.screenX,y:e.screenY,w:innerWidth,h:innerHeight};g.setPointerCapture(e.pointerId)};
     let t=0;g.onpointermove=e=>{if(!st)return;const now=Date.now();if(now-t<60)return;t=now;api()?.resize_pin(PIN,st.w+e.screenX-st.x,st.h+e.screenY-st.y)};
-    g.onpointerup=e=>{if(st)api()?.resize_pin(PIN,st.w+e.screenX-st.x,st.h+e.screenY-st.y);st=null};return true};
+    g.onpointerup=e=>{if(st)api()?.resize_pin(PIN,st.w+e.screenX-st.x,st.h+e.screenY-st.y);st=null};
+    // the see-through floating window is drawn by Jarvis itself: send it what this panel shows, every second
+    const feed=()=>{try{api()?.pin_frame(PIN,panelRows(p))}catch(e){}};setInterval(feed,1000);addEventListener('pywebviewready',feed);
+    return true};
   if(!show()){const mo=new MutationObserver(()=>{if(show())mo.disconnect()});mo.observe(document.body,{childList:true,subtree:true})}  // custom panels appear a moment later
 }
 
