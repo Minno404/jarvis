@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.28.5"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.28.6"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -231,6 +231,11 @@ def _merge_positions(rows, source, replace=False):
 # ---------- Live MT5 (MetaQuotes' MetaTrader5 package talks to the running terminal) ----------
 def _mt5():
     import MetaTrader5 as mt5  # pip install MetaTrader5 (Windows only)
+    # MetaTrader's initialize() starts the terminal when it isn't running: Jarvis only ever uses an MT5 that's
+    # already open, and opens it himself only when asked (open_app)
+    if os.name == "nt" and "terminal64.exe" not in features.running():
+        raise RuntimeError("MetaTrader 5 isn't open, and Jarvis doesn't open it by himself. If he wants live MT5 "
+                           "data, ask whether to open it (open_app 'MetaTrader 5'); his journal still works without it.")
     if not mt5.initialize():
         raise RuntimeError(f"Can't reach MetaTrader 5 ({mt5.last_error()}). Is it open and logged in?")
     return mt5

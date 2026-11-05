@@ -1,4 +1,4 @@
 {
- "version": "1.28.5",
- "notes": "iPhone: Jarvis talks in Silent mode in the normal view too."
+ "version": "1.28.6",
+ "notes": "Jarvis no longer opens MT5 by himself."
 }
