@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.13.0** (shown at the bottom right of the HUD)
+**Version 1.14.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,13 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.14.0** (5 Nov 2026): quality of life.
+  - Panel positions and which panels are open or closed are now kept when Jarvis restarts.
+  - Backgrounds: "make the background stars" (also nebula, grid, hex, falling code, plain dark), "set the
+    background to a picture of a city at night", or "set the background to my last photo"; or Settings →
+    Background, with a darken slider for pictures. Undo works on it too.
+  - A quieter message bar: no Send button (press Enter), a + at the end of the box for photos, and the
+    suggestion buttons fade back until you hover over them.
 - **1.13.0** (5 Nov 2026):
   - "Undo that": reverses the last thing Jarvis changed (a logged trade, memory, reminder, alert, routine,
     budget, rules, colour, personality, panel, an app he opened, the TV). Say it again to go further back.

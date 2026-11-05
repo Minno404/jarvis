@@ -18,12 +18,12 @@ FILE_TOOLS = {"add_trade": ["journal.json"], "delete_trade": ["journal.json"], "
               "forget": ["memory.json"], "add_reminder": ["reminders.json"], "cancel_reminder": ["reminders.json"],
               "add_alert": ["alerts.json"], "cancel_alert": ["alerts.json"], "save_routine": ["routines.json"],
               "set_spending_plan": ["plan"], "set_trading_rules": ["settings.json"]}
-LIVE_TOOLS = ("hud_colour", "set_persona", "set_brain", "hud_panel", "open_app", "tv_power", "quiet_mode")
+LIVE_TOOLS = ("hud_background", "hud_colour", "set_persona", "set_brain", "hud_panel", "open_app", "tv_power", "quiet_mode")
 SAY = {"add_trade": "logging that trade", "delete_trade": "deleting that trade", "remember": "remembering that",
        "forget": "forgetting that", "add_reminder": "that reminder", "cancel_reminder": "cancelling that reminder",
        "add_alert": "that price alert", "cancel_alert": "cancelling that alert", "save_routine": "that routine change",
        "set_spending_plan": "the budget change", "set_trading_rules": "the trading rules change",
-       "hud_colour": "the colour change", "set_persona": "the personality switch", "set_brain": "the brain switch",
+       "hud_colour": "the colour change", "hud_background": "the background change", "set_persona": "the personality switch", "set_brain": "the brain switch",
        "hud_panel": "that panel change", "open_app": "opening {name}", "tv_power": "the TV power change",
        "quiet_mode": "the quiet mode change"}
 
@@ -53,6 +53,10 @@ def _inverse(name, args, before, result):
     s = before
     if name == "hud_colour":
         return "hud_colour", {"colour": s.get("theme") or "blue"}
+    if name == "hud_background":
+        prev = s.get("background") or {}
+        return "hud_background", ({"style": prev["style"], "dim": prev.get("dim", .55)} if prev.get("kind") == "style"
+                                  else {"style": "default"})  # a replaced picture can't come back
     if name == "set_persona":
         return "set_persona", {"name": s.get("persona") or "jarvis"}
     if name == "set_brain":

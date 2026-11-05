@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.13.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.14.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -712,6 +712,12 @@ def save_prefs(d):
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     features._save("settings.json", s)
+    if isinstance(d.get("background"), dict):  # from Settings: a style, the last photo, or how dark a picture is
+        b = {k: v for k, v in d["background"].items() if k in ("style", "photo", "dim")}
+        r = FUNCS["hud_background"](**b)
+        if r.get("error"):
+            raise ValueError(r["error"])
+        s = features.settings()
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed")}})
@@ -1211,6 +1217,18 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=86400")
             self.end_headers()
             return self.wfile.write(data)
+        if self.path.startswith("/api/background"):  # the background picture (hud_background)
+            f = next((HERE / "custom" / "backgrounds").glob("background.*"), None) \
+                if (HERE / "custom" / "backgrounds").is_dir() else None
+            if not f:
+                return self.send_error(404)
+            data = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", {".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
+                             .get(f.suffix.lower(), "image/jpeg"))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
@@ -1670,4 +1688,5 @@ if __name__ == "__main__":
                             on_hold_cmd=do_hold)
 
         main.events.loaded += on_loaded
-        webview.start()
+        # not private mode: panel positions, closed panels and other HUD choices are kept between launches
+        webview.start(private_mode=False, storage_path=str(HERE / "webdata"))

@@ -120,6 +120,34 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
+/* The message bar: there when you need it, quiet when you don't. Enter sends; + adds a photo */
+form{opacity:.55;transition:opacity .3s}form:hover,form:focus-within{opacity:1}
+.qwrap{position:relative;flex:1;min-width:0;display:flex}
+#q{flex:1;background:rgba(3,7,12,.35);border:0;border-bottom:1px solid rgba(var(--line-rgb),.8);padding-right:calc(40px*var(--s))}
+#q::placeholder{color:var(--mute);opacity:.7}
+#q:focus{border-color:var(--cyan);box-shadow:none;background:rgba(3,7,12,.55)}
+#photoBtn{position:absolute;right:2px;top:50%;transform:translateY(-50%);border:0;padding:0 calc(10px*var(--s));height:80%;
+  font-family:var(--mono);font-size:calc(20px*var(--s));letter-spacing:0;color:var(--mute);line-height:1}
+#photoBtn:hover,#photoBtn:focus-visible{color:var(--cyan);background:none}
+#mic{border-color:transparent;color:var(--mute);font-size:calc(10px*var(--s))}#mic:hover{color:var(--cyan);border-color:var(--line)}
+.chips{opacity:.45;transition:opacity .3s}.chips:hover,.chips:focus-within{opacity:1}
+.chip{border-color:transparent;background:rgba(var(--rgb),.04)}.chip:hover{border-color:var(--line)}
+/* Backgrounds ("make the background stars", or Settings) */
+#bgimg,#bgfx{position:fixed;inset:0;pointer-events:none;z-index:0}
+#bgimg{background-size:cover;background-position:center}
+#bgfx{width:100%!important;height:100%!important;max-width:none;aspect-ratio:auto}
+#bgimg::after{content:"";position:absolute;inset:0;background:rgba(3,7,12,var(--bg-dim,.55))}
+body[data-bg=dark]{background:var(--void)}body[data-bg=dark]::before{opacity:.35}
+body[data-bg=grid]::before{background:linear-gradient(rgba(var(--rgb),.09) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(90deg,rgba(var(--rgb),.09) 1px,transparent 1px) 0 0/32px 32px;
+  mask-image:radial-gradient(ellipse at 50% 45%,#000 10%,transparent 85%)}
+body[data-bg=nebula]{background:radial-gradient(ellipse at 18% 28%,rgba(var(--rgb),.22),transparent 50%),radial-gradient(ellipse at 82% 72%,rgba(150,80,255,.2),transparent 55%),
+  radial-gradient(ellipse at 62% 18%,rgba(255,80,160,.1),transparent 45%),var(--void);background-size:140% 140%;animation:nebula 40s ease-in-out infinite alternate}
+@keyframes nebula{to{background-position:100% 60%}}
+body[data-bg=hex]::before{background:rgba(var(--rgb),.13);mask-image:none;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97'%3E%3Cpath d='M28 0 56 16v32L28 64 0 48V16zM28 64v33M0 48v49M56 48v49' fill='none' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E") 0 0/56px 97px;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='97'%3E%3Cpath d='M28 0 56 16v32L28 64 0 48V16zM28 64v33M0 48v49M56 48v49' fill='none' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E") 0 0/56px 97px}
+body[data-bg=image],body[data-bg=stars],body[data-bg=rain]{background:var(--void)}
+body[data-bg=image]::before,body[data-bg=stars]::before,body[data-bg=rain]::before{opacity:.25}
 /* Activity: what Jarvis is busy with */
 .act{display:flex;flex-direction:column;gap:2px;margin-top:4px}
 .act h4{margin:8px 0 2px;font-family:var(--display);font-size:calc(10px*var(--s));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
@@ -181,6 +209,7 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 .legend span:nth-child(3n){text-align:right;color:var(--text)}.legend span{color:var(--mute)}
 </style>
 
+<div id="bgimg" hidden></div><canvas id="bgfx" hidden aria-hidden="true"></canvas>
 <div class="sweep" aria-hidden="true"></div>
 <div class="wrap">
   <div class="col">
@@ -216,7 +245,7 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
     <div class="state" id="state">Standing by</div>
     <div class="log" id="log" aria-live="polite"></div>
     <div class="attach" id="attach" hidden><img id="attImg" alt="Photo to send"><span>Photo ready · ask about it</span><button type="button" class="holo-x" id="attX" aria-label="Remove photo">\u00d7</button></div>
-    <form id="f"><input id="q" placeholder="Say something, sir…" autocomplete="off"><input type="file" id="file" accept="image/*" hidden><button type="button" id="photoBtn" title="Send Jarvis a photo (or paste / drop one)">Photo</button><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button><button>Send</button></form>
+    <form id="f"><div class="qwrap"><input id="q" placeholder="Say something, sir…" autocomplete="off" enterkeyhint="send" aria-label="Message Jarvis (Enter to send)"><button type="button" id="photoBtn" title="Send Jarvis a photo (or paste / drop one)" aria-label="Add a photo">+</button></div><input type="file" id="file" accept="image/*" hidden><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button></form>
     <div class="chips">
       <button class="chip" type="button">Bring up my trading journal</button>
       <button class="chip" type="button">Give me a report</button>
@@ -277,6 +306,13 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
         <div class="keyrow"><span class="hint">Speed</span><input type="range" id="voiceSpeed" min="0.8" max="1.2" step="0.05" style="flex:1">
           <span class="hint" id="speedVal"></span></div></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
+    </fieldset>
+    <fieldset><legend>Background</legend>
+      <select id="bgSel"><option value="default">Glow (default)</option><option value="dark">Plain dark</option><option value="grid">Holographic grid</option>
+        <option value="stars">Starfield (moving)</option><option value="nebula">Nebula</option><option value="hex">Hexagon mesh</option>
+        <option value="rain">Falling code</option><option value="photo">My last photo</option><option value="image" hidden>Picture (set by Jarvis)</option></select>
+      <div class="keyrow" id="dimRow" hidden><span class="hint">Darken</span><input type="range" id="bgDim" min="0" max="0.9" step="0.05" style="flex:1"></div>
+      <p class="hint">Or ask: "make the background a picture of a city at night".</p>
     </fieldset>
     <fieldset><legend>Core model</legend>
       <select id="avatarSel"><option value="">Arc reactor (default)</option></select>
@@ -580,6 +616,7 @@ async function ask(q){
   await sync();if(trades.length!==before||/journal|trade|report|gold|how did i/i.test(q)){flash();$('mt5').classList.remove('flash');void $('mt5').offsetWidth;$('mt5').classList.add('flash')}
 }
 $('f').onsubmit=e=>{e.preventDefault();ask($('q').value);$('q').value=''};
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('f').requestSubmit()}});
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>ask(b.textContent));
 // Colour themes: "Jarvis, make the HUD red". One accent colour drives everything, including the 3D core.
 function showPersona(p){$('brand').textContent=p.name.replace(/ /g,'');document.title=p.name.replace(/ /g,'')+' Console'}
@@ -643,7 +680,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel')showPanel(ev);else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -764,6 +801,7 @@ async function bootSequence(){
   if(info.theme)setTheme(info.theme);
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
+  if(info.background)setBackground(info.background);
   showPrefs({listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
@@ -816,6 +854,40 @@ async function activityTick(){try{renderActivity(await (await fetch('/api/status
 $('quietBtn').onclick=async()=>{const on=$('quietBtn').getAttribute('aria-pressed')!=='true';
   try{await fetch('/api/quiet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on})})}catch(e){}activityTick()};
 activityTick();setInterval(activityTick,3000);
+
+// ---------- Background: a style, or a picture (hud_background); animated ones pause when Jarvis is hidden ----------
+let bgNow={kind:'style',style:'default'},bgAnim=null;
+function setBackground(bg){
+  if(!bg)return;bgNow={...bgNow,...bg};const img=$('bgimg'),fx=$('bgfx');
+  cancelAnimationFrame(bgAnim);bgAnim=null;fx.hidden=true;img.hidden=true;
+  if(bgNow.kind==='image'){img.style.backgroundImage=`url(/api/background?v=${bgNow.v||0})`;img.style.setProperty('--bg-dim',bgNow.dim??.55);img.hidden=false;document.body.dataset.bg='image'}
+  else{document.body.dataset.bg=bgNow.style||'default';if(['stars','rain'].includes(bgNow.style))startFx(bgNow.style)}
+  if($('bgSel')){$('bgSel').value=bgNow.kind==='image'?'image':bgNow.style;$('bgSel').querySelector('[value=image]').hidden=bgNow.kind!=='image';
+    $('dimRow').hidden=bgNow.kind!=='image';$('bgDim').value=bgNow.dim??.55}
+}
+function startFx(kind){
+  const c=$('bgfx'),g=c.getContext('2d');c.hidden=false;let W,H;
+  const fit=()=>{W=c.width=innerWidth;H=c.height=innerHeight};fit();addEventListener('resize',fit);
+  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(kind==='stars'){const st=Array.from({length:260},()=>({x:Math.random()*2-1,y:Math.random()*2-1,z:Math.random()}));
+    const frame=()=>{g.clearRect(0,0,W,H);const a=accent;
+      for(const p of st){if(!still)p.z-=.0016;if(p.z<=.02){p.x=Math.random()*2-1;p.y=Math.random()*2-1;p.z=1}
+        const k=.5/p.z,x=W/2+p.x*W*k*.5,y=H/2+p.y*H*k*.5,r=Math.max(.3,(1-p.z)*1.8);if(x<0||x>W||y<0||y>H)continue;
+        g.fillStyle=`rgba(${p.z<.4?a:'220,235,255'},${(1-p.z)*.9})`;g.beginPath();g.arc(x,y,r,0,7);g.fill()}
+      if(!still&&!document.hidden)bgAnim=requestAnimationFrame(frame)};
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&bgNow.style==='stars'&&!bgAnim)frame()});frame()}
+  else{const glyph='01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ<>/+=*',fs=16,cols=()=>Math.ceil(W/fs),drops=Array.from({length:cols()},()=>Math.random()*-50);let last=0;
+    const frame=t=>{bgAnim=requestAnimationFrame(frame);if(document.hidden||t-last<70)return;last=t;
+      g.fillStyle='rgba(3,7,12,.16)';g.fillRect(0,0,W,H);g.font=fs+'px monospace';
+      for(let i=0;i<cols();i++){const y=(drops[i]||0)*fs;g.fillStyle=`rgba(${accent},${.12+Math.random()*.25})`;
+        g.fillText(glyph[Math.floor(Math.random()*glyph.length)],i*fs,y);drops[i]=y>H&&Math.random()>.975?0:(drops[i]||0)+1}};
+    if(still){g.fillStyle=`rgba(${accent},.12)`;g.font=fs+'px monospace';for(let i=0;i<cols();i++)for(let j=0;j<H/fs;j+=3)g.fillText(glyph[(i*7+j)%glyph.length],i*fs,j*fs)}
+    else bgAnim=requestAnimationFrame(frame)}
+}
+async function saveBackground(d){try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({background:d})})).json();
+  if(r.error)throw new Error(r.error);$('setMsg').textContent='Saved.'}catch(e){$('setMsg').textContent=e.message||"Couldn't change the background."}}
+$('bgSel').onchange=()=>{const v=$('bgSel').value;saveBackground(v==='photo'?{photo:true}:{style:v})};
+$('bgDim').onchange=()=>saveBackground({dim:+$('bgDim').value});
 
 // ---------- Settings: listening mode, push-to-talk key, core model ----------
 let prefs={listen_mode:'wake',ptt_key:'',avatar:'',avatar_style:'hologram'},capturing=false;

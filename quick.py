@@ -129,6 +129,19 @@ def quick(text):
         r = R["set_brain"](b)
         return _ok(r, {"chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
                        "auto": "Automatic it is: Claude first, ChatGPT if the Claude allowance runs out."}[b])
+    # --- the HUD's background ---
+    m = re.fullmatch(r"(?:change|set|make|switch|turn) (?:the |your |my )?(?:hud )?background (?:to |into )?(?:a |an |the )?"
+                     r"(?:picture of |photo of |image of )?(.+?)|(?:reset|default) (?:the )?background|background (\w+)", t)
+    if m:
+        what = (m.group(1) or m.group(2) or "default").strip()
+        what = re.sub(r"^(?:a|an|the) ", "", what)
+        if re.fullmatch(r"(?:my |the )?(?:last )?photo(?: i sent)?|(?:my|that) picture", what):
+            return _ok(R["hud_background"](photo=True), "Your photo it is, {TITLE}.")
+        key = hud.BG_ALIASES.get(what, what)
+        if key in hud.BACKGROUNDS:
+            return _ok(R["hud_background"](style=key), f"Background set to {hud.BACKGROUNDS[key]}.")
+        r = R["hud_background"](query=what)
+        return _ok(r, f"Background changed to {what}, {{TITLE}}.")
     # --- the HUD's colour ---
     m = re.fullmatch(r"(?:change|switch|set|make|turn) (?:the |your )?(?:hud |interface |screen )?(?:colou?r )?(?:to |into )?"
                      r"([a-z ]+?)(?: colou?r)?|(?:go|be) ([a-z]+)", t)
@@ -167,7 +180,7 @@ def selftest():
     calls = []
     rec = lambda name: (lambda *a, **k: calls.append((name, a, k)) or {"ok": True})
     for n in ("media", "tv_power", "tv_input", "tv_volume", "tv_app", "tv_keys", "tv_channel", "set_volume",
-              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona", "jarvis_power", "undo_last", "quiet_mode"):
+              "add_reminder", "hud_colour", "hud_panel", "show_panel", "set_brain", "set_persona", "jarvis_power", "undo_last", "quiet_mode", "hud_background"):
         features.REGISTRY[n] = rec(n)
     features.REGISTRY["open_app"] = lambda name: calls.append(("open_app", (name,), {})) or (
         {"opened": "Discord"} if name == "discord" else {"error": "no", "candidates": []})
@@ -205,6 +218,10 @@ def selftest():
         "take that back": ("undo_last", (), {}),
         "quiet mode": ("quiet_mode", (), {"on": True}),
         "quiet mode off": ("quiet_mode", (), {"on": False}),
+        "change the background to stars": ("hud_background", (), {"style": "stars"}),
+        "make the background black": ("hud_background", (), {"style": "dark"}),
+        "set the background to a picture of a city at night": ("hud_background", (), {"query": "city at night"}),
+        "reset the background": ("hud_background", (), {"style": "default"}),
         "shut yourself down": ("jarvis_power", ("shutdown",), {}),
     }
     for said, want in cases.items():

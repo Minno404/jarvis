@@ -133,6 +133,57 @@ def show_image(query=None, url=None, title=None, count=1, skip=0):
             "next": "For different ones, call again with skip set higher."}
 
 
+BACKGROUNDS = {"default": "the glowing default", "dark": "plain dark", "grid": "a holographic grid",
+               "stars": "a moving starfield", "nebula": "a deep-space nebula", "hex": "a hexagon mesh",
+               "rain": "falling code"}
+BG_ALIASES = {"normal": "default", "original": "default", "reset": "default", "black": "dark", "plain": "dark",
+              "space": "stars", "starfield": "stars", "galaxy": "nebula", "hexagon": "hex", "hexagons": "hex",
+              "matrix": "rain", "code": "rain"}
+
+
+def hud_background(style=None, query=None, url=None, photo=False, dim=None):
+    """Change the HUD's background: a built-in style, a picture found on the web (query), a picture link (url),
+    or the last photo he sent (photo=True). dim 0-0.9 darkens a picture so the HUD stays readable."""
+    s = features.settings()
+    bg = {"dim": max(0.0, min(0.9, float(dim))) if dim is not None else s.get("background", {}).get("dim", 0.55)}
+    if dim is not None and not (style or query or url or photo) and s.get("background", {}).get("kind") == "image":
+        bg = {**s["background"], "dim": bg["dim"]}  # just darker or lighter: keep the picture
+        features._save("settings.json", {**s, "background": bg})
+        PUSH({"type": "background", **bg})
+        return {"background": "picture", "dim": bg["dim"]}
+    if query or url or photo:
+        src_file = None
+        if photo:
+            ups = sorted((features.HERE / "uploads").glob("*.*"), key=lambda f: f.stat().st_mtime)
+            if not ups:
+                return {"error": "He hasn't sent a photo yet."}
+            src_file = ups[-1]
+        else:
+            cands = [{"src": url, "page": url}] if url else find_images(query + " wallpaper")
+            for c in cands[:8]:
+                name = download(c["src"], c.get("page") if str(c.get("page", "")).startswith("http") else None)
+                if name:
+                    src_file = features.HERE / IMAGES / name
+                    break
+            if not src_file:
+                return {"error": f"Couldn't get a picture for '{query or url}'."}
+        d = features.HERE / "custom" / "backgrounds"  # kept through updates
+        d.mkdir(parents=True, exist_ok=True)
+        for old in d.glob("background.*"):
+            old.unlink()
+        dest = d / ("background" + src_file.suffix.lower())
+        dest.write_bytes(src_file.read_bytes())
+        bg.update(kind="image", file=dest.name, v=int(dest.stat().st_mtime))
+    else:
+        key = BG_ALIASES.get((style or "default").lower().strip(), (style or "default").lower().strip())
+        if key not in BACKGROUNDS:
+            return {"error": f"Unknown background '{style}'", "styles": list(BACKGROUNDS)}
+        bg.update(kind="style", style=key)
+    features._save("settings.json", {**features.settings(), "background": bg})
+    PUSH({"type": "background", **bg})
+    return {"background": bg.get("style") or "picture", "dim": bg["dim"]}
+
+
 PANELS = {"time": "time", "clock": "time", "local time": "time", "systems": "systems", "system": "systems",
           "stats": "systems", "pc stats": "systems", "protocols": "protocols", "mt5": "mt5", "mt5 journal": "mt5",
           "trading journal": "mt5", "journal": "journal", "voice journal": "journal", "report": "report",
@@ -150,11 +201,18 @@ def hud_panel(panel, show=True):
     return {"panel": pid, "shown": bool(show)}
 
 
-FUNCS = {"hud_colour": hud_colour, "show_image": show_image, "hud_panel": hud_panel}
+FUNCS = {"hud_background": hud_background, "hud_colour": hud_colour, "show_image": show_image, "hud_panel": hud_panel}
 TOOLS = [
     {"name": "hud_colour", "description": "Change the HUD's colour when he asks: blue (default), red, gold, yellow, "
      "orange, green, teal, purple, pink, white, silver, or any hex code. It stays until changed.",
      "input_schema": {"type": "object", "required": ["colour"], "properties": {"colour": {"type": "string"}}}},
+    {"name": "hud_background", "description": "Change the HUD's background when he asks: style = default, dark, grid, "
+     "stars (moving starfield), nebula, hex or rain (falling code); or a picture: query = what to find on the web "
+     "('a city at night', 'Halo ring'), url = a picture link, or photo = true for the last photo he sent. dim 0-0.9 "
+     "darkens a picture (default 0.55). It stays until changed.",
+     "input_schema": {"type": "object", "properties": {"style": {"type": "string", "enum": list(BACKGROUNDS)},
+                      "query": {"type": "string"}, "url": {"type": "string"}, "photo": {"type": "boolean"},
+                      "dim": {"type": "number"}}}},
     {"name": "hud_panel", "description": "Close or reopen one of the HUD's side panels: time, systems, protocols, "
      "mt5 journal, voice journal, journal report, any custom panel by its title, or all. show false to close.",
      "input_schema": {"type": "object", "required": ["panel"], "properties": {"panel": {"type": "string"},
@@ -179,6 +237,16 @@ def selftest():
         assert hud_colour("Red")["colour"] == "#ff4d5e" and sent[-1] == {"type": "theme", "color": "#ff4d5e"}
         assert features.settings()["theme"] == "#ff4d5e"
         assert hud_colour("FF8800")["colour"] == "#ff8800" and "error" in hud_colour("blurple")
+        assert hud_panel("Task Manager")["panel"] == "task-manager" and hud_panel("activity")["panel"] == "activity"
+        assert hud_background("space")["background"] == "stars" and sent[-1]["style"] == "stars"
+        assert features.settings()["background"]["style"] == "stars" and "error" in hud_background("lava lamp")
+        assert "error" in hud_background(photo=True)  # no photos yet
+        (features.HERE / "uploads").mkdir()
+        (features.HERE / "uploads" / "a1.jpg").write_bytes(b"\xff\xd8pic")
+        r = hud_background(photo=True, dim=0.3)
+        assert r == {"background": "picture", "dim": 0.3} and sent[-1]["file"] == "background.jpg"
+        assert (features.HERE / "custom" / "backgrounds" / "background.jpg").read_bytes() == b"\xff\xd8pic"
+        assert hud_background(dim=0.7) == {"background": "picture", "dim": 0.7} and sent[-1]["file"] == "background.jpg"
         jpg = b"\xff\xd8" + b"x" * 5000
         pages = {"bing": ('<a m="{&quot;purl&quot;:&quot;https://cars.com/cla&quot;,&quot;murl&quot;:'
                           '&quot;https://cars.com/cla.jpg&quot;}" ></a><a m="{&quot;murl&quot;:&quot;https://x/tiny.png'
