@@ -1,4 +1,4 @@
 {
- "version": "1.28.1",
- "notes": "Use Jarvis from anywhere through Tailscale, no pairing needed."
+ "version": "1.28.2",
+ "notes": "Jarvis's voice plays on iPhone even in Silent mode."
 }

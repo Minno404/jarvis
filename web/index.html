@@ -662,7 +662,13 @@ function stopSpeaking(){  // "Hey Jarvis" while he talks, Esc, or clicking the c
   try{speechSynthesis.cancel()}catch(e){}
   aborter?.abort();voiceOn=false;speechAt=0;
 }
+// iPhones mute page sound in Silent mode unless the page says it's media playback, like music or a video
+let mediaOn=false;
 function audio(){
+  try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback'}catch(e){}
+  if(!mediaOn&&/iPhone|iPad|iPod/.test(navigator.userAgent)&&!navigator.audioSession){  // older iOS: a silent media
+    mediaOn=true;try{const a=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=');  // clip
+      a.loop=true;a.setAttribute('playsinline','');a.play().catch(()=>{mediaOn=false})}catch(e){}}
   try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
 function voice(side,lang){
