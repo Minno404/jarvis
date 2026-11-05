@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.17.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.17.3"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -713,6 +713,8 @@ def save_prefs(d):
         s["panel_alpha"] = max(0.05, min(0.9, float(d["panel_alpha"])))
         if LIVE.get("pin_alpha"):
             threading.Timer(0.1, LIVE["pin_alpha"]).start()  # pinned panels fade to match
+    if "text_size" in d:
+        s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     features._save("settings.json", s)
@@ -725,7 +727,7 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha")}})
+                                                            "panel_alpha", "text_size")}})
     return {**s, "voice": speech.status}
 
 

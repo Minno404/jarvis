@@ -1,4 +1,4 @@
 {
- "version": "1.17.2",
- "notes": "Moved panels mirror your layout at any window size and always stay on screen."
+ "version": "1.17.3",
+ "notes": "Text size slider in Settings (Panels section)."
 }
