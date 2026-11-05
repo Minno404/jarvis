@@ -669,26 +669,44 @@ const LAYOUT='jarvis-layout';
 let layout={};try{layout=JSON.parse(localStorage.getItem(LAYOUT)||'{}')}catch(e){}
 const saveLayout=()=>{try{localStorage.setItem(LAYOUT,JSON.stringify(layout))}catch(e){}};
 let topZ=10;
+// Moved panels are remembered relative to the window (where across and down, and size in HUD scale), so the same
+// layout mirrors onto a bigger or smaller window and every panel is kept fully on screen.
+const scaleNow=()=>+getComputedStyle(document.documentElement).getPropertyValue('--s')||1;
+function toLayout(r){const S=scaleNow();return{fx:(r.left+r.width/2)/innerWidth,fy:(r.top+r.height/2)/innerHeight,w:r.width/S,h:r.height/S,v:2}}
+function fromLayout(b){
+  if(b.v!==2)b={fx:(b.x+b.w/2)/Math.max(innerWidth,b.x+b.w),fy:(b.y+b.h/2)/Math.max(innerHeight,b.y+b.h),w:b.w,h:b.h};  // older saves
+  const S=scaleNow(),w=Math.min(b.w*S,innerWidth-8),h=Math.min(b.h*S,innerHeight-8);
+  return{x:Math.max(0,Math.min(innerWidth-w,b.fx*innerWidth-w/2)),y:Math.max(0,Math.min(innerHeight-h,b.fy*innerHeight-h/2)),w,h};
+}
 function free(p,box){
   if(!p.classList.contains('free')){const r=p.getBoundingClientRect();box=box||{x:r.left,y:r.top,w:r.width,h:r.height};
     p.classList.add('free');document.body.append(p);$('layoutRow').hidden=false}
   Object.assign(p.style,{left:Math.max(0,Math.min(innerWidth-60,box.x))+'px',top:Math.max(0,Math.min(innerHeight-40,box.y))+'px',
     width:box.w+'px',height:box.h+'px',zIndex:++topZ});
 }
+function reflowFree(){  // the window changed size: put every moved panel back in its relative spot, on screen
+  for(const p of document.querySelectorAll('.free')){
+    const id=p.dataset.id,b=id&&layout[id];
+    if(b){const r=fromLayout(b);p.dataset.reflow=Date.now();Object.assign(p.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'})}
+    else{const r=p.getBoundingClientRect();p.style.left=Math.max(0,Math.min(innerWidth-r.width,r.left))+'px';p.style.top=Math.max(0,Math.min(innerHeight-r.height,r.top))+'px'}
+  }
+}
+let reflowT;addEventListener('resize',()=>{clearTimeout(reflowT);reflowT=setTimeout(reflowFree,60)});
 function movable(p,id){
   if(PIN)return;  // a pinned panel's window moves as a whole instead
   const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
-  const remember=()=>{if(!id)return;const r=p.getBoundingClientRect();layout[id]={x:r.left,y:r.top,w:r.width,h:r.height};saveLayout()};
+  const remember=(mine)=>{if(!id)return;if(!mine&&Date.now()-(+p.dataset.reflow||0)<800)return;  // a window resize, not his change
+    layout[id]=toLayout(p.getBoundingClientRect());saveLayout()};
   h.addEventListener('pointerdown',e=>{
     if(e.button||innerWidth<1000||e.target.closest('button'))return;
     e.preventDefault();if(p.classList.contains('free'))p.style.zIndex=++topZ;else free(p);p.classList.add('lifted');
     const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
-    const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-60,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-30,m.clientY-dy))+'px'};
-    const up=()=>{p.classList.remove('lifted');h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);remember()};
+    const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-r.width,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-r.height,m.clientY-dy))+'px'};
+    const up=()=>{p.classList.remove('lifted');h.removeEventListener('pointermove',move);h.removeEventListener('pointerup',up);remember(true)};
     h.addEventListener('pointermove',move);h.addEventListener('pointerup',up)});
   p.addEventListener('pointerdown',()=>{if(p.classList.contains('free'))p.style.zIndex=++topZ});
   let t;new ResizeObserver(()=>{if(p.classList.contains('free')){clearTimeout(t);t=setTimeout(remember,300)}}).observe(p);
-  if(id&&layout[id]&&innerWidth>=1000)free(p,layout[id]);
+  if(id&&layout[id]&&innerWidth>=1000)free(p,fromLayout(layout[id]));
 }
 document.querySelectorAll('.panel[data-id]').forEach(p=>movable(p,p.dataset.id));
 // Side panels can be closed with their x; ask Jarvis to bring one back ("show the MT5 journal")
