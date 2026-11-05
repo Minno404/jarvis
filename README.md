@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.15.0** (shown at the bottom right of the HUD)
+**Version 1.15.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,7 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.15.1** (5 Nov 2026): fixed the app window showing an old copy of the HUD after an update.
 - **1.15.0** (5 Nov 2026):
   - Clearer, more see-through panels, with a See-through slider in Settings → Panels.
   - Pin up to 3 panels with the + beside a panel's x. While Jarvis is in the background (another window in

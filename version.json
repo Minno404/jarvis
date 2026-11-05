@@ -1,4 +1,4 @@
 {
- "version": "1.15.0",
- "notes": "See-through panels, and pin up to 3 panels to float over other windows while Jarvis is in the background."
+ "version": "1.15.1",
+ "notes": "Fixed the window showing an old copy of the HUD after an update."
 }

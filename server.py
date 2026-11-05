@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.15.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.15.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1155,6 +1155,13 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=str(HERE / "web"), **k)
 
+    def end_headers(self):
+        # The HUD page always comes fresh (the app window keeps its data between launches, which would
+        # otherwise let it show an old copy after an update)
+        if not self.path.startswith(("/api/", "/custom/")):
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def send_json(self, obj, code=200):
         body = json.dumps(obj).encode()
         self.send_response(code)
@@ -1525,7 +1532,7 @@ if __name__ == "__main__":
 
         def make_pin(p):
             from urllib.parse import quote
-            w = webview.create_window(f"Jarvis · {p['title']}", f"{url}/?pin={quote(p['id'])}", width=p.get("w", 300),
+            w = webview.create_window(f"Jarvis · {p['title']}", f"{url}/?pin={quote(p['id'])}&v={VERSION}", width=p.get("w", 300),
                                       height=p.get("h", 260), x=p.get("x"), y=p.get("y"), frameless=True,
                                       easy_drag=False, on_top=True, hidden=True, focus=False, min_size=(180, 110),
                                       background_color="#03070c", js_api=api)
@@ -1597,7 +1604,7 @@ if __name__ == "__main__":
                     voice.hold()
 
         api = Api()
-        main = webview.create_window("JARVIS", url, width=1440, height=900, min_size=(420, 600),
+        main = webview.create_window("JARVIS", f"{url}/?v={VERSION}", width=1440, height=900, min_size=(420, 600),
                                      background_color="#03070c", js_api=api, text_select=True)
         for p in features.settings().get("pins", [])[:3]:
             make_pin(p)  # hidden until Jarvis goes out of focus
