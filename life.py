@@ -56,6 +56,109 @@ def show_recipe(title=None):
     return recipe(r["title"], r["ingredients"], r["steps"], r["minutes"], r["serves"], r["missing"])
 
 
+# ---------- Shopping list with Woolworths and Coles prices ----------
+import re  # noqa: E402
+
+UNITS = r"(?:\d+[\d./]*\s*(?:g|kg|ml|l|cups?|tbsp|tsp|tablespoons?|teaspoons?|cloves?|cans?|tins?|packets?|bunch(?:es)?|x)?\b\s*(?:of\s+)?)"
+
+
+def _term(item):
+    """'2 tbsp soy sauce' -> 'soy sauce' (what to search the supermarket for)."""
+    t = re.sub(r"\(.*?\)|,.*$", "", str(item).lower())
+    return re.sub(rf"^\s*{UNITS}+", "", t).strip() or str(item).strip()
+
+
+def _shop(terms):
+    import json
+    import urllib.request
+    req = urllib.request.Request("http://127.0.0.1:8765/api/shop", data=json.dumps({"items": terms}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=150) as r:
+        return json.loads(r.read())
+
+
+def _pick(found):
+    """The best buy from a store's results: the cheapest of its top few available matches."""
+    ok = [p for p in (found if isinstance(found, list) else [])[:4] if p.get("available") and p.get("price")]
+    return min(ok, key=lambda p: p["price"]) if ok else None
+
+
+def price_check(items):
+    """Today's Woolworths and Coles prices for grocery items (top matches at each)."""
+    terms = [_term(i) for i in items]
+    try:
+        return _shop(terms)
+    except OSError as e:
+        return {"error": f"Couldn't check prices: {e}"}
+
+
+def shopping_list_add(items, recipe=None):
+    """Add groceries to his shopping list, priced at Woolworths and Coles, and show the list."""
+    terms = [_term(i) for i in items]
+    try:
+        prices = _shop(terms)
+    except OSError:
+        prices = {}
+    lst = _load("shopping.json", [])
+    have = {e["term"] for e in lst}
+    for item, t in zip(items, terms):
+        e = {"item": str(item), "term": t, "for": recipe or "", "picks": {}}
+        for store, res in (prices or {}).items():
+            p = _pick(res.get(t)) if isinstance(res, dict) else None
+            if p:
+                e["picks"][store] = {k: p.get(k) for k in ("name", "price", "size", "unit", "special")}
+        if t in have:
+            lst = [x if x["term"] != t else {**e, "for": x.get("for") or e["for"]} for x in lst]
+        else:
+            lst.append(e)
+    _save("shopping.json", lst)
+    out = shopping_list()
+    errors = {s: r["error"] for s, r in (prices or {}).items() if isinstance(r, dict) and "error" in r}
+    if errors or not prices:
+        out["price_problems"] = errors or "Couldn't reach the supermarkets."
+    return out
+
+
+def _totals(lst):
+    stores = sorted({s for e in lst for s in e["picks"]})
+    tot = {s: round(sum(e["picks"][s]["price"] for e in lst if s in e["picks"]), 2) for s in stores}
+    best = [min(e["picks"].items(), key=lambda kv: kv[1]["price"]) for e in lst if e["picks"]]
+    return tot, round(sum(p["price"] for _, p in best), 2)
+
+
+def shopping_list():
+    """His shopping list, the best price for each item and the totals, shown on the HUD."""
+    lst = _load("shopping.json", [])
+    tot, cheapest = _totals(lst)
+    rows = []
+    for e in lst:
+        best = min(e["picks"].items(), key=lambda kv: kv[1]["price"]) if e["picks"] else None
+        rows.append({"item": e["item"], "for": e.get("for", ""),
+                     "best": {"store": best[0], **best[1]} if best else None,
+                     "other": [{"store": s, "price": p["price"]} for s, p in e["picks"].items() if best and s != best[0]]})
+    try:
+        features._panel({"type": "panel", "kind": "shopping", "title": "Shopping list", "stay": True, "rows": rows,
+                         "totals": tot, "cheapest": cheapest})
+    except OSError:
+        pass
+    return {"items": rows, "totals_if_all_at_one_store": tot, "cheapest_mix": cheapest,
+            "note": "Online prices; in-store prices are usually the same but can differ."}
+
+
+def shopping_list_remove(item=None, everything=False):
+    """Tick off or remove an item (or clear the whole list)."""
+    lst = _load("shopping.json", [])
+    if everything:
+        _save("shopping.json", [])
+        return {"cleared": len(lst)}
+    q = (item or "").lower().strip()
+    keep = [e for e in lst if not (q and (q in e["item"].lower() or q in e["term"]))]
+    if len(keep) == len(lst):
+        return {"error": f"'{item}' isn't on the list", "list": [e["item"] for e in lst]}
+    _save("shopping.json", keep)
+    return {"removed": len(lst) - len(keep), "left": [e["item"] for e in keep]}
+
+
 # ---------- Bills and renewals ----------
 EVERY = {"week": 7, "fortnight": 14, "month": 1, "quarter": 3, "year": 12, "once": 0}  # days for week/fortnight
 PER_MONTH = {"week": 52 / 12, "fortnight": 26 / 12, "month": 1, "quarter": 1 / 3, "year": 1 / 12, "once": 0}
@@ -447,16 +550,30 @@ def tick(game):
     return [f"Heads up, {{TITLE}}: {w}." for w in bill_warnings()]
 
 
-FUNCS = {f.__name__: f for f in (recipe, show_recipe, add_bill, bills, bill_paid, remove_bill, add_habit, log_habit,
+FUNCS = {f.__name__: f for f in (recipe, show_recipe, price_check, shopping_list_add, shopping_list,
+                                 shopping_list_remove, add_bill, bills, bill_paid, remove_bill, add_habit, log_habit,
                                  habits, remove_habit, cleanup_scan, cleanup_run, memory_hogs, game_mode, find_files,
                                  open_file)}
 TOOLS = [
     {"name": "recipe", "description": "Show a recipe on his HUD (it stays up while he cooks). For 'what can I make "
-     "with...': first suggest 2-3 quick ideas out loud, then show the one he picks. ingredients with amounts, short "
+     "with...' / meal ideas: first suggest 2-3 quick ideas out loud, then show the one he picks, then straight away "
+     "shopping_list_add the missing ingredients so he gets a priced shopping list. ingredients with amounts, short "
      "steps, and missing = the ingredients he didn't say he has.",
      "input_schema": {"type": "object", "required": ["title", "ingredients", "steps"], "properties": {
          "title": S, "ingredients": {"type": "array", "items": S}, "steps": {"type": "array", "items": S},
          "minutes": I, "serves": I, "missing": {"type": "array", "items": S}}}},
+    {"name": "shopping_list_add", "description": "Add groceries to his shopping list, with today's Woolworths and "
+     "Coles prices (cheapest store per item and the totals), shown on his HUD. items: plain grocery names "
+     "('soy sauce', 'spring onions'); recipe: what they're for. Tell him the cheapest total and where; takes a few "
+     "seconds.", "input_schema": {"type": "object", "required": ["items"], "properties": {
+         "items": {"type": "array", "items": S}, "recipe": S}}},
+    {"name": "shopping_list", "description": "Show his shopping list with prices and totals.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "shopping_list_remove", "description": "Tick off / remove an item from the shopping list, or "
+     "everything=true to clear it.", "input_schema": {"type": "object", "properties": {
+         "item": S, "everything": {"type": "boolean"}}}},
+    {"name": "price_check", "description": "How much groceries cost right now at Woolworths and Coles.",
+     "input_schema": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": S}}}},
     {"name": "show_recipe", "description": "Show a recipe from before again (the last one, or by name).",
      "input_schema": {"type": "object", "properties": {"title": S}}},
     {"name": "add_bill", "description": "Track a bill or renewal (rego, insurance, phone, subscriptions). Jarvis warns "
@@ -536,6 +653,20 @@ def selftest():
         assert recipe.__name__ and "error" in show_recipe("nothing")
         recipe("Fried rice", ["2 cups rice"], ["Fry it"], missing=["soy sauce"])
         assert show_recipe()["shown"] == "Fried rice"
+        assert [_term(x) for x in ("2 tbsp soy sauce", "300 g chicken thigh, diced", "Spring onions", "1 can of coconut milk")] \
+            == ["soy sauce", "chicken thigh", "spring onions", "coconut milk"]
+        global _shop
+        real_shop = _shop
+        _shop = lambda terms: {"Woolworths": {t: [{"name": f"WW {t}", "price": 3.5, "available": True}] for t in terms},
+                               "Coles": {"soy sauce": [{"name": "Coles soy", "price": 2.8, "available": True},
+                                                       {"name": "Out of stock", "price": 1, "available": False}]}}
+        r = shopping_list_add(["2 tbsp soy sauce", "spring onions"], recipe="Fried rice")
+        assert r["totals_if_all_at_one_store"] == {"Coles": 2.8, "Woolworths": 7.0} and r["cheapest_mix"] == 6.3
+        assert r["items"][0]["best"]["store"] == "Coles" and "price_problems" not in r
+        assert shopping_list_remove("soy")["left"] == ["spring onions"]
+        _shop = lambda terms: (_ for _ in ()).throw(OSError("down"))
+        assert shopping_list_add(["milk"])["price_problems"] and len(shopping_list()["items"]) == 2  # listed anyway
+        _shop = real_shop
         assert "error" in cleanup_run(["temp"])  # never without a scan first
         assert game_mode(close=["Chrome", "spotify.exe"])["close"] == ["chrome.exe", "spotify.exe"]
         home = Path(tempfile.mkdtemp())
