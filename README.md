@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.24.0** (shown at the bottom right of the HUD)
+**Version 1.25.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.25.0** (5 Nov 2026): "What can you do?" / "show all commands" / "help" opens a searchable panel of every
+  command by topic (instant ones starred; click one to try it). Add-ons in custom/ can add their own phrases.
 - **1.24.0** (5 Nov 2026): Iron Man boot-up (a cinematic systems check and "welcome home" when you're back after
   3+ hours, or say "boot up"); ambient light (the HUD's edges glow with the time of day and weather, pulse to
   music and turn red as a timer runs out; Settings); holo mode for your phone (Systems > Holo mode: a desk

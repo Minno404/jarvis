@@ -57,4 +57,7 @@ TOOLS = [{"name": "battery", "description": "The laptop battery level.",
           "input_schema": {"type": "object", "properties": {}}}]
 ```
 
+Add `COMMANDS = {"My stuff": ["Show the task manager", "*Instant phrase"]}` to list your add-on's phrases in
+Jarvis's "what can you do?" panel (a leading `*` marks an instant one).
+
 `import features` gives you Jarvis's helpers (settings, memory, `features.HERE` for the folder).

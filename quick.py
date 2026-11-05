@@ -50,6 +50,12 @@ def quick(text):
     R, t = features.REGISTRY, _clean(text)
     if not t:
         return None
+    if re.fullmatch(r"(?:what (?:else )?do|what are you able to do|help|help me|what do you do|"
+                    r"(?:show|list|give)(?: me)?(?: all)?(?: of)?(?: the| your| my)?(?: possible| available)?(?: feature)? "
+                    r"(?:commands|features|abilities)|what (?:are )?(?:your|the) (?:commands|features)|commands)", t) \
+            and "show_commands" in R:
+        R["show_commands"]()
+        return "Here's everything I can do, {TITLE}. The starred ones are instant."
     sums = calc.answer(text)  # sums, tips, splits, conversions
     if sums:
         return sums
@@ -266,6 +272,10 @@ def selftest():
         assert quick(said) is None or calls[0][0] == "open_app", said
     assert quick("open the thing I used yesterday") is None  # app not found: Claude handles it
     assert quick("what's 15% of 240") == "15% of 240 is 36."
+    features.REGISTRY["show_commands"] = rec("show_commands")
+    for said in ("what can you do", "Jarvis, show all commands", "help", "show me all possible feature commands", "list your features"):
+        calls.clear()
+        assert quick(said) and calls[0][0] == "show_commands", said
     features.REGISTRY["boot_up"] = rec("boot_up")
     calls.clear()
     assert quick("Jarvis, run the boot sequence") and calls[0][0] == "boot_up"
