@@ -1,4 +1,4 @@
 {
- "version": "1.27.0",
- "notes": "Game coach: live tips while you play and a review of your mistakes after."
+ "version": "1.27.1",
+ "notes": "Start with Windows launches Jarvis first, with no startup delay."
 }
