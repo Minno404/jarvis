@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.28.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.28.3"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1583,9 +1583,7 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/quiet":  # the Activity panel's quiet mode switch
             on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
             return self.send_json(FUNCS["quiet_mode"](on=bool(on)))
-        if self.path == "/api/prefs":  # the HUD's settings
-            if not self.local():
-                return self.send_error(403)
+        if self.path == "/api/prefs":  # the HUD's settings (from the PC or his own phone)
             try:
                 return self.send_json(save_prefs(json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
             except ValueError as e:
