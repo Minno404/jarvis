@@ -342,6 +342,11 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
           <span class="hint" id="speedVal"></span></div></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
+    <fieldset><legend>Split mode voices</legend>
+      <div class="keyrow"><span class="hint" style="min-width:110px">Claude (pros)</span><select id="splitClaude" style="flex:1"></select><button type="button" id="splitClaudeTest">Test</button></div>
+      <div class="keyrow"><span class="hint" style="min-width:110px">ChatGPT (cons)</span><select id="splitGpt" style="flex:1"></select><button type="button" id="splitGptTest">Test</button></div>
+      <p class="hint" id="splitSt">Triple-click the core to split. Kokoro voices run on this PC and download once (about 300 MB) the first time you pick one.</p>
+    </fieldset>
     <fieldset><legend>Panels</legend>
       <div class="keyrow"><span class="hint">See-through</span><input type="range" id="panelAlpha" min="0.05" max="0.9" step="0.05" style="flex:1;direction:rtl"></div>
       <div class="keyrow"><span class="hint">Text size</span><input type="range" id="textSize" min="0.7" max="1.3" step="0.05" style="flex:1"><span class="hint" id="textSizeVal"></span></div>
@@ -913,7 +918,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed});
+  showPrefs({text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -1110,10 +1115,22 @@ async function refreshVoice(){
   const sel=$('kokoroVoice');if(sel.options.length!==voiceInfo.voices.length+1){
     sel.replaceChildren(new Option(`Match personality${voiceInfo.auto?' ('+voiceInfo.auto.split(' (')[0]+')':''}`,''),...voiceInfo.voices.map(v=>new Option(v,v)))}
   sel.value=prefs.kokoro_voice||'';
+  const vs=voiceInfo.split||[],opts=(first)=>[...(first?[new Option(first,'')]:[]),...vs.map(v=>new Option(v.includes('online')?v:v+' · Kokoro',v))];
+  if($('splitGpt').options.length!==vs.length){$('splitClaude').replaceChildren(...opts('Same as Jarvis'));$('splitGpt').replaceChildren(...opts())}
+  $('splitClaude').value=prefs.split_claude_voice||'';$('splitGpt').value=prefs.split_gpt_voice||'Emma (British woman)';
+  const kSplit=[prefs.split_claude_voice,$('splitGpt').value].some(v=>v&&!v.includes('online'));
+  $('splitSt').textContent=kSplit&&st!=='ready'?(st==='downloading'?`Downloading Kokoro for split mode… ${voiceInfo.progress}% (an online voice stands in until then)`
+    :st==='failed'?"Kokoro couldn't be set up, so an online voice is used.":st==='installing'?'Installing Kokoro… (an online voice stands in until it\'s ready)':'Kokoro sets itself up the first time a split avatar speaks with it (about 300 MB, once); an online voice stands in until then.')
+    :'Triple-click the core to split. Kokoro voices run on this PC; online ones need the internet.';
   clearTimeout(kPoll);if(['installing','downloading'].includes(st)&&!$('settingsModal').hidden)kPoll=setTimeout(refreshVoice,1500);
 }
 document.querySelectorAll('input[name=ve]').forEach(r=>r.onchange=async()=>{await savePref({voice_engine:r.value});refreshVoice()});
 $('kokoroVoice').onchange=()=>savePref({kokoro_voice:$('kokoroVoice').value});
+$('splitClaude').onchange=async()=>{await savePref({split_claude_voice:$('splitClaude').value});refreshVoice()};
+$('splitGpt').onchange=async()=>{await savePref({split_gpt_voice:$('splitGpt').value});refreshVoice()};
+const testSide=(sd,line)=>{audio();const v=voice(sd);v.push(line);v.end()};
+$('splitClaudeTest').onclick=()=>testSide('claude','Claude here, sir. I will make the case for it.');
+$('splitGptTest').onclick=()=>testSide('gpt',"And I'm ChatGPT. I'll tell you why it might be a bad idea.");
 $('voiceSpeed').oninput=()=>$('speedVal').textContent=(+$('voiceSpeed').value).toFixed(2)+'×';
 $('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
 $('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};

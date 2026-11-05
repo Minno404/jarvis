@@ -1,4 +1,4 @@
 {
- "version": "1.19.1",
- "notes": "Jarvis's name in Task Manager and his logo on the taskbar, for real this time."
+ "version": "1.20.0",
+ "notes": "Split mode voices in Settings: ChatGPT speaks with Kokoro, and you pick each avatar's voice."
 }
