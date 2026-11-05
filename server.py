@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.27.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.28.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -591,7 +591,8 @@ import life       # recipes, bills, habits, PC clean-up, game mode, finding file
 import dnd        # Jarvis as Dungeon Master: adventures with real dice on the HUD (see dnd.py)
 import commands   # "what can you do?": every command as a searchable panel (see commands.py)
 import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, *custom_loader.load()):
+import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1126,6 +1127,8 @@ def debate_stream(q):
         yield side, ""
 
 
+WAKER = power.Waker()  # quiet wake: the phone woke the PC (see power.py)
+
 LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
 claude_out = {"until": 0.0}
 
@@ -1406,6 +1409,8 @@ class Handler(SimpleHTTPRequestHandler):
             return False
         c = SimpleCookie(self.headers.get("Cookie", "")).get("jarvis")
         if c and hmac.compare_digest(c.value, key):
+            if not self.path.startswith(("/api/events", "/api/stats", "/api/status")):  # not just the page polling
+                WAKER.phone_used()  # the phone is using Jarvis: keep the PC awake for it
             return True
         body = b"<h1 style='font-family:sans-serif'>Jarvis is locked</h1><p style='font-family:sans-serif'>" \
                b"Scan the QR code from Phone link in Jarvis on your PC.</p>"
@@ -2082,7 +2087,8 @@ if __name__ == "__main__":
         def speak_now(text):  # the HUD says it; phones in holo mode say it too
             text = features.address(text)
             push_event({"type": "say", "text": text})
-            js(f"announce({json.dumps(text)})")
+            if not LIVE.get("quiet_wake"):  # woken by the phone with nobody at the PC: stay silent on the PC
+                js(f"announce({json.dumps(text)})")
         st = {"held": [], "game": None, "away": False, "voice_at": 0.0, "mode": "idle", "quiet": False}
         LIVE["st"] = st
         presence = awareness.Presence()
@@ -2141,6 +2147,11 @@ if __name__ == "__main__":
             while True:
                 try:
                     sit = awareness.situation()
+                    if sit:
+                        if WAKER.tick(sit["idle_s"]) == "sleep":
+                            print(datetime.datetime.now(), "the phone's done: back to sleep")
+                            power.sleep_pc()
+                        LIVE["quiet_wake"] = WAKER.quiet(sit["idle_s"])
                     change = presence.update(sit["idle_s"]) if sit else None
                     st["away"] = presence.away
                     was_game, st["game"] = st["game"], sit.get("game")

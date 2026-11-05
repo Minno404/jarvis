@@ -1,4 +1,4 @@
 {
- "version": "1.27.1",
- "notes": "Start with Windows launches Jarvis first, with no startup delay."
+ "version": "1.28.0",
+ "notes": "\"Goodnight Jarvis\" puts the PC to real sleep; quiet wake from your phone."
 }

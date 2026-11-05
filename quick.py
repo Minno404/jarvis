@@ -74,6 +74,11 @@ def quick(text):
                     r"wake up(?: jarvis| daddy s home)?|daddy s home", t) and "boot_up" in R:
         R["boot_up"]()
         return "Initiating boot sequence."
+    if re.fullmatch(r"(?:put |send )?(?:the |my )?(?:pc|computer) to sleep|sleep (?:the |my )?(?:pc|computer)|"
+                    r"good ?night jarvis", t) and "sleep_pc" in R:
+        import threading
+        threading.Timer(4, R["sleep_pc"]).start()  # after the goodnight is said
+        return "Goodnight, {TITLE}. Putting the PC to sleep."
     # --- workout ---
     m = re.fullmatch(r"(stop|end|cancel|pause|resume|skip)(?: the| my)? (?:workout|exercise)", t)
     if m:
@@ -276,6 +281,13 @@ def selftest():
     for said in ("what can you do", "Jarvis, show all commands", "help", "show me all possible feature commands", "list your features"):
         calls.clear()
         assert quick(said) and calls[0][0] == "show_commands", said
+    features.REGISTRY["sleep_pc"] = rec("sleep_pc")
+    import threading
+    real_timer = threading.Timer
+    threading.Timer = lambda d, f: type("T", (), {"start": lambda self: f()})()
+    calls.clear()
+    assert quick("Jarvis, put the PC to sleep") and calls[0][0] == "sleep_pc"
+    threading.Timer = real_timer
     features.REGISTRY["boot_up"] = rec("boot_up")
     calls.clear()
     assert quick("Jarvis, run the boot sequence") and calls[0][0] == "boot_up"

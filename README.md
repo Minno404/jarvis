@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.27.1** (shown at the bottom right of the HUD)
+**Version 1.28.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.28.0** (5 Nov 2026): "Put the PC to sleep" / "goodnight Jarvis" closes what blocks real sleep (SteelSeries
+  GG by default), sleeps, and reopens it on waking. Quiet wake: when your phone wakes the PC (Wake-on-LAN) the
+  screens stay off and Jarvis works from the phone behind the lock screen, stays silent on the PC, and puts it
+  back to sleep 10 minutes after the phone goes quiet.
 - **1.27.1** (5 Nov 2026): "Start with Windows" now uses a log-on scheduled task (no startup delay, higher
   priority) and skips the component checks, so Jarvis is up first. The old Startup-folder shortcut moves over
   by itself.
