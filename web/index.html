@@ -54,9 +54,9 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 #setupForm .field input{width:100%;box-sizing:border-box;flex:none}
 #setupForm button{margin-top:8px;padding:10px 16px}
 .version{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));
-  font-size:calc(10px*var(--fs));letter-spacing:.2em;color:var(--mute);opacity:.7;cursor:pointer;z-index:4}
+  font-size:calc(10px*var(--fs));letter-spacing:.2em;color:var(--mute);opacity:.7;cursor:pointer;z-index:19}
 .updatebtn{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(26px + env(safe-area-inset-bottom,0px));
-  z-index:4;font-size:calc(11px*var(--fs));padding:6px 12px;border-color:var(--amber);color:var(--amber)}
+  z-index:19;font-size:calc(11px*var(--fs));padding:6px 12px;border-color:var(--amber);color:var(--amber);background:rgba(3,7,12,.85)}
 .linkbtn{border:0;padding:0;font:inherit;letter-spacing:0;text-transform:none;color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
 .linkbtn:hover{background:none;color:var(--text)}
 .modal{position:fixed;inset:0;background:rgba(3,7,12,.85);display:grid;place-items:center;z-index:20;padding:16px}
@@ -197,6 +197,16 @@ body[data-bg=image]::before,body[data-bg=stars]::before,body[data-bg=rain]::befo
   -webkit-mask-image:radial-gradient(circle,#000 45%,transparent 72%);mask-image:radial-gradient(circle,#000 45%,transparent 72%)}
 @keyframes scan{to{background-position:0 120px}}
 #avatar3d{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+/* Split mode: triple-click the core for two avatars, Claude (pros) and ChatGPT (cons) */
+.core-wrap.split{aspect-ratio:2/1.2;width:min(calc(720px*var(--s)),100%)}
+.core-wrap.split>canvas,.core-wrap.split::before,.core-wrap.split::after{visibility:hidden!important}
+.splitcores{position:absolute;inset:0;display:none;gap:2%;z-index:3}.core-wrap.split .splitcores{display:flex}
+.sc-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;min-width:0}
+.core-wrap .sc-side canvas{position:static;inset:auto;width:auto;height:auto;max-width:100%;max-height:85%;aspect-ratio:1}
+.sc-tag{font-family:var(--display);letter-spacing:.3em;font-size:calc(11px*var(--s)*var(--fs));text-transform:uppercase}
+.sc-tag small{display:block;text-align:center;letter-spacing:.2em;color:var(--mute);font-size:.8em;margin-top:2px}
+.sc-side[data-side=claude] .sc-tag,.msg.side-claude b{color:rgb(217,119,87)}
+.sc-side[data-side=gpt] .sc-tag,.msg.side-gpt b{color:rgb(16,163,127)}
 /* Copying from the chat: select any text with the mouse, or use a message's Copy button */
 body{user-select:none;-webkit-user-select:none}
 .log,.log *,input,.htext,.hlist,td,.holo-rows,.row span:last-child{user-select:text;-webkit-user-select:text}
@@ -475,6 +485,7 @@ let accent='95,227,255';const col={idle:'95,227,255',listening:'95,227,255',thin
 // orbiting particles and a glowing heart. Falls back to the flat core if three.js didn't load.
 const RINGS=[[110,10,6,1,.7],[170,3,3,-.6,.85],[230,14,24,.35,.5],[300,2,2,-.25,.9],[350,6,60,.15,.35],[395,1.5,1,0,1]];
 let holo3d=null;
+let split=null;const SPLIT_COL={claude:'217,119,87',gpt:'16,163,127'};  // split mode (see enterSplit)
 function build3d(){
   if(!window.THREE||calm)return null;
   try{
@@ -525,7 +536,17 @@ function draw(){
   else if(mode==='speaking'){if(now>nextSyl){target=Math.random()<.15?0:.35+Math.random()*.65;nextSyl=now+70+Math.random()*110}}else target=0;
   level+=(target-level)*.25;
   const pulse=level*70+Math.sin(t*2)*6;
+  if(split){  // two cores, each in its own colour; only the one talking moves with the voice
+    for(const sd of ['claude','gpt']){const on=split.speaker===sd,L=level,cc=SPLIT_COL[sd];if(!on)level=0;
+      const pl=on?pulse:Math.sin(t*2+(sd==='gpt'?1.7:0))*6;
+      if(holo3d)draw3d(holo3d,cc,pl);else paint2d(cc,pl);
+      level=L;const k=split[sd],src=holo3d?holo3d.r.domElement:cv;k.cx.clearRect(0,0,k.c.width,k.c.height);k.cx.drawImage(src,0,0,k.c.width,k.c.height)}
+    requestAnimationFrame(draw);return}
   if(holo3d){draw3d(holo3d,c,pulse);requestAnimationFrame(draw);return}
+  paint2d(c,pulse);requestAnimationFrame(draw);
+}
+function paint2d(c,pulse){
+  const W=cv.width,C=W/2;cx.clearRect(0,0,W,W);
   // glow
   const g=cx.createRadialGradient(C,C,0,C,C,200+pulse);g.addColorStop(0,`rgba(${c},.9)`);g.addColorStop(.25,`rgba(${c},.35)`);g.addColorStop(1,`rgba(${c},0)`);
   cx.fillStyle=g;cx.beginPath();cx.arc(C,C,200+pulse,0,7);cx.fill();
@@ -539,7 +560,6 @@ function draw(){
   // ticks
   cx.strokeStyle=`rgba(${c},${.6*bootK(6)})`;cx.lineWidth=2;
   for(let k=0;k<72;k++){const a=k/72*Math.PI*2-t*.1,l=k%6?8:20;cx.beginPath();cx.moveTo(C+Math.cos(a)*(410),C+Math.sin(a)*410);cx.lineTo(C+Math.cos(a)*(410-l),C+Math.sin(a)*(410-l));cx.stroke()}
-  requestAnimationFrame(draw);
 }
 if(!PIN){holo3d=build3d();draw()}  // a pinned panel's window skips the core
 
@@ -570,14 +590,15 @@ function stopSpeaking(){  // "Hey Jarvis" while he talks, Esc, or clicking the c
 function audio(){
   try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
-function voice(){
+function voice(side){
   let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false,sent=0;
   const gen=voiceGen,cut=()=>gen!==voiceGen;
-  const done=()=>{if(cut())return;voiceOn=false;setMode('idle')};
-  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})})
+  const done=()=>{if(cut())return;if(side&&actx&&speechAt>actx.currentTime+.1)return;voiceOn=false;if(split)split.speaker=null;setMode('idle')};
+  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,side})})
     .then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(b=>actx.decodeAudioData(b)).catch(()=>null);
   const queue=t=>{t=t.trim();if(!t||!actx||cut())return;const c=clip(t);chain=chain.then(async()=>{const buf=await c;if(!buf||cut())return;
-    const src=actx.createBufferSource();src.buffer=buf;src.connect(analyser);at=Math.max(at,speechAt,actx.currentTime+.03);src.start(at);at+=buf.duration;speechAt=at;
+    const src=actx.createBufferSource();src.buffer=buf;src.connect(analyser);at=Math.max(at,speechAt,actx.currentTime+.03);src.start(at);
+    if(side)setTimeout(()=>{if(split&&!cut())split.speaker=side},Math.max(0,(at-actx.currentTime)*1000));at+=buf.duration;speechAt=at;
     activeSrcs.add(src);playing++;src.onended=()=>{activeSrcs.delete(src);if(--playing===0&&closed)done()};
     if(!started){started=voiceOn=true;setMode('speaking')}})};
   return{
@@ -626,6 +647,7 @@ addEventListener('dragleave',e=>{if(!e.relatedTarget)document.body.classList.rem
 addEventListener('drop',e=>{document.body.classList.remove('dropping');const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));if(f){e.preventDefault();attach(f)}});
 async function ask(q){
   if(isHold(q)){add('you',q);holdOn();api()?.hold();return}  // typed "hold on" works too
+  if(split&&live&&q.trim()&&!busy)return debate(q);
   const pic=photo;
   if((!q.trim()&&!pic)||busy)return;
   if(voiceOn)stopSpeaking();  // a new question takes over from whatever he was still saying
@@ -646,6 +668,44 @@ async function ask(q){
     show(' I have lost contact with the server, sir. Is it still running?')}
   v.end();busy=false;
   await sync();if(trades.length!==before||/journal|trade|report|gold|how did i/i.test(q)){flash();$('mt5').classList.remove('flash');void $('mt5').offsetWidth;$('mt5').classList.add('flash')}
+}
+// ---- Split mode: triple-click the core and Jarvis splits in two. Claude argues the pros, ChatGPT the cons.
+// Triple-click either one to merge back: the one you clicked becomes the brain. ----
+function enterSplit(){
+  if(split||PIN)return;let box=document.querySelector('.splitcores');
+  if(!box){box=document.createElement('div');box.className='splitcores';
+    box.innerHTML=['claude','gpt'].map(sd=>`<div class="sc-side" data-side="${sd}" title="Triple-click to merge with ${sd==='gpt'?'ChatGPT':'Claude'} as the brain"><canvas width="420" height="420"></canvas>`
+      +`<div class="sc-tag">${sd==='gpt'?'ChatGPT':'Claude'}<small>${sd==='gpt'?'cons':'pros'}</small></div></div>`).join('');$('coreWrap').append(box)}
+  split={speaker:null};for(const el of box.querySelectorAll('.sc-side')){const c=el.querySelector('canvas');split[el.dataset.side]={c,cx:c.getContext('2d')}}
+  $('coreWrap').classList.add('split');dispatchEvent(new Event('resize'));sfx('panel');
+  add('j','Split mode. Ask me anything: Claude gives you the pros, ChatGPT the cons. Triple-click either of us to merge back with that one as the brain.');
+}
+async function mergeSplit(sd){
+  if(!split)return;stopSpeaking();busy=false;split=null;$('coreWrap').classList.remove('split');dispatchEvent(new Event('resize'));setMode('idle');sfx('panel');
+  const want=sd==='gpt'?'chatgpt':'claude';let r={};
+  try{r=await (await fetch('/api/brain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brain:want})})).json()}catch(e){r={error:'the server didn\'t answer'}}
+  if(r.using)showBrain(r.using);
+  add('j',r.error?`Merged back, but I couldn't switch my brain: ${r.error}`:`Merged back into one, thinking with ${r.using} from now on.`);
+}
+$('coreWrap').addEventListener('click',e=>{if(e.detail!==3)return;
+  if(!split)return enterSplit();const sd=e.target.closest('.sc-side')?.dataset.side;if(sd)mergeSplit(sd)});
+async function debate(q){
+  if(voiceOn)stopSpeaking();
+  busy=true;add('you',q);setMode('thinking');audio();
+  const el={},vs={},text={claude:'',gpt:''},tag={claude:'CLAUDE · PROS',gpt:'CHATGPT · CONS'};
+  const box=sd=>{if(!el[sd]){el[sd]=add('j','');el[sd].previousElementSibling.textContent=tag[sd];el[sd].parentNode.classList.add('side-'+sd);vs[sd]=voice(sd)}return el[sd]};
+  try{
+    aborter=new AbortController();
+    const res=await fetch('/api/debate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q}),signal:aborter.signal});
+    const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+    for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
+      while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;const m=JSON.parse(line);if(!m.side||!split)continue;
+        const b=box(m.side);
+        if(m.t){text[m.side]+=m.t;b.textContent=text[m.side].trimStart();$('log').scrollTop=1e9;vs[m.side].push(m.t)}
+        else if(m.flush)vs[m.side].flush();
+        else if(m.end){vs[m.side].end();if(m.side==='claude'&&mode!=='speaking')setMode('thinking')}}}
+  }catch(e){if(e.name!=='AbortError')add('j','I lost contact with the server mid-debate, sir.')}
+  busy=false;
 }
 $('f').onsubmit=e=>{e.preventDefault();ask($('q').value);$('q').value=''};
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('f').requestSubmit()}});

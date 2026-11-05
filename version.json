@@ -1,4 +1,4 @@
 {
- "version": "1.18.1",
- "notes": "Fixes the tray icon and taskbar logo; Jarvis.exe now works with the Microsoft Store Python."
+ "version": "1.19.0",
+ "notes": "Split mode: triple-click the core for Claude (pros) vs ChatGPT (cons). Update button stays above panels."
 }

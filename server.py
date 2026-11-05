@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.18.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.19.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -951,6 +951,31 @@ def chat_stream(text, photo=None):
         yield from chat_gpt(text, photo)
 
 
+DEBATE = ("[Split mode, not a normal reply: {{USER}} triple-clicked you into two avatars to weigh something up. You are "
+          "the {me} half and argue ONLY the {side}; the {other_ai} half is arguing the {other_side}. Give the 3-5 "
+          "strongest, most specific {side}, best first, as plain spoken sentences (no lists, markdown or headings), "
+          "under 130 words, then one sentence on when the {side} should win. Use your tools if real facts would help "
+          "(prices, his journal, the web). The question: {q}]")
+
+
+def debate_stream(q):
+    """Split mode: Claude argues the pros, then ChatGPT the cons. Yields (side, piece); a piece of None marks
+    the end of a block (speak it now), and "" ends that side."""
+    for side, me, stance, other_ai, other in (("claude", "Claude", "pros", "ChatGPT", "cons"),
+                                              ("gpt", "ChatGPT", "cons", "Claude", "pros")):
+        prompt = persona(DEBATE.format(me=me, side=stance, other_ai=other_ai, other_side=other, q=q))
+        try:
+            if side == "gpt" and not gpt_brain.available():
+                raise RuntimeError("ChatGPT isn't set up on this PC (Settings: the ChatGPT backup)")
+            run = chat_gpt(prompt) if side == "gpt" else _chat_claude(prompt)
+            for p in run:
+                yield side, p
+        except Exception as e:
+            print(datetime.datetime.now(), f"debate ({me}):", repr(e))
+            yield side, f"{me} couldn't give the {stance}: {str(e)[:140]}"
+        yield side, ""
+
+
 LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
 claude_out = {"until": 0.0}
 
@@ -1132,9 +1157,14 @@ def chat_api(text):
 VOICE = os.environ.get("JARVIS_VOICE", "en-GB-RyanNeural")
 
 
-def tts(text):
-    """Speech audio for the HUD: (bytes, mime type), in the current personality's voice (see speech.py)."""
-    return speech.say(text, personas.get())
+def tts(text, side=None):
+    """Speech audio for the HUD: (bytes, mime type), in the current personality's voice (see speech.py).
+    side "gpt": the ChatGPT avatar in split mode, which gets a different voice."""
+    p = personas.get()
+    if side == "gpt":
+        key = "friday" if p["key"] != "friday" else "jarvis"
+        return speech.say(text, {"key": key, **personas.PERSONAS[key]}, speech.PERSONA_KOKORO[key])
+    return speech.say(text, p)
 
 
 # ---------- Web server ----------
@@ -1343,7 +1373,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"shown": push_event(ev)})
         if self.path == "/api/tts":
             try:
-                audio, mime = tts(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["text"])
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                audio, mime = tts(body["text"], body.get("side"))
                 if not audio:
                     raise RuntimeError("no audio returned")
             except Exception as e:  # the page falls back to the built-in Windows voice
@@ -1400,6 +1431,27 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({"name": save_upload(self.rfile.read(n), self.headers.get_content_type())})
             except Exception as e:
                 return self.send_json({"error": str(e)}, 400)
+        if self.path == "/api/debate":  # split mode: {"side": "claude"|"gpt", "t"/"flush"/"end": ...} lines
+            q = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("text", "")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            pieces = debate_stream(q)
+            try:
+                for side, p in pieces:
+                    self.wfile.write((json.dumps({"side": side, **({"t": p} if p else {"end": True} if p == ""
+                                                                    else {"flush": True})}) + "\n").encode())
+                    self.wfile.flush()
+                self.wfile.write(b'{"done": true}\n')
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                pieces.close()
+            return
+        if self.path == "/api/brain":  # merging the split avatars: the one he clicked becomes the brain
+            r = set_brain(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["brain"])
+            return self.send_json(r, 400 if r.get("error") else 200)
         if self.path == "/api/chat-stream":  # one JSON line per piece: {"t": text} / {"flush": true} / {"done": true}
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             text, photo = body.get("text", ""), body.get("photo")
