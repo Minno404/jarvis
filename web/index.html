@@ -235,6 +235,9 @@ body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--c
 .recipe h4{margin:8px 0 4px;font-family:var(--display);font-size:calc(10px*var(--s)*var(--fs));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
 .recipe ul{margin:0;padding-left:18px}.recipe ol{margin:0;padding-left:26px}.recipe li{margin:2px 0}.recipe .rmeta{color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .recipe .need,.recipe li.need{color:var(--amber)}.recipe em{font-style:normal;font-size:.8em;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--amber);padding:0 4px;margin-left:4px}
+.shrow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(var(--line-rgb),.5)}
+.shrow b{font-weight:400;color:var(--text)}.shrow small{display:block;color:var(--mute);font-size:.82em}.shp{text-align:right;flex:none;white-space:nowrap}
+.st-woolworths{color:#4dcf7a}.st-coles{color:#ff6b6b}.shtot{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 4px;color:var(--mute)}.shtot .best{color:var(--cyan)}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
 .hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
@@ -835,6 +838,12 @@ function showPanel(ev){
       +`<h4>Ingredients</h4><ul>${(ev.ingredients||[]).map(i=>`<li class="${need(i)?'need':''}">${esc(i)}${need(i)?' <em>need</em>':''}</li>`).join('')}</ul>`
       +((ev.missing||[]).filter(m=>!(ev.ingredients||[]).some(i=>i.toLowerCase().includes(m.toLowerCase()))).map(m=>`<div class="need">+ ${esc(m)} <em>need</em></div>`).join(''))
       +`<h4>Method</h4><ol>${(ev.steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`;
+    p.classList.add('wide');p.append(d)}
+  else if(ev.kind==='shopping'){const d=document.createElement('div'),$$=v=>'$'+(+v).toFixed(2);d.className='recipe shop';
+    d.innerHTML=(ev.rows||[]).map(r=>`<div class="shrow"><div><b>${esc(r.item)}</b>${r.best?`<small>${esc(r.best.name)}${r.best.size?' · '+esc(r.best.size):''}${r.best.special?' · <em>special</em>':''}</small>`:'<small>no price found</small>'}</div>`
+      +`<div class="shp">${r.best?`<span class="st-${r.best.store.toLowerCase()}">${esc(r.best.store)}</span> ${$$(r.best.price)}`:''}${(r.other||[]).map(o=>`<small>${esc(o.store)} ${$$(o.price)}</small>`).join('')}</div></div>`).join('')
+      +`<div class="shtot">${Object.entries(ev.totals||{}).map(([st,v])=>`<span>All at ${esc(st)}: ${$$(v)}</span>`).join('')}${ev.cheapest?`<span class="best">Cheapest mix: ${$$(ev.cheapest)}</span>`:''}</div>`
+      +'<div class="rmeta">Online prices; in-store is usually the same.</div>';
     p.classList.add('wide');p.append(d)}
   else if(ev.kind==='countdown'){const c=document.createElement('canvas');p.append(c);const end=Date.now()+ev.seconds*1000;
     const tickC=()=>{if(!p.isConnected)return;const left=Math.max(0,(end-Date.now())/1000);drawCountdown(c,left,ev.seconds);

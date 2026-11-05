@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.21.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.22.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1459,6 +1459,13 @@ class Handler(SimpleHTTPRequestHandler):
             finally:
                 pieces.close()
             return
+        if self.path == "/api/shop":  # supermarket prices (life.py's shopping list), from this PC only
+            if not self.local():
+                return self.send_error(403)
+            items = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("items", [])
+            if not LIVE.get("shop"):
+                return self.send_json({"error": "Price checks need the Jarvis app window (not browser mode)."})
+            return self.send_json(LIVE["shop"]([str(i)[:60] for i in items][:25]))
         if self.path == "/api/brain":  # merging the split avatars: the one he clicked becomes the brain
             r = set_brain(json.loads(self.rfile.read(int(self.headers["Content-Length"])))["brain"])
             return self.send_json(r, 400 if r.get("error") else 200)
@@ -1672,6 +1679,53 @@ if __name__ == "__main__":
 
             pins[p["id"]] = w
             return w
+
+        # ---- Supermarket prices: Woolworths and Coles, read through hidden browser windows, like a person would ----
+        shops, shop_lock = {}, threading.Lock()
+        SHOPS = {
+            "Woolworths": ("https://www.woolworths.com.au/", """(async()=>{const out={};for(const t of TERMS){try{
+              const r=await fetch('/apis/ui/Search/products',{method:'POST',credentials:'include',headers:{'content-type':'application/json',accept:'application/json, text/plain, */*'},
+                body:JSON.stringify({Filters:[],IsSpecial:false,Location:'/shop/search/products?searchTerm='+encodeURIComponent(t),PageNumber:1,PageSize:12,SearchTerm:t,SortType:'TraderRelevance',ExcludeSearchTypes:['UntraceableVendors'],GroupEdmVariants:true})});
+              const j=await r.json(),ps=(j.Products||[]).flatMap(g=>g.Products||[g]);
+              out[t]=ps.filter(p=>p&&p.Price!=null).slice(0,6).map(p=>({name:p.DisplayName||p.Name,price:p.Price,was:p.WasPrice||null,special:!!p.IsOnSpecial,size:p.PackageSize||'',unit:p.CupString||'',available:p.IsAvailable!==false}))
+            }catch(e){out[t]={error:String(e)}}}window.__jv=JSON.stringify(out)})();"""),
+            "Coles": ("https://www.coles.com.au/", """(async()=>{const out={};let id;try{id=JSON.parse(document.getElementById('__NEXT_DATA__').textContent).buildId}catch(e){}
+              if(!id){window.__jv=JSON.stringify({error:'the Coles page did not load properly'});return}
+              for(const t of TERMS){try{const r=await fetch('/_next/data/'+id+'/en/search/products.json?q='+encodeURIComponent(t),{credentials:'include'}),j=await r.json();
+                const rs=((j.pageProps&&j.pageProps.searchResults&&j.pageProps.searchResults.results)||[]).filter(p=>p._type==='PRODUCT'&&p.pricing);
+                out[t]=rs.slice(0,6).map(p=>({name:[p.brand,p.name].filter(Boolean).join(' '),price:p.pricing.now,was:p.pricing.was||null,special:!!(p.pricing.was&&p.pricing.was>p.pricing.now),size:p.size||'',unit:p.pricing.comparable||'',available:p.availability!==false}))
+              }catch(e){out[t]={error:String(e)}}}window.__jv=JSON.stringify(out)})();"""),
+        }
+
+        def shop_prices(terms):
+            """{store: {term: [products]}} for each supermarket, or {store: {"error": ...}}."""
+            out = {}
+            with shop_lock:
+                for store, (site, code) in SHOPS.items():
+                    try:
+                        w = shops.get(store)
+                        if not w:
+                            ready = threading.Event()
+                            w = webview.create_window(f"Jarvis · {store}", site, hidden=True, width=1100, height=800)
+                            w.events.loaded += ready.set
+                            ready.wait(40)
+                            time.sleep(3)  # the site's own checks run just after it loads
+                            shops[store] = w
+                        w.evaluate_js("window.__jv=null")
+                        w.evaluate_js(code.replace("TERMS", json.dumps(terms)))
+                        for _ in range(90):  # up to ~45 s for all the searches
+                            r = w.evaluate_js("window.__jv")
+                            if r:
+                                out[store] = json.loads(r)
+                                break
+                            time.sleep(0.5)
+                        else:
+                            out[store] = {"error": "no answer from the site"}
+                    except Exception as e:
+                        shops.pop(store, None)  # start that site fresh next time
+                        out[store] = {"error": f"{type(e).__name__}: {str(e)[:160]}"}
+            return out
+        LIVE["shop"] = shop_prices
 
         def show_pins(show):
             mini.send("pins_show", bool(show))

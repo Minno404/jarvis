@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.21.0** (shown at the bottom right of the HUD)
+**Version 1.22.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.22.0** (5 Nov 2026): meal ideas now come with a shopping list priced at Woolworths and Coles (cheapest store
+  per item, totals, specials), kept between sessions: "add milk to my list", "what's on my list", "got the
+  milk". Jarvis.exe works with the Microsoft Store Python (it keeps its own copy in pyruntime/), and if it
+  can't run, the reason goes in jarvis_exe.log.
 - **1.21.0** (5 Nov 2026): everyday helpers (life.py). Meal ideas with a recipe panel that stays up while you cook;
   bills and renewals with warnings a week and a day before; a habit tracker with streaks; "clean up my PC"
   (scans first, cleans only what you OK, old downloads go to the Recycle Bin); game mode (closes the apps you
