@@ -1,4 +1,4 @@
 {
- "version": "1.18.0",
- "notes": "Shows as Jarvis with his own icon in Task Manager and the taskbar, plus a tray icon by the clock."
+ "version": "1.18.1",
+ "notes": "Fixes the tray icon and taskbar logo; Jarvis.exe now works with the Microsoft Store Python."
 }
