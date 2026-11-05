@@ -1,4 +1,4 @@
 {
- "version": "1.17.1",
- "notes": "Launching Jarvis always works: it brings him to the front or replaces a stuck background copy."
+ "version": "1.17.2",
+ "notes": "Moved panels mirror your layout at any window size and always stay on screen."
 }
