@@ -165,7 +165,6 @@ def run_job(job, claude, brain="claude"):
             try:
                 text, ok = gpt_brain.run_task(prompt, job["path"])
                 status = "done" if ok else "error"
-                text += " (ChatGPT did this one.)" if ok else ""
             except Exception as e:
                 text, status = f"It didn't work: {type(e).__name__}.", "error"
     finish_job(job, status, text)

@@ -1,4 +1,4 @@
 {
- "version": "1.20.0",
- "notes": "Split mode voices in Settings: ChatGPT speaks with Kokoro, and you pick each avatar's voice."
+ "version": "1.20.1",
+ "notes": "\"Jarvis split\" / \"Jarvis merge\" by voice; no more brain mentions in replies."
 }
