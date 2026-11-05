@@ -1,4 +1,4 @@
 {
- "version": "1.19.0",
- "notes": "Split mode: triple-click the core for Claude (pros) vs ChatGPT (cons). Update button stays above panels."
+ "version": "1.19.1",
+ "notes": "Jarvis's name in Task Manager and his logo on the taskbar, for real this time."
 }
