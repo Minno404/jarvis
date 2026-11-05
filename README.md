@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.28.4** (shown at the bottom right of the HUD)
+**Version 1.28.5** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.28.5** (5 Nov 2026): iPhone, normal view: Jarvis's sound starts from your first tap (like holo mode's "tap
+  to wake"), so Silent mode no longer mutes him.
 - **1.28.4** (5 Nov 2026): Jarvis's voice on iPhone in Silent mode, for real: a silent media clip makes iOS treat
   him like a music app.
 - **1.28.3** (5 Nov 2026): on a phone, drag the bar under any panel (or the chat) to make it taller or shorter
