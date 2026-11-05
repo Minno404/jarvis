@@ -284,6 +284,11 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
 #holoExit{position:fixed;top:10px;right:12px;z-index:30;border:0;color:var(--mute);font-size:22px;padding:4px 10px}
 #holoWake{position:fixed;inset:0;z-index:45;display:grid;place-items:center;background:rgba(1,3,6,.92);color:var(--cyan);font-family:var(--display);
   letter-spacing:.35em;text-align:center;font-size:14px;cursor:pointer}
+.cmds input{width:100%;box-sizing:border-box;margin:2px 0 6px;padding:6px 8px}
+.cmdl{max-height:min(56vh,calc(480px*var(--s)));overflow-y:auto;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
+.cmdl h4{width:100%;margin:8px 0 2px;font-family:var(--display);font-size:calc(10px*var(--s)*var(--fs));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.cmd{font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:calc(11px*var(--s)*var(--fs));padding:3px 8px;border-color:var(--line);color:var(--text)}
+.cmd.inst::before{content:"\2605 ";color:var(--cyan)}.cmd:hover{border-color:var(--cyan)}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
 .hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
@@ -974,6 +979,17 @@ function showPanel(ev){
       +`<h4>Method</h4><ol>${(ev.steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol>`;
     p.classList.add('wide');p.append(d)}
   else if(ev.kind==='workout'){runWorkout(p,ev)}
+  else if(ev.kind==='commands'){const d=document.createElement('div');d.className='cmds';
+    d.innerHTML='<input type="search" placeholder="Search, e.g. tv, timer, music…" aria-label="Search commands"><div class="cmdl"></div>'
+      +'<div class="rmeta">★ = instant, no thinking needed. Click one to try it, or say it your own way.</div>';
+    const list=d.querySelector('.cmdl'),inp=d.querySelector('input');
+    const draw=()=>{const q=inp.value.trim().toLowerCase();
+      list.innerHTML=(ev.groups||[]).map(g=>{const its=g.items.filter(i=>!q||(g.name+' '+i).toLowerCase().includes(q));
+        return its.length?`<h4>${esc(g.name)}</h4>`+its.map(i=>`<button type="button" class="cmd${i[0]==='*'?' inst':''}">${esc(i.replace(/^\*/,''))}</button>`).join(''):''}).join('')
+        ||'<div class="rmeta">Nothing like that. Just ask anyway: I can usually work it out.</div>';
+      list.querySelectorAll('.cmd').forEach(b=>b.onclick=()=>{const t=b.textContent.replace(/…$/,' ').replace(/\s*\((?:paste the link)\)$/,' ');
+        $('q').value=t;$('q').focus();if(HOLO)document.documentElement.classList.add('typing')})};
+    inp.value=ev.search||'';inp.oninput=draw;draw();p.classList.add('wide');p.append(d)}
   else if(ev.kind==='dice'){const d=document.createElement('div');d.className='dice';
     const sides=+(String(ev.dice).match(/d(\d+)/)||[0,20])[1],n=(ev.rolls||[]).length||1;
     d.innerHTML=`<div class="dnum">?</div><div class="dsub">${esc(ev.dice)}${ev.why?' · '+esc(ev.why):''}</div><div class="dres"></div>`;p.append(d);

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.24.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.25.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -589,7 +589,8 @@ import speech     # the voice itself: online neural, or Kokoro on this PC (see s
 import undo       # "undo that": a short history of what Jarvis changed (see undo.py)
 import life       # recipes, bills, habits, PC clean-up, game mode, finding files (see life.py)
 import dnd        # Jarvis as Dungeon Master: adventures with real dice on the HUD (see dnd.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, *custom_loader.load()):
+import commands   # "what can you do?": every command as a searchable panel (see commands.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
