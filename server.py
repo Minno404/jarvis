@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.26.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.27.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -590,7 +590,8 @@ import undo       # "undo that": a short history of what Jarvis changed (see und
 import life       # recipes, bills, habits, PC clean-up, game mode, finding files (see life.py)
 import dnd        # Jarvis as Dungeon Master: adventures with real dice on the HUD (see dnd.py)
 import commands   # "what can you do?": every command as a searchable panel (see commands.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, *custom_loader.load()):
+import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -620,6 +621,7 @@ features.REGISTRY = FUNCS
 history, lock, client, session = [], threading.Lock(), None, None
 convo = {"last": 0.0, "turns": 0}  # a fresh conversation after a quiet spell keeps every reply quick
 CLAUDE = shutil.which("claude") or shutil.which("claude", path=str(Path.home() / ".local" / "bin"))  # installer's default spot
+gamecoach.CLAUDE = CLAUDE
 learn.CLAUDE = CLAUDE
 
 
@@ -2165,6 +2167,10 @@ if __name__ == "__main__":
                             say(persona(f"Budget note, {{TITLE}}: {w}"))
                 except Exception as e:  # no Spend Breakdown or no statements yet
                     print(datetime.datetime.now(), "spending plan:", repr(e))
+                try:
+                    gamecoach.tick(st["game"], say)  # coaching his gameplay, if he asked
+                except Exception as e:
+                    print(datetime.datetime.now(), "game coach:", repr(e))
                 try:
                     for line in life.tick(st["game"]):  # game mode, and bills coming up
                         say(persona(line))

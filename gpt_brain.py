@@ -30,10 +30,10 @@ Your tools are shell commands, run in this folder. Pass arguments as key=value p
 Lists can be comma-separated (symbols=XAUUSD,EURUSD). For anything nested, pipe JSON in instead:
   echo '{"limits": {"Eating Out": 300}}' | python server.py tool set_spending_plan -
 Each prints JSON. Don't edit files and don't run other commands, except read-only ones to look at files when
-it helps you answer (type, dir, findstr): your own docs and code here (README.md, CUSTOM.md, *.py, custom\...),
-the screenshot image, or a photo he sends (uploads\...). To change or add to anything, including yourself (new
+it helps you answer (type, dir, findstr): your own docs and code here (README.md, CUSTOM.md, *.py, custom/...),
+the screenshot image, or a photo he sends (uploads/...). To change or add to anything, including yourself (new
 panels, features, fixes), don't do it in chat: hand it to the coder with dev_task (project=jarvis for changes to
-you; it reads CUSTOM.md and builds in custom\, kept through updates) and say it's on it.
+you; it reads CUSTOM.md and builds in custom/, kept through updates) and say it's on it.
 Reply in plain spoken sentences: no markdown, lists or code; he hears your reply aloud.
 """
 
