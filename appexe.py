@@ -103,9 +103,22 @@ def build():
     return e
 
 
+def quick():
+    """At Windows log-on: if Jarvis.exe is already built for this Python, its settings straight from the stamp
+    (no need to load pywebview just to find them)."""
+    try:
+        st = json.loads(STAMP.read_text())
+        if EXE.exists() and st.get("python") == sys.version and st.get("source") == SOURCE \
+                and st.get("icon") == ICO.stat().st_mtime:
+            return {k: st[k] for k in ("PYTHONHOME", "PYTHONPATH")}
+    except (OSError, ValueError, KeyError):
+        pass
+    return None
+
+
 if __name__ == "__main__":
     try:
-        for k, v in build().items():
+        for k, v in (quick() or build()).items():
             print(f"{k}={v}")
         print(f"JEXE={EXE}")
     except Exception as e:

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.27.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.27.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -694,27 +694,44 @@ def apply_prefs():
 
 
 def startup_link():
-    """Where the 'start with Windows' shortcut lives (the user's Startup folder)."""
+    """The old 'start with Windows' shortcut in the Startup folder (Windows starts those last, after a delay)."""
     return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Jarvis.lnk"
 
 
+def autostart_on():
+    return bool(features.settings().get("autostart")) or (os.name == "nt" and startup_link().exists())
+
+
 def set_autostart(on):
-    """Start Jarvis when Windows starts: a shortcut to Jarvis.bat in the Startup folder (made by PowerShell, so it
-    lands in the real folder even with the Microsoft Store Python)."""
-    link = startup_link()
+    """Start Jarvis as soon as he logs in to Windows: a scheduled task that runs at log-on with no delay, at a
+    higher priority than normal startup apps (the Run key if Windows won't allow the task). Made by PowerShell,
+    so it lands in the real Windows settings even with the Microsoft Store Python."""
+    bat = str(HERE / "Jarvis.bat").replace("'", "''")
+    here = str(HERE).replace("'", "''")
+    run_key = "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    old = "Remove-Item -LiteralPath ([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk') -ErrorAction SilentlyContinue;"
     if on:
-        ps = ("$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk');"
-              f"$s.TargetPath='{HERE / 'Jarvis.bat'}';$s.Arguments='--startup';$s.WorkingDirectory='{HERE}';"
-              f"$s.IconLocation='{HERE / 'jarvis.ico'}';$s.WindowStyle=7;$s.Save()")
+        ps = (old + f"$a=New-ScheduledTaskAction -Execute 'cmd.exe' -Argument ('/c start \"\" /min \"' + '{bat}' + '\" --startup') "
+              f"-WorkingDirectory '{here}';"
+              "$t=New-ScheduledTaskTrigger -AtLogOn -User \"$env:USERDOMAIN\\$env:USERNAME\";"
+              "$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+              "-ExecutionTimeLimit ([TimeSpan]::Zero) -Priority 4 -StartWhenAvailable;"
+              "try{Register-ScheduledTask -TaskName 'Jarvis' -Action $a -Trigger $t -Settings $s -Force "
+              f"-ErrorAction Stop | Out-Null; Remove-ItemProperty -Path '{run_key}' -Name Jarvis -ErrorAction SilentlyContinue; 'task'}}"
+              f"catch{{Set-ItemProperty -Path '{run_key}' -Name Jarvis -Value ('\"' + '{bat}' + '\" --startup'); 'runkey'}}")
     else:
-        ps = "Remove-Item -LiteralPath ([Environment]::GetFolderPath('Startup')+'\\Jarvis.lnk') -ErrorAction SilentlyContinue"
+        ps = (old + "Unregister-ScheduledTask -TaskName 'Jarvis' -Confirm:$false -ErrorAction SilentlyContinue;"
+              f"Remove-ItemProperty -Path '{run_key}' -Name Jarvis -ErrorAction SilentlyContinue; 'off'")
     try:
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, timeout=30,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError) as e:
         raise ValueError(f"Couldn't change the startup setting: {e}")
-    if link.exists() != bool(on):
-        raise ValueError("Windows didn't let Jarvis change its startup setting.")
+    how = (r.stdout or "").strip().splitlines()[-1:] or [""]
+    if how[0] not in ("task", "runkey", "off"):
+        raise ValueError("Windows didn't let Jarvis change its startup setting. " + (r.stderr or "")[-200:])
+    features._save("settings.json", {**features.settings(), "autostart": bool(on), "autostart_how": how[0]})
+    return how[0]
 
 
 def save_prefs(d):
@@ -754,6 +771,7 @@ def save_prefs(d):
                 speech.install_kokoro()  # first time: installs and downloads in the background
     if "autostart" in d:
         set_autostart(bool(d["autostart"]))
+        s = features.settings()
     for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
         if k in d:
             s[k] = bool(d[k])
@@ -772,8 +790,8 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "split_claude_voice",
-                                                            "split_gpt_voice")}, "autostart": startup_link().exists()})
-    return {**s, "voice": speech.status, "autostart": startup_link().exists()}
+                                                            "split_gpt_voice")}, "autostart": autostart_on()})
+    return {**s, "voice": speech.status, "autostart": autostart_on()}
 
 
 def models():
@@ -1414,7 +1432,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({**features.settings(), "memories": len(features.memories()),
                                    "protocols": len(features.list_routines()), "mt5": mt5_on, "version": VERSION,
                                    "brain": brain_status(), "persona": personas.get(),
-                                   "autostart": os.name == "nt" and startup_link().exists()})
+                                   "autostart": autostart_on()})
         if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
             f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name
@@ -1778,6 +1796,13 @@ if __name__ == "__main__":
             import hotkey
             hotkey.start(voice.ptt_down, voice.ptt_up)
         apply_prefs()
+        if os.name == "nt" and startup_link().exists():  # the old Startup-folder way: move to the faster log-on task
+            def move_autostart():
+                try:
+                    set_autostart(True)
+                except Exception as e:
+                    print(datetime.datetime.now(), "start with Windows:", repr(e))
+            threading.Thread(target=move_autostart, daemon=True).start()
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         main = None
 
