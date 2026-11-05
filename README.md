@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.18.1** (shown at the bottom right of the HUD)
+**Version 1.19.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.19.0** (5 Nov 2026): split mode. Triple-click the core and Jarvis splits in two: Claude (orange) argues the
+  pros of whatever you ask, ChatGPT (green) the cons, each in its own voice. Triple-click either to merge back,
+  with that one as the brain. The Update button now always shows above panels.
 - **1.18.1** (5 Nov 2026): fixes the tray icon and taskbar logo (the icon file was looked for in the wrong folder).
   Jarvis.exe is now a small launcher built with Windows' own C# compiler, so it works with the Microsoft Store
   Python too.

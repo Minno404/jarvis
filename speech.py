@@ -144,13 +144,14 @@ def install_kokoro():
     return status
 
 
-def say(text, persona):
-    """Audio for one piece of speech: (bytes, mime type). persona: the personas.py entry in use."""
+def say(text, persona, kokoro_voice=None):
+    """Audio for one piece of speech: (bytes, mime type). persona: the personas.py entry in use.
+    kokoro_voice: use this Kokoro voice instead of the one in Settings (split mode's second avatar)."""
     s = features.settings()
     words = speakable(text)
     if s.get("voice_engine") == "kokoro" and kokoro_ready():
         try:
-            name = s.get("kokoro_voice") or PERSONA_KOKORO.get(persona.get("key"), "George (British man)")
+            name = kokoro_voice or s.get("kokoro_voice") or PERSONA_KOKORO.get(persona.get("key"), "George (British man)")
             return kokoro(words, name, float(s.get("voice_speed") or 1.0)), "audio/wav"
         except Exception as e:  # fall back to the online voice rather than go silent
             print("Kokoro voice failed, using the online voice:", repr(e))
