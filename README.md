@@ -185,6 +185,12 @@ When a new version is out, an **Update to vX** button appears at the bottom righ
 Jarvis downloads the update, installs it and restarts by himself. Your settings, memory, journal and TV
 pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
+## Waking the PC when you're out
+
+Wake-up packets can't cross the internet, so a device left on at home does it. `wake_helper.py` runs on an
+always-on Android tablet (in Termux) with Tailscale: open its page on your phone, press Wake, and Jarvis opens once
+the PC is up. Setup is at the top of the file.
+
 ## Version history
 
 - **1.32.4** (7 Nov 2026): local AI fixes. Codex is told to use Ollama (newer versions need it), the message is
