@@ -306,6 +306,8 @@ html.holo-mode .brand{font-size:clamp(18px,6vw,30px)}
 html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
 #holoLine{max-width:min(92vw,560px);text-align:center;color:var(--text);line-height:1.5;min-height:3em;margin-top:6px;opacity:.9}
 html.pc-holo #holoExit{right:150px}
+#holoMic{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;width:64px;height:64px;border-radius:50%;
+  font-size:24px;border:1px solid var(--cyan);background:rgba(var(--rgb),.08);box-shadow:0 0 24px rgba(var(--rgb),.3)}
 #holoExit{position:fixed;top:10px;right:12px;z-index:30;border:0;color:var(--mute);font-size:22px;padding:4px 10px}
 #holoWake{position:fixed;inset:0;z-index:45;display:grid;place-items:center;background:rgba(1,3,6,.92);color:var(--cyan);font-family:var(--display);
   letter-spacing:.35em;text-align:center;font-size:14px;cursor:pointer}
@@ -662,7 +664,37 @@ function heard(){
     g.gain.setValueAtTime(.12,actx.currentTime);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+.25);o.connect(g).connect(actx.destination);o.start();o.stop(actx.currentTime+.25)}catch(e){}
 }
 addEventListener('pywebviewready',()=>{$('mic').hidden=false});
-$('mic').onclick=()=>{audio();$('mic').textContent='Mic';api()?.listen()};
+$('mic').onclick=()=>{audio();$('mic').textContent='Mic';if(api())api().listen();else phoneMic()};
+setTimeout(()=>{if(!LOCAL&&!PIN)$('mic').hidden=false},0);  // on the phone: its own microphone (tap, talk, it stops when you do)
+// ---- The phone's microphone: records until you stop talking, the PC turns it into text (Whisper), then it's asked ----
+const PM={rec:null,stop:null};
+function micLabel(t){$('mic').textContent=t;const h=document.getElementById('holoMic');if(h)h.textContent=t==='Mic'?'\u{1F399}':t}
+async function phoneMic(){
+  if(PM.rec)return PM.stop();
+  if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){
+    let s={};try{s=await (await fetch('/api/secure')).json()}catch(e){}
+    add('j',s.url?`Voice on the phone needs Jarvis's secure link, sir: open ${s.url} on this phone and add that one to your home screen.`
+      :s.enable?`Voice on the phone needs HTTPS switched on in your Tailscale account, one click: ${s.enable} Then restart me on the PC.`
+      :"Voice on the phone needs Tailscale's secure link, which isn't set up on the PC yet: is Tailscale running there?");return}
+  audio();let st;
+  try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})}
+  catch(e){add('j',"I can't use the microphone, sir. Allow it for this page (Settings > Safari > Microphone).");return}
+  stopSpeaking();
+  const mime=['audio/mp4','audio/webm;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+  const rec=new MediaRecorder(st,mime?{mimeType:mime}:{}),chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  const src=actx.createMediaStreamSource(st),an=actx.createAnalyser(),buf=new Uint8Array(1024);an.fftSize=1024;src.connect(an);
+  let spoke=false,quiet=performance.now();const t0=quiet,done=new Promise(r=>rec.onstop=r);
+  PM.rec=rec;PM.stop=()=>{if(rec.state!=='inactive')rec.stop()};rec.start(250);setMode('listening');micLabel('Stop');sfx('panel');
+  const tick=()=>{if(rec.state==='inactive')return;an.getByteTimeDomainData(buf);let s=0;for(const v of buf)s+=((v-128)/128)**2;
+    const lvl=Math.sqrt(s/buf.length),now=performance.now();target=Math.min(1,lvl*5);
+    if(lvl>.035){spoke=true;quiet=now}
+    if((spoke&&now-quiet>1400)||(!spoke&&now-t0>7000)||now-t0>25000)return PM.stop();
+    requestAnimationFrame(tick)};tick();
+  await done;st.getTracks().forEach(t=>t.stop());try{src.disconnect()}catch(e){}PM.rec=null;micLabel('Mic');
+  if(!spoke){setMode('idle');return}
+  setMode('thinking');const blob=new Blob(chunks,{type:rec.mimeType||mime||'audio/mp4'});let r={};
+  try{r=await (await fetch('/api/stt',{method:'POST',headers:{'Content-Type':blob.type},body:blob})).json()}catch(e){}
+  setMode('idle');if(r.text)ask(r.text);else add('j',"I didn't catch that, sir.")}
 // Clock
 const tick=()=>{const d=new Date();$('clock').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});$('date').textContent=d.toLocaleDateString([], {weekday:'long',day:'numeric',month:'short'})};tick();setInterval(tick,1000);
 const statHooks=[];  // add-ons in custom/ react to live stats (JarvisHUD.onStats)
@@ -1211,7 +1243,9 @@ if(HOLO){
   const wake=document.createElement('div');wake.id='holoWake';wake.innerHTML='TAP TO WAKE<br><br><small style="letter-spacing:.2em;color:var(--mute)">Leave this open: Jarvis speaks here too</small>';if(!LOCAL)document.body.append(wake);
   const KEY='jarvis.holoSeen',greet=()=>{let last=0;try{last=+localStorage.getItem(KEY)||0;localStorage.setItem(KEY,Date.now())}catch(e){}
     if(Date.now()-last>2*3600e3)holoSay(`Welcome home${userLabel&&userLabel!=='YOU'?', '+userLabel.charAt(0)+userLabel.slice(1).toLowerCase():''}.`)};
-  wake.onclick=()=>{audio();wake.remove();greet()};if(LOCAL)setTimeout(greet,600);  // the PC can talk straight away
+  wake.onclick=()=>{audio();wake.remove();greet()};
+  if(!LOCAL){const m=document.createElement('button');m.id='holoMic';m.type='button';m.setAttribute('aria-label','Talk to Jarvis');m.textContent='\u{1F399}';
+    m.onclick=()=>phoneMic();document.body.append(m)}if(LOCAL)setTimeout(greet,600);  // the PC can talk straight away
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!document.getElementById('holoWake'))greet();else try{localStorage.setItem(KEY,Date.now())}catch(e){}});
   $('coreWrap').addEventListener('click',e=>{if(e.detail===1)document.documentElement.classList.toggle('typing')});
   const realAdd=add;add=function(who,text){const sp=realAdd(who,text);if(who!=='you'){const upd=()=>line.textContent=sp.textContent;upd();new MutationObserver(upd).observe(sp,{childList:true,characterData:true,subtree:true})}return sp};

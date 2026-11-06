@@ -1,4 +1,4 @@
 {
- "version": "1.38.0",
- "notes": "Room scan, inventory mode, gesture control, workout spotter and morning radio."
+ "version": "1.39.0",
+ "notes": "Voice from your phone: a mic button, over Tailscale's secure link."
 }

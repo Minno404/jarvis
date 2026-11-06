@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.38.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.39.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1512,9 +1512,37 @@ def phone_key():
     return KEY_FILE.read_text().strip()
 
 
+def tailscale_exe():
+    return shutil.which("tailscale") or next((p for p in (r"C:\Program Files\Tailscale\tailscale.exe",) if os.path.exists(p)), None)
+
+
+def tailscale_https():
+    """Tailscale's secure link (https://<this PC>.<tailnet>.ts.net) to Jarvis, so a phone may use its microphone
+    (iPhones only allow that on https pages). Sets it up with 'tailscale serve' (only his own devices can open it).
+    Returns {"url"} when it's on, {"enable": link} when Tailscale needs HTTPS turned on first, or {}."""
+    exe, name = tailscale_exe(), tailscale_name()
+    if not (exe and name):
+        return {}
+    nw = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        st = subprocess.run([exe, "serve", "status"], capture_output=True, text=True, timeout=10, creationflags=nw)
+        if f":{PORT}" in st.stdout:
+            return {"url": f"https://{name}/"}
+        r = subprocess.run([exe, "serve", "--bg", str(PORT)], capture_output=True, text=True, timeout=20, creationflags=nw)
+        out = r.stdout + r.stderr
+    except subprocess.TimeoutExpired as e:  # it waits while HTTPS isn't enabled for his Tailscale account yet
+        out = (e.stdout or b"").decode(errors="ignore") if isinstance(e.stdout, bytes) else (e.stdout or "")
+    except Exception as e:
+        return {"error": repr(e)}
+    link = re.search(r"https://login\.tailscale\.com/\S+", out)
+    if link:
+        return {"enable": link.group(0)}
+    return {"url": f"https://{name}/"} if f":{PORT}" in out or "https://" in out else {"error": out[-300:]}
+
+
 def tailscale_name():
     """This PC's Tailscale name, or None."""
-    exe = shutil.which("tailscale") or next((p for p in (r"C:\Program Files\Tailscale\tailscale.exe",) if os.path.exists(p)), None)
+    exe = tailscale_exe()
     if not exe:
         return None
     try:
@@ -1542,6 +1570,9 @@ def phone_urls():
     name = tailscale_name()
     # Tailscale: no key needed (only his own devices can reach this address), so this one link works anywhere
     out = [{"where": "Anywhere (Tailscale): no pairing needed", "url": f"http://{name or ts[0]}:{PORT}/"}] if ts else []
+    sec = LIVE.get("ts_https") or {}
+    if sec.get("url"):  # the secure link: the same, plus the phone's microphone works
+        out.insert(0, {"where": "Anywhere, with voice (Tailscale, secure)", "url": sec["url"]})
     out += [{"where": "Home Wi-Fi", "url": f"http://{ip}:{PORT}/?key={phone_key()}"} for ip in sorted(ips) if lan(ip)]
     try:
         import segno  # pip install segno: draws QR codes, no other dependencies
@@ -1572,12 +1603,16 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def local(self):
-        return self.client_address[0] in ("127.0.0.1", "::1")
+        # (Tailscale's secure link also arrives from this PC, but it's his phone: that counts as Tailscale)
+        return self.client_address[0] in ("127.0.0.1", "::1") and not self.via_tailscale_https()
+
+    def via_tailscale_https(self):
+        return bool(self.headers.get("Tailscale-User-Login") or self.headers.get("X-Forwarded-For"))
 
     def tailnet(self):
         """Coming in through Tailscale: only his own devices (signed in to his Tailscale account) can do that."""
         ip = self.client_address[0]
-        if ip.startswith("fd7a:115c:a1e0:"):
+        if ip.startswith("fd7a:115c:a1e0:") or (ip in ("127.0.0.1", "::1") and self.via_tailscale_https()):
             return True
         p = ip.split(".")
         return len(p) == 4 and p[0] == "100" and 64 <= int(p[1]) <= 127
@@ -1674,6 +1709,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/local":  # the local AI: what's set up, the recommended model, install progress
             return self.send_json(local_brain.status())
+        if self.path == "/api/secure":  # Tailscale's secure link for the phone (its microphone needs https)
+            return self.send_json(LIVE.get("ts_https") or {})
         if self.path == "/api/deepseek":  # whether a DeepSeek key is saved (never the key itself)
             return self.send_json({"ready": deepseek.available()})
         if self.path == "/api/ambient":
@@ -1793,6 +1830,21 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"ok": action, "in_seconds": wait})
             threading.Timer(wait, updater.restart if action == "restart" else lambda: os._exit(0)).start()
             return
+        if self.path == "/api/stt":  # the phone's microphone: a recording in, what was said out
+            n = int(self.headers.get("Content-Length") or 0)
+            if not 0 < n < 15_000_000:
+                return self.send_json({"error": "No recording"}, 400)
+            data = self.rfile.read(n)
+            kind = self.headers.get("Content-Type", "")
+            import voice as voice_mod
+            try:
+                text, sure = voice_mod.transcribe_audio(data, ".webm" if "webm" in kind else ".ogg" if "ogg" in kind else ".m4a")
+            except Exception as e:
+                print(datetime.datetime.now(), "phone speech-to-text failed:", repr(e))
+                return self.send_json({"error": "I couldn't make that out"}, 500)
+            if text:
+                LIVE["spoken"] = (text, time.time())  # the brain is told it was spoken, so may be misheard
+            return self.send_json({"text": text, "sure": sure})
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
@@ -2020,6 +2072,7 @@ if __name__ == "__main__":
                 print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
                 sys.exit()
     print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url}")
+    threading.Thread(target=lambda: LIVE.update(ts_https=tailscale_https()), daemon=True).start()
     if features.settings().get("brain") == "local":  # he starts online; "offline mode" switches to the local AI
         features._save("settings.json", {**features.settings(), "brain": "auto"})
     if "--browser" in sys.argv:
