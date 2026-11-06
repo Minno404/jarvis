@@ -182,6 +182,8 @@ def _run(on_status, cb):
             print("voice: wake word model download:", repr(e))
         wake = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
         stt = WhisperModel(stt_model(), device="cpu", compute_type="int8")
+        # the quick "did he just say Jarvis?" check runs often, so it always uses the small fast model
+        name_stt = stt if stt_model() == "base.en" else WhisperModel("base.en", device="cpu", compute_type="int8")
     except Exception as e:
         print("voice: can't start:", repr(e))
         on_status("Off (see log)")
@@ -192,7 +194,7 @@ def _run(on_status, cb):
             stream = _open_mic(sd)
             on_status('Say "Hey Jarvis"')
             failures = 0
-            _listen(stream, wake, stt, **cb)
+            _listen(stream, wake, stt, name_stt=name_stt, **cb)
         except Exception as e:
             if not threading.main_thread().is_alive():
                 return  # Jarvis is closing; nothing to report
@@ -242,7 +244,7 @@ def _drain(stream):
         stream.read(FRAME)
 
 
-def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_hold_cmd):
+def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_hold_cmd, name_stt=None):
     recent, pre, last2s = [], [], []  # room loudness over ~10 s, the last few frames, the last 2 seconds
     following, checked_until = False, 0.0
     while True:
@@ -272,7 +274,7 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
             if (not woke and not speaking.is_set() and score >= LOOSE_THRESHOLD
                     and time.time() >= checked_until):  # maybe just "Jarvis"
                 checked_until = time.time() + 1.5  # one check per utterance, not one per frame
-                woke = bool(NAME.search(_transcribe(stt, last2s[-20:])))
+                woke = bool(NAME.search(_transcribe(name_stt or stt, last2s[-20:])))
             by_name = woke
             if woke and speaking.is_set():
                 on_interrupt()

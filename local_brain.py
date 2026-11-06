@@ -101,10 +101,8 @@ def ensure_running():
 def ready():
     """Can Jarvis think with the local AI right now? (Ollama installed, model downloaded, Codex installed.)"""
     import gpt_brain
-    if not (gpt_brain.CODEX and ollama_exe() and features.settings().get("local_model")):
-        return False
-    have = models()
-    return have is None or model() in have  # not running yet: it's started when it's needed
+    # no call to Ollama here: this runs on every reply, and on Windows asking a port nobody's on takes ~2 s
+    return bool(gpt_brain.CODEX and ollama_exe() and features.settings().get("local_model"))
 
 
 def status():
