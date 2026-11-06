@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.34.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.35.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -600,6 +600,7 @@ import commands   # "what can you do?": every command as a searchable panel (see
 import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
 import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
 import spendview  # the full-screen spending report: Spend Breakdown inside Jarvis (see spendview.py)
+import deepseek  # DeepSeek as a brain: cheap, online, through Claude Code (see deepseek.py)
 import local_brain  # the free AI that runs on this PC: Jarvis's third brain (see local_brain.py)
 import web        # free web search and page reading (see web.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
@@ -1114,24 +1115,31 @@ def chat_stream(text, photo=None):
         session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
     brain = features.settings().get("brain", "auto")
     using = brain_status()["using"]
-    if using == "Local":
-        yield from chat_local(text, photo)
-        return
     said = False
     try:
-        for p in (chat_gpt(text, photo) if using == "ChatGPT" else _chat_claude(text)):
+        for p in brain_reply(using, text, photo):
             said = said or bool(p)
             yield p
     except Exception as e:
         if said or brain != "auto" or not LIMIT_HIT.search(str(e)):
             raise
-        (claude_out if using == "Claude" else gpt_out)["until"] = time.time() + 3600  # try it again in an hour
+        OUT[using]["until"] = time.time() + 3600  # try it again in an hour
         nxt = brain_status()["using"]
         if nxt == using:
             raise
         print(datetime.datetime.now(), f"{using} limit reached, switching to {nxt}:", str(e)[:200])
         push_event({"type": "brain", "name": nxt})
-        yield from (chat_local(text, photo) if nxt == "Local" else chat_gpt(text, photo))
+        yield from brain_reply(nxt, text, photo)
+
+
+def brain_reply(using, text, photo=None):
+    if using == "Local":
+        return chat_local(text, photo)
+    if using == "ChatGPT":
+        return chat_gpt(text, photo)
+    if using == "DeepSeek":
+        return chat_cli(text, ds=True)
+    return _chat_claude(text)
 
 
 DEBATE = ("[Split mode, not a normal reply: {{USER}} triple-clicked you into two avatars to weigh something up. You are "
@@ -1164,7 +1172,7 @@ YES = re.compile(r"^\W*(?:yes|yeah|yep|yup|ya|correct|right|that'?s right|that'?
                  r"sure|please|yes please)\b", re.I)
 NO = re.compile(r"^\W*(?:no|nope|nah|wrong|that'?s wrong|not quite|cancel|never ?mind)\b", re.I)
 
-LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
+LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429|402|insufficient balance", re.I)
 claude_out = {"until": 0.0}
 
 
@@ -1216,34 +1224,34 @@ def activity():
 
 
 def brain_status():
-    """Which brain answers now. auto: Claude, then ChatGPT when Claude's limit is hit, then the local AI when
-    ChatGPT's is too (or whichever of them this PC has)."""
+    """Which brain answers now. auto: Claude, then ChatGPT when Claude's limit is hit, then DeepSeek, then the
+    local AI (whichever of them this PC has)."""
     b = features.settings().get("brain", "auto")
-    gpt, local = gpt_brain.available(), local_brain.ready()
-    claude_ok = (CLAUDE or os.environ.get("ANTHROPIC_API_KEY")) and time.time() >= claude_out["until"]
-    gpt_ok = gpt and time.time() >= gpt_out["until"]
-    if b == "local" and local:
-        using = "Local"
-    elif b == "chatgpt" and gpt:
-        using = "ChatGPT"
-    elif b == "claude" or claude_ok:
-        using = "Claude"
-    elif gpt_ok or (gpt and not local):
-        using = "ChatGPT"
-    else:
-        using = "Local" if local else "Claude"
-    return {"setting": b, "using": using, "chatgpt_ready": gpt, "local_ready": local}
+    gpt, local, ds, now = gpt_brain.available(), local_brain.ready(), deepseek.available(), time.time()
+    have = {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt, "DeepSeek": ds,
+            "Local": local}
+    chosen = {"claude": "Claude", "chatgpt": "ChatGPT", "deepseek": "DeepSeek", "local": "Local"}.get(b)
+    if chosen and (have[chosen] or chosen == "Claude"):
+        using = chosen
+    else:  # auto: the first one set up whose limit hasn't been hit, else the first one set up
+        fresh = [n for n in have if have[n] and now >= OUT[n]["until"]]
+        using = (fresh or [n for n in have if have[n]] or ["Claude"])[0]
+    return {"setting": b, "using": using, "chatgpt_ready": gpt, "local_ready": local, "deepseek_ready": ds}
 
 
-gpt_out = {"until": 0.0}  # ChatGPT's limit was hit: the local AI fills in for an hour
+gpt_out = {"until": 0.0}  # ChatGPT's limit was hit: the next brain fills in for an hour
+ds_out = {"until": 0.0}   # DeepSeek's credit ran out
+OUT = {"Claude": claude_out, "ChatGPT": gpt_out, "DeepSeek": ds_out, "Local": {"until": 0.0}}
 
 
 def set_brain(brain):
     """Which AI Jarvis thinks with: auto (Claude, ChatGPT when the Claude limit is hit), claude or chatgpt."""
     b = {"gpt": "chatgpt", "openai": "chatgpt", "codex": "chatgpt", "anthropic": "claude", "ollama": "local",
-         "offline": "local"}.get(brain.lower(), brain.lower())
-    if b not in ("auto", "claude", "chatgpt", "local"):
-        return {"error": "brain must be auto, claude, chatgpt or local"}
+         "offline": "local", "deep seek": "deepseek"}.get(brain.lower(), brain.lower())
+    if b not in ("auto", "claude", "chatgpt", "deepseek", "local"):
+        return {"error": "brain must be auto, claude, chatgpt, deepseek or local"}
+    if b == "deepseek" and not deepseek.available():
+        return {"error": "DeepSeek isn't set up yet: paste your API key in Settings > Brain."}
     if b == "local" and not local_brain.ready():
         return {"error": "The local AI isn't set up yet: Settings > Local AI > Install."}
     if b == "chatgpt" and not gpt_brain.available():
@@ -1265,8 +1273,9 @@ def _chat_claude(text):
     yield from chat_cli(text)
 
 
-def chat_cli(text):
-    """Talk through Claude Code, which runs on the user's Claude plan instead of API credits."""
+def chat_cli(text, ds=False):
+    """Talk through Claude Code, which runs on the user's Claude plan instead of API credits. ds: on DeepSeek's
+    servers instead (deepseek.py)."""
     global session
     now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
     cmd = [CLAUDE, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
@@ -1280,13 +1289,13 @@ def chat_cli(text):
     with lock:
         # Each reply re-reads the whole conversation so far, so a long one gets slow (old trade reports and all).
         # Start fresh after 20 quiet minutes or 15 exchanges; memory, journals and learning live elsewhere.
-        if time.time() - convo["last"] > 1200 or convo["turns"] >= 15:
-            session, convo["turns"] = None, 0
-        convo["last"], convo["turns"] = time.time(), convo["turns"] + 1
+        if time.time() - convo["last"] > 1200 or convo["turns"] >= 15 or convo.get("ds", False) != ds:
+            session, convo["turns"] = None, 0  # (and a fresh one when switching between Claude and DeepSeek)
+        convo["last"], convo["turns"], convo["ds"] = time.time(), convo["turns"] + 1, ds
         if session:
             cmd += ["--resume", session]
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", cwd=HERE,
+                                text=True, encoding="utf-8", cwd=HERE, env=deepseek.env() if ds else None,
                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))  # no console flashes
         try:
             try:
@@ -1662,6 +1671,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/local":  # the local AI: what's set up, the recommended model, install progress
             return self.send_json(local_brain.status())
+        if self.path == "/api/deepseek":  # whether a DeepSeek key is saved (never the key itself)
+            return self.send_json({"ready": deepseek.available()})
         if self.path == "/api/ambient":
             return self.send_json(ambient())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
@@ -1824,6 +1835,15 @@ class Handler(SimpleHTTPRequestHandler):
             if not re.match(r"https?://", url) or not LIVE.get("page_price"):
                 return self.send_json({"error": "Needs a web link, and the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["page_price"](url))
+        if self.path == "/api/deepseek":  # save or remove the DeepSeek key: only from this PC
+            if not self.local():
+                return self.send_error(403)
+            d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            r = deepseek.set_key(d.get("key", ""))
+            if not r.get("ready") and features.settings().get("brain") == "deepseek":
+                set_brain("auto")
+            push_event({"type": "brain", "name": brain_status()["using"]})
+            return self.send_json(r)
         if self.path == "/api/local":  # install the local AI (in the background; progress in Activity)
             if not self.local():
                 return self.send_error(403)

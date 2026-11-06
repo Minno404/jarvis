@@ -25,7 +25,11 @@ CONTEXT = "32768"  # Codex needs a long context window; Ollama's default is much
 MODELS = [(14, "gpt-oss:20b", "gpt-oss 20B (OpenAI's open model): the best fit for Codex"),
           (7, "qwen3:8b", "Qwen3 8B: good for mid-range graphics cards"),
           (0, "qwen3:4b", "Qwen3 4B: small and quick, for modest PCs")]
-RAM_MODEL = "qwen3:4b"  # what RAM mode runs: about twice as quick as the 8B on a processor
+# Settings > Brain > Local AI model: smaller is quicker and lighter, bigger is cleverer
+SIZES = [("qwen3:1.7b", "Tiny: Qwen3 1.7B (1.4 GB, quickest, fine for chat and simple commands)"),
+         ("qwen3:4b", "Small: Qwen3 4B (2.5 GB, a good balance)"),
+         ("qwen3:8b", "Medium: Qwen3 8B (5 GB, best on a graphics card)"),
+         ("gpt-oss:20b", "Large: gpt-oss 20B (13 GB, cleverest, needs lots of memory)")]
 progress = {"step": "", "pct": None, "error": None, "running": False}
 
 
@@ -87,8 +91,6 @@ def model():
     if s.get("local_on") != "ram":
         return base
     have = models()
-    if have is not None and RAM_MODEL in have:
-        base = RAM_MODEL  # the small one: on the processor, size is speed
     name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-") + ":latest"  # Codex wants the exact name
     if have is not None and not name in have:
         with _api("/api/create", {"model": name, "from": base, "parameters": {"num_gpu": 0}, "stream": False},
@@ -133,7 +135,7 @@ def ready():
 def status():
     import gpt_brain
     have = models()
-    return {"installed": bool(ollama_exe()), "running": have is not None, "codex": bool(gpt_brain.CODEX),
+    return {"installed": bool(ollama_exe()), "running": have is not None, "codex": bool(gpt_brain.CODEX), "sizes": SIZES,
             "model": features.settings().get("local_model"), "ready": ready(), "progress": progress,
             "recommended": recommend()}
 
@@ -159,18 +161,13 @@ def _pull(want):
 
 
 def prepare_ram():
-    """Switched to RAM mode: download the small model if needed (shows in Activity), and set up its RAM copy."""
+    """Switched to RAM mode: set up the chosen model's RAM copy."""
     if progress["running"] or not ensure_running():
         return
     try:
-        if RAM_MODEL not in (models() or []):
-            progress.update(running=True, error=None, pct=None)
-            _pull(RAM_MODEL)
         model()
     except Exception as e:
         print("local AI: couldn't prepare RAM mode:", repr(e))
-    finally:
-        progress.update(running=False, step="", pct=None)
 
 
 def install(want=None):
