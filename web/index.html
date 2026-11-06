@@ -523,6 +523,7 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
       <label><input type="radio" name="br" value="local"> Local AI only: free, offline, not as clever</label>
       <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI voice</span><select id="localVoice" style="flex:1"></select><button type="button" id="localVoiceTest">Test</button></div>
+      <div class="keyrow"><span class="hint" style="min-width:110px">Local AI runs on</span><select id="localOn" style="flex:1"><option value="gpu">Graphics card (fast)</option><option value="ram">RAM and processor (slower, keeps the graphics card free)</option></select></div>
     </fieldset>
     <fieldset><legend>Features</legend>
       <label><input type="checkbox" data-feat="trading"> Day trading and markets (journal, alerts, trade warnings, market news, daily review)</label>
@@ -1412,7 +1413,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({local_voice:info.local_voice,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -1624,6 +1625,7 @@ async function refreshVoice(){
   if($('splitGpt').options.length!==vs.length){$('splitClaude').replaceChildren(...opts('Same as Jarvis'));$('splitGpt').replaceChildren(...opts());
     $('localVoice').replaceChildren(...opts('Same as Jarvis'))}
   $('localVoice').value=prefs.local_voice||'';
+  $('localOn').value=prefs.local_on||'gpu';
   $('splitClaude').value=prefs.split_claude_voice||'';$('splitGpt').value=prefs.split_gpt_voice||'Emma (British woman)';
   const kSplit=[prefs.split_claude_voice,$('splitGpt').value].some(v=>v&&!v.includes('online'));
   $('splitSt').textContent=kSplit&&st!=='ready'?(st==='downloading'?`Downloading Kokoro for split mode… ${voiceInfo.progress}% (an online voice stands in until then)`
@@ -1633,6 +1635,7 @@ async function refreshVoice(){
 }
 document.querySelectorAll('input[name=ve]').forEach(r=>r.onchange=async()=>{await savePref({voice_engine:r.value});refreshVoice()});
 $('kokoroVoice').onchange=()=>savePref({kokoro_voice:$('kokoroVoice').value});
+$('localOn').onchange=()=>savePref({local_on:$('localOn').value});
 $('localVoice').onchange=async()=>{await savePref({local_voice:$('localVoice').value});refreshVoice()};
 $('localVoiceTest').onclick=async()=>{const v=$('localVoice').value;
   if(!v){audio();const x=voice();x.push('This is how I sound on the local AI, sir.');x.end();return}

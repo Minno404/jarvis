@@ -79,7 +79,29 @@ def models():
 
 
 def model():
-    return features.settings().get("local_model") or recommend(0)["model"]
+    """The model to use. Settings > Brain > "runs on: RAM" uses a copy set to run on the processor and system memory
+    (num_gpu 0): much slower, but leaves the graphics card free for games."""
+    s = features.settings()
+    base = s.get("local_model") or recommend(0)["model"]
+    if s.get("local_on") != "ram":
+        return base
+    name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-")
+    have = models()
+    if have is not None and not any(m.split(":")[0] == name for m in have):
+        with _api("/api/create", {"model": name, "from": base, "parameters": {"num_gpu": 0}, "stream": False},
+                  timeout=120):
+            pass
+    return name
+
+
+def unload_all():
+    """Free the graphics card / memory now (Ollama otherwise keeps the model loaded a few minutes)."""
+    for m in models() or []:
+        try:
+            with _api("/api/generate", {"model": m, "keep_alive": 0}, timeout=10):
+                pass
+        except OSError:
+            pass
 
 
 def ensure_running():

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.32.6"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.32.7"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -784,6 +784,9 @@ def save_prefs(d):
         s = features.settings()
     if isinstance(d.get("features"), dict):
         s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
+    if d.get("local_on") in ("gpu", "ram"):
+        s["local_on"] = d["local_on"]  # where the local AI runs (local_brain.model)
+        threading.Thread(target=local_brain.unload_all, daemon=True).start()  # let go of where it was loaded
     if d.get("stt_quality") in ("fast", "accurate", "best"):
         s["stt_quality"] = d["stt_quality"]  # takes effect next time Jarvis starts
     for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
@@ -804,7 +807,7 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
-                                                            "local_voice", "split_claude_voice",
+                                                            "local_voice", "local_on", "split_claude_voice",
                                                             "split_gpt_voice")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 

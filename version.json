@@ -1,4 +1,4 @@
 {
- "version": "1.32.6",
- "notes": "Instant brain swaps: online mode, offline mode, swap brain."
+ "version": "1.32.7",
+ "notes": "Choose whether the local AI runs on the graphics card or RAM."
 }
