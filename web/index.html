@@ -1288,7 +1288,7 @@ $('svAdd').onclick=()=>$('svFile').click();
 $('svFile').onchange=async()=>{const fs=[...$('svFile').files];$('svFile').value='';if(!fs.length)return;
   const files=await Promise.all(fs.map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res({name:f.name,data:String(r.result).split(',')[1]||''});r.readAsDataURL(f)})));
   const accs=SV.data?.accounts||[];
-  svDialog(`<h2>Which account?</h2><p>${files.map(f=>esc(f.name)).join(', ')}</p><label>Bank / account name (e.g. CommBank Everyday, People's First)<input id="svAN" list="svAccDl" value="${esc(SV.acc&&SV.acc!=='All accounts'?SV.acc:accs[0]||'')}"></label>`
+  svDialog(`<h2>Which account?</h2><p>${files.map(f=>esc(f.name)).join(', ')}</p><label>Bank / account name (e.g. CommBank Everyday, ING Savings)<input id="svAN" list="svAccDl" value="${esc(SV.acc&&SV.acc!=='All accounts'?SV.acc:accs[0]||'')}"></label>`
     +`<datalist id="svAccDl">${accs.map(a=>`<option value="${esc(a)}">`).join('')}</datalist><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Add</button></div>`,
     async()=>{svMsg('Reading…');const r=await svAct({action:'import',files,account:$('svAN').value});if(r.error){svMsg(r.error,true);return false}svMsg(r.report.join('\n'));svLoad()})};
 addEventListener('keydown',e=>{if(e.key==='Escape'&&SV.on&&$('svOverlay').hidden&&document.activeElement!==$('q'))setSpendMode(false)});

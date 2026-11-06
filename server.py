@@ -1510,7 +1510,7 @@ def phone_key():
 
 
 def tailscale_name():
-    """This PC's Tailscale name (e.g. halens-pc.tail1234.ts.net), or None."""
+    """This PC's Tailscale name (e.g. my-pc.tail1234.ts.net), or None."""
     exe = shutil.which("tailscale") or next((p for p in (r"C:\Program Files\Tailscale\tailscale.exe",) if os.path.exists(p)), None)
     if not exe:
         return None

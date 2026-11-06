@@ -251,7 +251,7 @@ def selftest():
     sc.SETTINGS_FILE, sc.IMPORTED_FILE, sc.STATEMENTS_DIR = d / "s.json", d / "i.json", d / "Statements"
     try:
         csv = ("Date,Description,Amount\n01/10/2026,VISA PURCHASE UBER EATS SYDNEY,-35.50\n"
-               "02/10/2026,WOOLWORTHS 1234 ADELAIDE,-120.00\n03/10/2026,SALARY ACME PTY,2400.00\n"
+               "02/10/2026,WOOLWORTHS 1234 SYDNEY,-120.00\n03/10/2026,SALARY ACME PTY,2400.00\n"
                "04/11/2026,NETFLIX.COM,-18.99\n05/11/2026,BEANS CAFE DOWNTOWN,-6.50\n")
         r = import_files([{"name": "oct.csv", "data": base64.b64encode(csv.encode()).decode()}], "CommBank")
         assert "5 new" in r["report"][0], r
@@ -275,10 +275,10 @@ def selftest():
         v = view(month="2026-10")
         assert v["earned"] == round(2000 * 26 / 12, 2) and v["pay"]["per"] == "fortnight"
         assert isinstance(act({"action": "insights"})["insights"], list)
-        (d / "Statements" / "People's First").mkdir(parents=True)
-        (d / "Statements" / "People's First" / "nov.csv").write_text("Date,Description,Amount\n06/11/2026,BP SERVO,-60\n")
-        assert "People's First: 1 new" in scan_folder()["report"][0] and scan_folder()["report"] == []
-        assert act({"action": "remove_account", "account": "People's First"})["removed"] == 1
+        (d / "Statements" / "ING Savings").mkdir(parents=True)
+        (d / "Statements" / "ING Savings" / "nov.csv").write_text("Date,Description,Amount\n06/11/2026,BP SERVO,-60\n")
+        assert "ING Savings: 1 new" in scan_folder()["report"][0] and scan_folder()["report"] == []
+        assert act({"action": "remove_account", "account": "ING Savings"})["removed"] == 1
         assert "error" in import_files([], "  ") and "error" in act({"action": "pay", "income": "x", "per": "month"})
         json.dumps(view())  # all of it goes to the HUD as JSON
     finally:

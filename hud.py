@@ -260,8 +260,8 @@ def selftest():
         global _fetch
         real_fetch, _fetch = _fetch, fake
         try:
-            assert [x["src"] for x in bing_images("cla45")] == ["https://cars.com/cla.jpg", "https://x/tiny.png"]
-            r = show_image("cla45", count=2)
+            assert [x["src"] for x in bing_images("lambo")] == ["https://cars.com/cla.jpg", "https://x/tiny.png"]
+            r = show_image("lambo", count=2)
             assert r["shown"] == 1 and r["sources"] == ["cars.com"], r
             ev = sent[-1]
             assert ev["kind"] == "image" and ev["src"].startswith("/api/img/") and ev["src"].endswith(".jpg")

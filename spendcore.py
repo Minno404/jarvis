@@ -145,7 +145,7 @@ MONEY = r"(?<![\d.])[-+]?\$?\d{1,3}(?:,\d{3})*\.\d{2}(?:\s?(?:CR|DR|Cr|Dr)(?![A-
 DATE_TOKEN = r"\d{1,2}[A-Za-z]{3}\d{2,4}|\d{1,2}[ /.-](?:[A-Za-z]{3}|\d{1,2})(?:[ /.-](?:20)?\d{2}(?!\d))?"
 LINE_DATE = re.compile(rf"({DATE_TOKEN})\s+(?:(?:{DATE_TOKEN})\s+)?(.*)")  # skips a 2nd "effective date" column
 SKIP_LINE = re.compile(r"closing balance|current balance|carried forward|totals?\b|statement period", re.I)
-SECTION = re.compile(r"(\d{6,})\s+([^$\d-][^$]*?)\s*(?:-?\$|$)")  # "200022222  Bonus Saver" under "ACCOUNT NO"
+SECTION = re.compile(r"(\d{6,})\s+([^$\d-][^$]*?)\s*(?:-?\$|$)")  # "123456789  Bonus Saver" under "ACCOUNT NO"
 NOT_DESC = re.compile(r"page \d|e-\d+/s|account|date\b|statement|.*\(cont|.*balance", re.I)
 
 
