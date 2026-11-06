@@ -248,8 +248,8 @@ def selftest():
         assert (features.HERE / "custom" / "backgrounds" / "background.jpg").read_bytes() == b"\xff\xd8pic"
         assert hud_background(dim=0.7) == {"background": "picture", "dim": 0.7} and sent[-1]["file"] == "background.jpg"
         jpg = b"\xff\xd8" + b"x" * 5000
-        pages = {"bing": ('<a m="{&quot;purl&quot;:&quot;https://cars.com/cla&quot;,&quot;murl&quot;:'
-                          '&quot;https://cars.com/cla.jpg&quot;}" ></a><a m="{&quot;murl&quot;:&quot;https://x/tiny.png'
+        pages = {"bing": ('<a m="{&quot;purl&quot;:&quot;https://example.com/a&quot;,&quot;murl&quot;:'
+                          '&quot;https://example.com/a.jpg&quot;}" ></a><a m="{&quot;murl&quot;:&quot;https://x/tiny.png'
                           '&quot;,&quot;purl&quot;:&quot;https://x&quot;}">').encode()}
         def fake(url, referer=None, timeout=8):
             if "bing.com" in url:
@@ -260,8 +260,8 @@ def selftest():
         global _fetch
         real_fetch, _fetch = _fetch, fake
         try:
-            assert [x["src"] for x in bing_images("lambo")] == ["https://cars.com/cla.jpg", "https://x/tiny.png"]
-            r = show_image("lambo", count=2)
+            assert [x["src"] for x in bing_images("x")] == ["https://example.com/a.jpg", "https://x/tiny.png"]
+            r = show_image("x", count=2)
             assert r["shown"] == 1 and r["sources"] == ["cars.com"], r
             ev = sent[-1]
             assert ev["kind"] == "image" and ev["src"].startswith("/api/img/") and ev["src"].endswith(".jpg")

@@ -395,7 +395,7 @@ the PC is up. Setup is at the top of the file.
 - **1.4.1** (5 Nov 2026): fixed panels getting stuck after being moved once.
 - **1.4.0** (5 Nov 2026): HUD upgrade.
   - Colour themes: "Jarvis, make the HUD red" (also gold, green, purple, pink, orange, white, teal, blue...).
-  - Pictures: "show me a picture of a Lamborghini Huracan" pulls one from Wikipedia onto the HUD.
+  - Pictures: "show me a picture of ..." pulls one from Wikipedia onto the HUD.
   - Drag any panel by its title and resize it from the bottom-right corner. Jarvis remembers where you put
     them; Protocols → Layout → Reset puts them back.
   - A subtle grid, scan sweep and panel corner details.
