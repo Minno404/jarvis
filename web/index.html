@@ -302,6 +302,19 @@ html.spendmode .state,html.spendmode .attach,html.spendmode .panel[data-id],html
 html.spendmode .updatebtn,html.spendmode #bgimg~.free{display:none!important}  /* every other panel, moved or added, steps aside */
 html.spendmode .core-wrap{position:fixed!important;left:12px;bottom:8px;width:min(112px,22vw)!important;z-index:33;cursor:pointer}
 html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bottom:14px;z-index:33;max-width:620px}
+/* "Enlarge ...": the same, with any one panel filling the screen */
+html.bigmode .col,html.bigmode .chips,html.bigmode .sub,html.bigmode .brand,html.bigmode .log,html.bigmode #holo,
+html.bigmode .state,html.bigmode .attach,html.bigmode .panel[data-id],html.bigmode .holo-panel,
+html.bigmode .updatebtn,html.bigmode #bgimg~.free{display:none!important}
+html.bigmode .core-wrap{position:fixed!important;left:12px;bottom:8px;width:min(112px,22vw)!important;z-index:33;cursor:pointer}
+html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bottom:14px;z-index:33;max-width:620px}
+#bigView{position:fixed;inset:0;z-index:30;overflow:auto;padding:18px 18px 130px;animation:svIn .5s ease-out;
+  background:radial-gradient(ellipse at top,rgba(var(--rgb),.07),transparent 60%)}
+#bigView>.panel,#bigView>.holo-panel{display:block!important;position:relative!important;inset:auto!important;transform:none!important;
+  width:auto!important;max-width:none!important;height:auto!important;max-height:none!important;min-height:calc((100vh - 170px)/1.6);margin:0!important;box-sizing:border-box;zoom:1.6}
+#bigView .holo-x{display:none}
+#bigView>* img,#bigView>* canvas{max-width:100%}
+#bigClose{position:fixed;top:10px;right:14px;z-index:34;font-size:22px}
 #spendView{position:fixed;inset:0;z-index:30;overflow:auto;padding:16px 18px 130px;display:flex;flex-direction:column;gap:12px;
   background:radial-gradient(ellipse at top,rgba(var(--rgb),.07),transparent 60%);animation:svIn .5s ease-out}
 @keyframes svIn{from{opacity:0;transform:translateY(12px)}}
@@ -449,6 +462,8 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
     <button type="submit">Start Jarvis</button>
   </form>
 </div>
+<div id="bigView" hidden aria-label="Enlarged panel"></div>
+<button type="button" id="bigClose" class="holo-x" hidden aria-label="Shrink back">&times;</button>
 <div id="spendView" hidden aria-label="Spending report">
   <div class="sv-top">
     <div class="sv-title"><h1>Spend breakdown</h1><span>&#9670; finance</span></div>
@@ -881,6 +896,14 @@ async function ask(q){
   if(split&&/^(merge|merge back|unsplit)( (with|to|into) )?(claude|chat ?gpt)?$/.test(cmd)){add('you',q);
     return mergeSplit(/gpt/.test(cmd)?'gpt':/claude/.test(cmd)?'claude':$('brain').textContent==='ChatGPT'?'gpt':'claude')}
   if(split&&live&&q.trim()&&!busy)return debate(q);
+  if(BIG.el&&/^(?:shrink|minimi[sz]e|close|exit|leave|un-?enlarge|go back|back|normal|done|that'?s all|make (?:it|that|this) small(?:er)?)(?: (?:it|that|this|the panel|back|to normal))?$/.test(cmd)){
+    add('you',q);exitBig();add('j','Back to normal, sir.');return}
+  const big=cmd.match(/^(?:enlarge|expand|maximi[sz]e|blow up|full ?screen|make (?:big|bigger|full ?screen))\s+(?:the |my |your |a |an )?(.+?)(?: panel| window| card)?$/);
+  if(big){
+    if(/spend|budget|bank/.test(big[1])){add('you',q);exitBig();setSpendMode(true);add('j','Your spending report, sir.');return}
+    const p=findPanel(big[1]);
+    if(p){add('you',q);enterBig(p);add('j','Enlarged, sir. Say "shrink" to go back.');return}
+    BIG.pending=Date.now();q=`Show me ${big[1]} as a panel on the HUD.`}  // nothing on screen by that name: ask for it, then enlarge it
   if(window.svOn&&/^(?:(?:close|exit|leave|hide|shut)(?: (?:the|this|that|my))?(?: (?:spending|spend))?(?: (?:report|breakdown|screen|it|this|that|down))?|(?:go )?back(?: to (?:normal|the hud|jarvis))?|done|that'?s all|finished)$/i.test(cmd)){  // leaving the spending report
     add('you',q);setSpendMode(false);const t='Back to normal, sir.';add('j',t);try{audio();const v=voice();v.push(t);v.end()}catch(e){}return}
   const pic=photo;
@@ -1269,6 +1292,34 @@ $('svFile').onchange=async()=>{const fs=[...$('svFile').files];$('svFile').value
     +`<datalist id="svAccDl">${accs.map(a=>`<option value="${esc(a)}">`).join('')}</datalist><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Add</button></div>`,
     async()=>{svMsg('Reading…');const r=await svAct({action:'import',files,account:$('svAN').value});if(r.error){svMsg(r.error,true);return false}svMsg(r.report.join('\n'));svLoad()})};
 addEventListener('keydown',e=>{if(e.key==='Escape'&&SV.on&&$('svOverlay').hidden&&document.activeElement!==$('q'))setSpendMode(false)});
+// ---- "Enlarge ...": one panel fills the HUD, the core moves to a corner (like the spending report) ----
+const BIG={el:null,pending:0};
+function findPanel(name){
+  const words=name.toLowerCase().split(/\W+/).filter(w=>w.length>2),all=[...document.querySelectorAll('#holo>.holo-panel:not(.out),.panel[data-id]')];
+  const title=p=>((p.querySelector('h2,h3')||{}).textContent||'').toLowerCase()+' '+(p.dataset.id||'');
+  return all.find(p=>title(p).includes(name.toLowerCase()))||all.find(p=>words.length&&words.every(w=>title(p).includes(w)))
+    ||all.find(p=>words.some(w=>title(p).includes(w)))}
+function glideCore(fn){const core=$('coreWrap'),a=core.getBoundingClientRect();fn();const b=core.getBoundingClientRect();
+  try{core.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/Math.max(1,b.width)})`,transformOrigin:'top left'},
+    {transform:'none',transformOrigin:'top left'}],{duration:700,easing:'cubic-bezier(.2,.8,.2,1)'})}catch(e){}
+  dispatchEvent(new Event('resize'));sfx('panel')}
+function enterBig(p){
+  if(PIN)return;if(SV.on)setSpendMode(false);if(BIG.el)exitBig(true);
+  Object.assign(BIG,{el:p,parent:p.parentNode,next:p.nextSibling,style:p.getAttribute('style'),hidden:p.hidden,pending:0});
+  p.removeAttribute('style');p.hidden=false;$('bigView').append(p);
+  glideCore(()=>{document.documentElement.classList.add('bigmode');$('bigView').hidden=false;$('bigClose').hidden=false})}
+function exitBig(quick){
+  const b={...BIG};if(!b.el)return;BIG.el=null;
+  if(b.el.isConnected&&!b.el.classList.contains('out')){(b.parent.isConnected?b.parent:$('holo')).insertBefore(b.el,b.next&&b.next.parentNode===b.parent?b.next:null);
+    if(b.style)b.el.setAttribute('style',b.style);b.el.hidden=b.hidden}
+  const off=()=>{document.documentElement.classList.remove('bigmode');$('bigView').hidden=true;$('bigClose').hidden=true};
+  if(quick)off();else glideCore(off)}
+$('bigClose').onclick=()=>exitBig();
+addEventListener('keydown',e=>{if(e.key==='Escape'&&BIG.el&&document.activeElement!==$('q'))exitBig()});
+new MutationObserver(()=>{  // a panel Jarvis just opened for an "enlarge" request; or the enlarged panel was closed
+  if(BIG.pending&&Date.now()-BIG.pending<180000){const p=$('holo').querySelector('.holo-panel:not(.out)');if(p){BIG.pending=0;enterBig(p)}}
+  if(BIG.el&&!$('bigView').contains(BIG.el))exitBig()}).observe($('holo'),{childList:true});
+new MutationObserver(()=>{if(BIG.el&&(BIG.el.classList.contains('out')||!BIG.el.isConnected))setTimeout(()=>exitBig(),450)}).observe($('bigView'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 function closePanel(p){if(p.classList.contains('out'))return;sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
 function showPanel(ev){
   const p=document.createElement('div'),h=document.createElement('h3'),x=document.createElement('button');

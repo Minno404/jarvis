@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.35.0** (shown at the bottom right of the HUD)
+**Version 1.36.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.36.0** (7 Nov 2026): "Enlarge ..." (or expand, maximise, full screen): the panel you name fills the HUD, bigger,
+  with Jarvis's core in the corner like the spending report. If nothing on screen matches, Jarvis opens it first
+  ("enlarge the weather"). "Shrink", the × or Escape go back.
 - **1.35.0** (7 Nov 2026): DeepSeek as a brain (Settings > Brain: paste your key from platform.deepseek.com). It
   runs through Claude Code on DeepSeek's servers, so his tools, coding and PC jobs all work, for a fraction of a cent
   a message; in automatic mode it steps in after Claude and ChatGPT. "Switch to DeepSeek" makes it the brain. Also
