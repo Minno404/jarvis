@@ -1,4 +1,4 @@
 {
- "version": "1.30.0",
- "notes": "\"Pull up my spending report\": Spend Breakdown, full screen, inside Jarvis."
+ "version": "1.30.1",
+ "notes": "Spending report hides every other panel; \"close the report\" brings the HUD back."
 }
