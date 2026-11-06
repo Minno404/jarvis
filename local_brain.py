@@ -25,6 +25,7 @@ CONTEXT = "32768"  # Codex needs a long context window; Ollama's default is much
 MODELS = [(14, "gpt-oss:20b", "gpt-oss 20B (OpenAI's open model): the best fit for Codex"),
           (7, "qwen3:8b", "Qwen3 8B: good for mid-range graphics cards"),
           (0, "qwen3:4b", "Qwen3 4B: small and quick, for modest PCs")]
+RAM_MODEL = "qwen3:4b"  # what RAM mode runs: about twice as quick as the 8B on a processor
 progress = {"step": "", "pct": None, "error": None, "running": False}
 
 
@@ -85,8 +86,10 @@ def model():
     base = s.get("local_model") or recommend(0)["model"]
     if s.get("local_on") != "ram":
         return base
-    name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-") + ":latest"  # Codex wants the exact name
     have = models()
+    if have is not None and RAM_MODEL in have:
+        base = RAM_MODEL  # the small one: on the processor, size is speed
+    name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-") + ":latest"  # Codex wants the exact name
     if have is not None and not name in have:
         with _api("/api/create", {"model": name, "from": base, "parameters": {"num_gpu": 0}, "stream": False},
                   timeout=120):
@@ -144,6 +147,32 @@ def _winget(pkg):
         raise RuntimeError(f"winget couldn't install {pkg}: {(r.stdout or r.stderr)[-300:].strip()}")
 
 
+def _pull(want):
+    progress["step"] = f"Downloading {want} (a few GB, one time)"
+    with _api("/api/pull", {"model": want, "stream": True}, timeout=7200) as r:
+        for line in r:
+            ev = json.loads(line or b"{}")
+            if ev.get("error"):
+                raise RuntimeError(ev["error"])
+            if ev.get("total"):
+                progress["pct"] = round(100 * ev.get("completed", 0) / ev["total"])
+
+
+def prepare_ram():
+    """Switched to RAM mode: download the small model if needed (shows in Activity), and set up its RAM copy."""
+    if progress["running"] or not ensure_running():
+        return
+    try:
+        if RAM_MODEL not in (models() or []):
+            progress.update(running=True, error=None, pct=None)
+            _pull(RAM_MODEL)
+        model()
+    except Exception as e:
+        print("local AI: couldn't prepare RAM mode:", repr(e))
+    finally:
+        progress.update(running=False, step="", pct=None)
+
+
 def install(want=None):
     """Set the local AI up (whatever's missing). Runs for a while: call it in a thread; watch progress."""
     import gpt_brain
@@ -179,14 +208,7 @@ def install(want=None):
         progress["step"] = "Starting Ollama"
         if not ensure_running():
             raise RuntimeError("Ollama didn't start. Restart the PC and press Install again.")
-        progress["step"] = f"Downloading {want} (several GB, one time)"
-        with _api("/api/pull", {"model": want, "stream": True}, timeout=7200) as r:
-            for line in r:
-                ev = json.loads(line or b"{}")
-                if ev.get("error"):
-                    raise RuntimeError(ev["error"])
-                if ev.get("total"):
-                    progress["pct"] = round(100 * ev.get("completed", 0) / ev["total"])
+        _pull(want)
         features._save("settings.json", {**features.settings(), "local_model": want})
         progress.update(step="Ready", pct=100)
         return {"ready": True, "model": want}

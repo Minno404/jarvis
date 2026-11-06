@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.33.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.34.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -787,7 +787,12 @@ def save_prefs(d):
         s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
     if d.get("local_on") in ("gpu", "ram"):
         s["local_on"] = d["local_on"]  # where the local AI runs (local_brain.model)
-        threading.Thread(target=local_brain.unload_all, daemon=True).start()  # let go of where it was loaded
+        def move():  # let go of where it was loaded, get RAM mode's model ready, and have it read up
+            local_brain.unload_all()
+            if s["local_on"] == "ram":
+                local_brain.prepare_ram()
+            warm_local()
+        threading.Thread(target=move, daemon=True).start()
     if d.get("stt_quality") in ("fast", "accurate", "best"):
         s["stt_quality"] = d["stt_quality"]  # takes effect next time Jarvis starts
     for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
@@ -1246,6 +1251,8 @@ def set_brain(brain):
         return {"error": "ChatGPT isn't set up on this PC yet: install Node.js, then run 'npm install -g "
                          "@openai/codex' and 'codex login' (Sign in with ChatGPT)."}
     features._save("settings.json", {**features.settings(), "brain": b})
+    if b == "local":
+        threading.Thread(target=warm_local, daemon=True).start()
     if b != "auto":
         claude_out["until"] = 0
     push_event({"type": "brain", "name": brain_status()["using"]})
@@ -1331,14 +1338,44 @@ LOCAL_TOOL = {"type": "function", "function": {
         "args": {"type": "object", "description": "its arguments, e.g. {\"query\": \"cat photo\"}"}}}}}
 
 
+def local_system():
+    """The local AI's instructions: Jarvis's own, with the tools listed by name and arguments only. A local model
+    reads every word before it answers (slow on a processor), so this is about a third of what Claude gets."""
+    tools = "; ".join(f"{t['name']}({', '.join(t['input_schema'].get('properties', {}))})" for t in TOOLS)
+    return (persona(f"{SYSTEM}\nYour tools (call the `tool` function with name and args): {tools}.\n") + style()
+            + features.memory_prompt() + features.feature_prompt()
+            + "\nYou are running on this PC as the local brain. You can't read files or see pictures. Be brief.")
+
+
+def local_body(messages, **extra):
+    import local_brain
+    ram = features.settings().get("local_on") == "ram"
+    return {"model": local_brain.model(), "messages": [{"role": "system", "content": local_system()}] + messages,
+            "tools": [LOCAL_TOOL], "think": False, "keep_alive": "30m",
+            # on the processor a smaller memory window is quicker (and Jarvis's chats are short)
+            **({"options": {"num_ctx": 8192}} if ram else {}), **extra}
+
+
+def warm_local():
+    """Load the local AI and have it read its instructions now, so the first real question is answered quickly
+    (Ollama keeps what it has read and reuses it)."""
+    import local_brain
+    try:
+        if local_brain.ready() and local_brain.ensure_running():
+            body = local_body([{"role": "user", "content": "Ready?"}], stream=False)
+            body.setdefault("options", {})["num_predict"] = 1
+            req = urllib.request.Request(local_brain.API + "/api/chat", json.dumps(body).encode(),
+                                         {"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=900).close()
+    except Exception as e:
+        print(datetime.datetime.now(), "local AI warm-up:", repr(e))
+
+
 def chat_local(text, photo=None):
     """The local AI, talking to Ollama directly (no Codex in between: far less to read per message, and no
     thinking out loud), with Jarvis's tools through one 'tool' function. Yields the reply in pieces."""
     import local_brain
     local_brain.ensure_running()
-    system = (persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt()
-              + "\nYou are running on this PC as the local brain. To use a tool, call the `tool` function with its name "
-                "and args (don't write the Bash command). You can't read files or see pictures. Be brief.")
     now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
     try:
         room = awareness.describe(awareness.situation())
@@ -1353,8 +1390,7 @@ def chat_local(text, photo=None):
         local_convo["last"] = time.time()
         h.append({"role": "user", "content": persona(f"[{now}] {room}\n{text}")})
         for _ in range(6):  # up to 6 rounds of tool use
-            body = {"model": local_brain.model(), "messages": [{"role": "system", "content": system}] + h,
-                    "tools": [LOCAL_TOOL], "think": False, "stream": True, "keep_alive": "30m"}
+            body = local_body(h, stream=True)
             req = urllib.request.Request(local_brain.API + "/api/chat", json.dumps(body).encode(),
                                          {"Content-Type": "application/json"})
             said, calls = "", []
@@ -1957,6 +1993,8 @@ if __name__ == "__main__":
                 print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
                 sys.exit()
     print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url}")
+    if features.settings().get("brain") == "local":
+        threading.Thread(target=warm_local, daemon=True).start()
     if "--browser" in sys.argv:
         webbrowser.open(url)
         httpd.serve_forever()

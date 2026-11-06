@@ -33,7 +33,7 @@ canvas{width:min(calc(420px*var(--s)),100%);aspect-ratio:1;max-width:100%}
 .core-wrap canvas{position:absolute;inset:0;width:100%;height:100%}
 .state{font-family:var(--display);letter-spacing:.4em;text-transform:uppercase;font-size:calc(12px*var(--s)*var(--fs));color:var(--amber)}
 .log{width:100%;max-width:calc(640px*var(--s));height:calc(200px*var(--s));overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
-.msg{line-height:1.5;max-width:90%}.msg b{font-family:var(--display);letter-spacing:.15em;font-size:calc(10px*var(--fs));display:block;color:var(--mute)}
+.msg{line-height:1.5;max-width:90%}.msg b .ts{margin-left:10px;letter-spacing:.05em;opacity:.65;font-family:var(--mono,monospace);text-transform:none}.msg b{font-family:var(--display);letter-spacing:.15em;font-size:calc(10px*var(--fs));display:block;color:var(--mute)}
 .msg.you{align-self:flex-end;text-align:right}.msg.j{color:var(--cyan)}
 form{display:flex;gap:8px;width:100%;max-width:calc(640px*var(--s))}
 input{flex:1;min-width:0;background:rgba(3,7,12,.7);border:1px solid var(--line);color:var(--text);font:inherit;padding:calc(10px*var(--s)) calc(12px*var(--s));outline:none}
@@ -769,7 +769,7 @@ function copyText(t){
 function copyBtn(sp){const b=document.createElement('button');b.type='button';b.className='copy';b.textContent='Copy';b.setAttribute('aria-label','Copy this message');
   b.onclick=async()=>{try{await copyText(sp.textContent.trim());b.textContent='Copied';b.classList.add('done')}catch(e){b.textContent='Failed'}
     setTimeout(()=>{b.textContent='Copy';b.classList.remove('done')},1500)};return b}
-function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}</b>`;sp.textContent=text;d.append(sp,copyBtn(sp));$('log').append(d);$('log').scrollTop=1e9;
+function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}<small class="ts">${new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'})}</small></b>`;sp.textContent=text;d.append(sp,copyBtn(sp));$('log').append(d);$('log').scrollTop=1e9;
   if(who!=='you'&&window.svOn){const say=$('svSay'),upd=()=>say.textContent=sp.textContent;upd();new MutationObserver(upd).observe(sp,{childList:true,characterData:true,subtree:true})}  // spending report: his replies by the core
   return sp}
 // Jarvis's voice: each sentence is sent off to the neural voice as soon as it is written, the clips
@@ -888,8 +888,10 @@ async function ask(q){
     im.onclick=()=>showPanel({kind:'image',title:'Your photo',src:im.src});mine.after(im);clearPhoto()}
   if(!live){const r=canned(q);busy=false;setMode('speaking');add('j',r);browserSpeak(r);return}
   audio();
-  const el=add('j',''),v=voice(),before=trades.length;let full='';
-  const show=t=>{full+=t;el.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
+  const el=add('j',''),v=voice(),before=trades.length,t0=performance.now();let full='',tFirst=0;
+  const took=()=>{const ts=el.previousElementSibling.querySelector('.ts'),s=ms=>((ms-t0)/1000).toFixed(1)+'s';
+    if(ts)ts.textContent+=` · replied in ${s(tFirst||performance.now())}`+(tFirst?` · finished in ${s(performance.now())}`:'')};
+  const show=t=>{if(!tFirst&&t.trim())tFirst=performance.now();full+=t;el.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
   try{
     aborter=new AbortController();
     const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,photo:pic}),signal:aborter.signal});
@@ -898,7 +900,7 @@ async function ask(q){
       while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;const m=JSON.parse(line);if(m.t)show(m.t);if(m.flush)v.flush()}}
   }catch(e){if(e.name==='AbortError'){el.textContent=full.trimStart()+' —';busy=false;return}  // he was interrupted
     show(' I have lost contact with the server, sir. Is it still running?')}
-  v.end();busy=false;
+  v.end();busy=false;took();
   await sync();if(trades.length!==before||/journal|trade|report|gold|how did i/i.test(q)){flash();$('mt5').classList.remove('flash');void $('mt5').offsetWidth;$('mt5').classList.add('flash')}
 }
 // ---- Split mode: triple-click the core and Jarvis splits in two. Claude argues the pros, ChatGPT the cons.
