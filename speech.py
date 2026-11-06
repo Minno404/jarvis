@@ -48,9 +48,10 @@ def _money(m):
 
 def speakable(text):
     """Text as it should be said: no markdown, links or emoji; symbols, tickers and money in words."""
-    t = re.sub(r"https?://\S+", "a link", text)
-    t = re.sub(r"[*_#`>|]+", "", t)
-    t = re.sub(r"[\U0001F300-\U0001FAFF☀-➿]", "", t)
+    t = re.sub(r"<think>.*?(?:</think>|$)", " ", text, flags=re.S)  # local models' "thinking" isn't for saying
+    t = re.sub(r"https?://\S+", "a link", t)
+    t = re.sub(r"[*_#`>|~\[\]{}<>]+", "", t)
+    t = re.sub(r"[\U0001F000-\U0001FFFF\u2190-\u2BFF\u2600-\u27BF\uFE0F\u200d]", "", t)  # emoji, arrows, symbols
     t = re.sub(r"([+-]?)\$(\d[\d,]*)(?:\.(\d{1,2}))?", _money, t)
     t = re.sub(r"([+-])(\d+(?:\.\d+)?)R\b", lambda m: ("plus " if m.group(1) == "+" else "minus ") + m.group(2) + " R", t)
     t = re.sub(r"(\d)%", r"\1 percent", t)
@@ -198,15 +199,27 @@ def say_voice(text, name, speed=1.0):
     return _edge_or_ryan(words, ONLINE_VOICES.get(name, "en-GB-SoniaNeural"), f"{round((speed - 1) * 100):+d}%")
 
 
+SILENCE = (b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00@\x1f\x00\x00@\x1f\x00\x00\x01\x00\x08\x00"
+           b"data\x00\x00\x00\x00", "audio/wav")  # nothing to say (only symbols): a moment of quiet, not an error
+
+
 def _edge_or_ryan(words, voice, rate):
-    """The online voice, or Jarvis's own Ryan if that one returns nothing (Microsoft drops voices now and then)."""
+    """The online voice; if it returns nothing, Jarvis's own Ryan; if the online voices are down altogether,
+    Kokoro on this PC when it's installed. Never the robotic Windows voice if it can be helped."""
+    if not re.search(r"[A-Za-z0-9]", words):
+        return SILENCE
     try:
         return edge(words, voice, rate), "audio/mpeg"
     except Exception as e:
-        if voice == "en-GB-RyanNeural":
-            raise
-        print(f"online voice {voice} failed, using Ryan:", repr(e))
-        return edge(words, "en-GB-RyanNeural", rate), "audio/mpeg"
+        print(f"online voice {voice} failed:", repr(e))
+    if voice != "en-GB-RyanNeural":
+        try:
+            return edge(words, "en-GB-RyanNeural", rate), "audio/mpeg"
+        except Exception as e:
+            print("online voice Ryan failed too:", repr(e))
+    if kokoro_ready():
+        return kokoro(words, "George (British man)", 1.0), "audio/wav"
+    raise RuntimeError("no voice available")
 
 
 if VOICES_DIR.exists() and kokoro_ready():

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.32.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.32.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -772,7 +772,7 @@ def save_prefs(d):
         s["panel_alpha"] = max(0.05, min(0.9, float(d["panel_alpha"])))
         if LIVE.get("pin_alpha"):
             threading.Timer(0.1, LIVE["pin_alpha"]).start()  # pinned panels fade to match
-    for k in ("split_claude_voice", "split_gpt_voice"):
+    for k in ("split_claude_voice", "split_gpt_voice", "local_voice"):
         if k in d:
             if d[k] and d[k] not in speech.SPLIT_VOICES:
                 raise ValueError("Unknown voice")
@@ -804,7 +804,7 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
-                                                            "split_claude_voice",
+                                                            "local_voice", "split_claude_voice",
                                                             "split_gpt_voice")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -1365,6 +1365,8 @@ def tts(text, side=None):
         return speech.say_voice(text, s.get("split_gpt_voice") or "Emma (British woman)", speed)
     if side == "claude" and s.get("split_claude_voice"):  # "" = the same voice as Jarvis
         return speech.say_voice(text, s["split_claude_voice"], speed)
+    if not side and s.get("local_voice") and brain_status()["using"] == "Local":  # his own voice for the local AI
+        return speech.say_voice(text, s["local_voice"], speed)
     return speech.say(text, personas.get())
 
 
@@ -1623,6 +1625,7 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 audio, mime = (speech.say_lang(body["text"], body["lang"]) if body.get("lang")
+                               else speech.say_voice(body["text"], body["voice"]) if body.get("voice") in speech.SPLIT_VOICES
                                else tts(body["text"], body.get("side")))
                 if not audio:
                     raise RuntimeError("no audio returned")

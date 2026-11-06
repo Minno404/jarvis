@@ -1,4 +1,4 @@
 {
- "version": "1.32.1",
- "notes": "ChatGPT brain does PC and coding jobs instead of saying it's restricted."
+ "version": "1.32.2",
+ "notes": "Local AI gets its own voice setting, and no more robotic fallback voice."
 }
