@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.34.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.34.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -50,7 +50,8 @@ then confirm in a few words. "Clip that" means clip_that. "Gaming mode", "tradin
 routines (run_routine); he can ask you to change them or make new ones.
 When he says "remember", save it with remember; use what you've been asked to remember when it helps.
 Reminders and timers use his local time; the current local time is at the start of each message, with a
-note on what he's doing (the app he's in, a game, the hour): read the room. Mid-game, one short line.
+note on what he's doing (the app he's in, a game, the hour): read the room. Mid-game, one short line. That note is
+background: don't mention the time or how late it is unless he asks or it truly matters.
 Price alerts (add_alert) are watched while MT5 is open. upcoming_news gives high-impact news for gold and
 GBPJPY. You also speak up on your own: alerts, trade-guard warnings about his habits, news warnings and an
 end-of-day review. Saved reviews are in the reviews folder; for "review my day" use mt5_trades and mt5_report.
@@ -1799,7 +1800,7 @@ class Handler(SimpleHTTPRequestHandler):
                                                                     else {"flush": True})}) + "\n").encode())
                     self.wfile.flush()
                 self.wfile.write(b'{"done": true}\n')
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:
                 pass
             finally:
                 pieces.close()
@@ -1864,7 +1865,7 @@ class Handler(SimpleHTTPRequestHandler):
                 for p in pieces:
                     reply.append(p or "")
                     send({"t": p} if p else {"flush": True})
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:  # the HUD stopped listening (he cut in, or closed the window)
                 return
             except Exception as e:
                 print(datetime.datetime.now(), "chat error:", repr(e))
@@ -1993,8 +1994,8 @@ if __name__ == "__main__":
                 print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
                 sys.exit()
     print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url}")
-    if features.settings().get("brain") == "local":
-        threading.Thread(target=warm_local, daemon=True).start()
+    if features.settings().get("brain") == "local":  # he starts online; "offline mode" switches to the local AI
+        features._save("settings.json", {**features.settings(), "brain": "auto"})
     if "--browser" in sys.argv:
         webbrowser.open(url)
         httpd.serve_forever()

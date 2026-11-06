@@ -1,4 +1,4 @@
 {
- "version": "1.34.1",
- "notes": "Message timestamps and reply times; a quicker local AI, especially in RAM mode."
+ "version": "1.34.2",
+ "notes": "Starts online; steadier voice; no more remarks about the time."
 }
