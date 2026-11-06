@@ -1,4 +1,4 @@
 {
- "version": "1.32.2",
- "notes": "Local AI gets its own voice setting, and no more robotic fallback voice."
+ "version": "1.32.3",
+ "notes": "Faster replies and wake word since the local AI update."
 }
