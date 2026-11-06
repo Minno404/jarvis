@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.30.0** (shown at the bottom right of the HUD)
+**Version 1.30.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,8 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.30.1** (7 Nov 2026): the spending report hides every other panel (moved ones and add-ons too), and "close the
+  report", "go back" or "Jarvis close spending report" bring the normal HUD straight back.
 - **1.30.0** (7 Nov 2026): Spend Breakdown is built into Jarvis. "Jarvis, pull up my spending report" turns the
   whole HUD into it (his core moves to a corner): add CSV/PDF statements or use the Documents\Statements folder,
   filter by account and month, spent/earned/net, the category donut, open a category to see its shops, drag a

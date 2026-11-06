@@ -298,7 +298,8 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
 .cmd.inst::before{content:"\2605 ";color:var(--cyan)}.cmd:hover{border-color:var(--cyan)}
 /* ---------- Spending report: the whole HUD becomes Spend Breakdown, Jarvis's core moves to a corner ---------- */
 html.spendmode .col,html.spendmode .chips,html.spendmode .sub,html.spendmode .brand,html.spendmode .log,html.spendmode #holo,
-html.spendmode .state,html.spendmode .attach{display:none!important}
+html.spendmode .state,html.spendmode .attach,html.spendmode .panel[data-id],html.spendmode .holo-panel,
+html.spendmode .updatebtn,html.spendmode #bgimg~.free{display:none!important}  /* every other panel, moved or added, steps aside */
 html.spendmode .core-wrap{position:fixed!important;left:12px;bottom:8px;width:min(112px,22vw)!important;z-index:33;cursor:pointer}
 html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bottom:14px;z-index:33;max-width:620px}
 #spendView{position:fixed;inset:0;z-index:30;overflow:auto;padding:16px 18px 130px;display:flex;flex-direction:column;gap:12px;
@@ -859,6 +860,8 @@ async function ask(q){
   if(split&&/^(merge|merge back|unsplit)( (with|to|into) )?(claude|chat ?gpt)?$/.test(cmd)){add('you',q);
     return mergeSplit(/gpt/.test(cmd)?'gpt':/claude/.test(cmd)?'claude':$('brain').textContent==='ChatGPT'?'gpt':'claude')}
   if(split&&live&&q.trim()&&!busy)return debate(q);
+  if(window.svOn&&/^(?:(?:close|exit|leave|hide|shut)(?: (?:the|this|that|my))?(?: (?:spending|spend))?(?: (?:report|breakdown|screen|it|this|that|down))?|(?:go )?back(?: to (?:normal|the hud|jarvis))?|done|that'?s all|finished)$/i.test(cmd)){  // leaving the spending report
+    add('you',q);setSpendMode(false);const t='Back to normal, sir.';add('j',t);try{audio();const v=voice();v.push(t);v.end()}catch(e){}return}
   const pic=photo;
   if((!q.trim()&&!pic)||busy)return;
   if(voiceOn)stopSpeaking();  // a new question takes over from whatever he was still saying
