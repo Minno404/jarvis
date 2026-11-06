@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.31.0** (shown at the bottom right of the HUD)
+**Version 1.32.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.32.0** (7 Nov 2026): a third brain, a free local AI that runs on your PC (Ollama + Codex's local mode): no
+  account, no tokens. First launch offers to install it (it picks a model for your graphics card); or Settings >
+  Brain > Install. Brain choice: automatic (Claude, then ChatGPT, then local), Claude, ChatGPT or local; "switch
+  to local" by voice. Coding and PC jobs work with it too. Plus free web search and page reading for every brain.
 - **1.31.0** (7 Nov 2026): better voice recognition: a more accurate speech model by default (Settings > Voice
   recognition: fast / accurate / best), a wider search, and a vocabulary that includes your name. When he isn't
   sure he heard you right he checks first ("did you say ...?") and acts on yes; spoken requests that could mean

@@ -443,6 +443,9 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
       <label><input type="checkbox" id="setTv" checked><span><b>TV control</b>: a Hisense smart TV on your Wi-Fi</span></label>
       <p class="hint">Anything you leave off still works if you ask for it; he just won't bring it up by himself. You can change this later in Settings.</p>
     </fieldset>
+    <fieldset class="featpick"><legend>A free AI on this PC (optional)</legend>
+      <label><input type="checkbox" id="setLocal"><span><b>Install a local AI</b>: a free AI that runs on your own graphics card, with no account or tokens. Jarvis uses it when Claude and ChatGPT aren't available, or all the time if you choose. Not as clever as Claude, and a one-time download of several GB. <span id="setLocalRec"></span></span></label>
+    </fieldset>
     <button type="submit">Start Jarvis</button>
   </form>
 </div>
@@ -512,6 +515,13 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
       <div class="keyrow"><span class="hint">See-through</span><input type="range" id="panelAlpha" min="0.05" max="0.9" step="0.05" style="flex:1;direction:rtl"></div>
       <div class="keyrow"><span class="hint">Text size</span><input type="range" id="textSize" min="0.7" max="1.3" step="0.05" style="flex:1"><span class="hint" id="textSizeVal"></span></div>
       <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
+    </fieldset>
+    <fieldset><legend>Brain</legend>
+      <label><input type="radio" name="br" value="auto"> Automatic: Claude, then ChatGPT when Claude's limit runs out, then the local AI</label>
+      <label><input type="radio" name="br" value="claude"> Claude only</label>
+      <label><input type="radio" name="br" value="chatgpt"> ChatGPT only</label>
+      <label><input type="radio" name="br" value="local"> Local AI only: free, offline, not as clever</label>
+      <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
     </fieldset>
     <fieldset><legend>Features</legend>
       <label><input type="checkbox" data-feat="trading"> Day trading and markets (journal, alerts, trade warnings, market news, daily review)</label>
@@ -932,7 +942,7 @@ $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComp
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>ask(b.textContent));
 // Colour themes: "Jarvis, make the HUD red". One accent colour drives everything, including the 3D core.
 function showPersona(p){$('brand').textContent=p.name.replace(/ /g,'');document.title=p.name.replace(/ /g,'')+' Console'}
-function showBrain(name){$('brainRow').hidden=false;$('brain').textContent=name;$('brain').style.color=name==='ChatGPT'?'var(--amber)':''}
+function showBrain(name){$('brainRow').hidden=false;$('brain').textContent=name==='Local'?'Local AI':name;$('brain').style.color=name==='ChatGPT'?'var(--amber)':name==='Local'?'#39ff88':''}
 function setTheme(hex){
   const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');if(!m)return;
   const n=parseInt(m[1],16),rgb=[n>>16,n>>8&255,n&255],mix=k=>rgb.map(v=>Math.round(v*k)),h=a=>'#'+a.map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -1065,6 +1075,20 @@ function ambFrame(){if(!ambOn)return;ambT*=.93;ambK+=(ambT-ambK)*.3;$('amb').sty
 $('ambOn').onchange=()=>savePref({ambient:$('ambOn').checked});
 $('autoStart').onchange=()=>savePref({autostart:$('autoStart').checked});
 document.querySelectorAll('input[name=stq]').forEach(r=>r.onchange=()=>savePref({stt_quality:r.value}));
+// ---- Brain choice and the local AI ----
+async function refreshLocal(){let l={};try{l=await (await fetch('/api/local')).json()}catch(e){return}
+  const p=l.progress||{},rec=l.recommended||{};
+  $('localSt').textContent=p.running?`Local AI: ${p.step}${p.pct!=null?' '+p.pct+'%':''}`:l.ready?`Local AI: ready (${l.model})`:
+    p.error?`Local AI: couldn't finish: ${p.error}`:`Local AI: not installed. ${rec.vram_gb?`Your graphics card has ${rec.vram_gb} GB, so it'd use ${rec.label}.`:''}`;
+  $('localBtn').textContent=l.ready?'Reinstall':'Install';$('localBtn').disabled=!!p.running;
+  document.querySelector('input[name=br][value=local]').disabled=!l.ready;
+  if(p.running&&!$('settingsModal').hidden)setTimeout(refreshLocal,2000)}
+$('localBtn').onclick=async()=>{$('localBtn').disabled=true;
+  const r=await (await fetch('/api/local',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+  $('setMsg').textContent=r.error||'Setting up the local AI: you can close Settings, progress shows in Activity.';setTimeout(refreshLocal,800)};
+document.querySelectorAll('input[name=br]').forEach(r=>r.onchange=async()=>{
+  const x=await (await fetch('/api/brain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brain:r.value})})).json();
+  if(x.error){$('setMsg').textContent=x.error}else{showBrain(x.using);$('setMsg').textContent='Saved.'}});
 document.querySelectorAll('[data-feat]').forEach(c=>c.onchange=()=>{const f={};
   document.querySelectorAll('[data-feat]').forEach(x=>f[x.dataset.feat]=x.checked);applyFeatures(f,true);savePref({features:f})});
 // Trading switched off: its panels close (still there: "show the MT5 journal" brings one back)
@@ -1387,16 +1411,19 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
   else if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){  // first launch on this PC
     $('setupModal').hidden=false;$('setName').focus();
+    fetch('/api/local').then(r=>r.json()).then(l=>{const v=l.recommended&&l.recommended.vram_gb;
+      $('setLocalRec').textContent=l.ready?'(already set up)':v?`Your graphics card has ${v} GB: Jarvis will use ${l.recommended.label}.`:`Jarvis will pick a model that suits your PC.`}).catch(()=>{});
     $('setupForm').onsubmit=async e=>{e.preventDefault();
       const d={name:$('setName').value,city:$('setCity').value,title:$('setTitle').value||'sir',
         features:{trading:$('setTrading').checked,spending:$('setSpending').checked,tv:$('setTv').checked}};
       applyFeatures(d.features);showPrefs({features:d.features});
+      if($('setLocal').checked)fetch('/api/local',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).catch(()=>{});
       try{await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})}catch(err){}
       $('setupModal').hidden=true;$('sub').textContent='Personal assistant · Online for '+d.name;userLabel=d.name.toUpperCase();
       announce(`Pleasure to meet you, ${d.title.toLowerCase()==='sir'?'sir':d.title}. All systems are online.`)};
@@ -1565,6 +1592,7 @@ function showPrefs(p){
   if(prefs.text_size!=null){setFs(prefs.text_size);$('textSize').value=prefs.text_size}
   if(prefs.features)document.querySelectorAll('[data-feat]').forEach(c=>c.checked=prefs.features[c.dataset.feat]!==false);
   document.querySelectorAll('input[name=stq]').forEach(r=>r.checked=r.value===(prefs.stt_quality||'accurate'));
+  if(prefs.brain_setting)document.querySelectorAll('input[name=br]').forEach(r=>r.checked=r.value===prefs.brain_setting);
   $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
   $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;
   setAmbient(!!prefs.ambient&&!PIN);
@@ -1610,7 +1638,7 @@ $('splitGptTest').onclick=()=>testSide('gpt',"And I'm ChatGPT. I'll tell you why
 $('voiceSpeed').oninput=()=>$('speedVal').textContent=(+$('voiceSpeed').value).toFixed(2)+'×';
 $('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
 $('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};
-$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice()};
+$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice();refreshLocal()};
 $('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};
 document.querySelectorAll('input[name=lm]').forEach(r=>r.onchange=()=>savePref({listen_mode:r.value}));
 document.querySelectorAll('input[name=as]').forEach(r=>r.onchange=()=>savePref({avatar_style:r.value}));
