@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.34.2** (shown at the bottom right of the HUD)
+**Version 1.35.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.35.0** (7 Nov 2026): DeepSeek as a brain (Settings > Brain: paste your key from platform.deepseek.com). It
+  runs through Claude Code on DeepSeek's servers, so his tools, coding and PC jobs all work, for a fraction of a cent
+  a message; in automatic mode it steps in after Claude and ChatGPT. "Switch to DeepSeek" makes it the brain. Also
+  Settings > Brain > Local AI model: Tiny (Qwen3 1.7B), Small, Medium or Large, downloaded when you pick it.
 - **1.34.2** (7 Nov 2026): Jarvis starts in online mode every time ("offline mode" switches to the local AI). His
   voice no longer changes mid-reply when the online voice hiccups (it tries again first), and he stops remarking on
   the time unless you ask.

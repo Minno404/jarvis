@@ -7,7 +7,7 @@ import features
 COMMANDS = {
     "Talking to Jarvis": ["*Hey Jarvis…", "*Hold on", "*Undo that", "*Quiet mode",
                           "*Quiet mode off", "*Restart yourself", "*Power down", "*Jarvis split", "*Jarvis merge",
-                          "*Merge with ChatGPT", "*Switch to ChatGPT", "*Switch to Claude", "*Switch to local", "*Online mode", "*Offline mode", "*Swap brain", "*Auto mode",
+                          "*Merge with ChatGPT", "*Switch to ChatGPT", "*Switch to Claude", "*Switch to DeepSeek", "*Switch to local", "*Online mode", "*Offline mode", "*Swap brain", "*Auto mode",
                           "*Switch to FRIDAY", "*Casual mode", "*Back to Jarvis", "*What can you do?"],
     "Looks and the HUD": ["*Make the HUD red", "*Change the background to stars",
                           "*Set the background to a picture of a city at night", "*Reset the background",

@@ -517,12 +517,15 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
       <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
     </fieldset>
     <fieldset><legend>Brain</legend>
-      <label><input type="radio" name="br" value="auto"> Automatic: Claude, then ChatGPT when Claude's limit runs out, then the local AI</label>
+      <label><input type="radio" name="br" value="auto"> Automatic: Claude, then ChatGPT when Claude's limit runs out, then DeepSeek, then the local AI</label>
       <label><input type="radio" name="br" value="claude"> Claude only</label>
       <label><input type="radio" name="br" value="chatgpt"> ChatGPT only</label>
+      <label><input type="radio" name="br" value="deepseek"> DeepSeek only: online, a fraction of a cent a message</label>
       <label><input type="radio" name="br" value="local"> Local AI only: free, offline, not as clever</label>
+      <div class="keyrow"><span class="hint" id="dsSt" style="min-width:110px">DeepSeek key</span><input id="dsKey" type="password" placeholder="sk-… from platform.deepseek.com" autocomplete="off" style="flex:1"><button type="button" id="dsSave">Save</button></div>
       <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI voice</span><select id="localVoice" style="flex:1"></select><button type="button" id="localVoiceTest">Test</button></div>
+      <div class="keyrow"><span class="hint" style="min-width:110px">Local AI model</span><select id="localModel" style="flex:1"></select></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI runs on</span><select id="localOn" style="flex:1"><option value="gpu">Graphics card (fast)</option><option value="ram">RAM and processor (slower, keeps the graphics card free)</option></select></div>
     </fieldset>
     <fieldset><legend>Features</legend>
@@ -1085,8 +1088,18 @@ async function refreshLocal(){let l={};try{l=await (await fetch('/api/local')).j
   $('localSt').textContent=p.running?`Local AI: ${p.step}${p.pct!=null?' '+p.pct+'%':''}`:l.ready?`Local AI: ready (${l.model})`:
     p.error?`Local AI: couldn't finish: ${p.error}`:`Local AI: not installed. ${rec.vram_gb?`Your graphics card has ${rec.vram_gb} GB, so it'd use ${rec.label}.`:''}`;
   $('localBtn').textContent=l.ready?'Reinstall':'Install';$('localBtn').disabled=!!p.running;
+  const ms=$('localModel');if(ms.options.length!==(l.sizes||[]).length)ms.replaceChildren(...(l.sizes||[]).map(([v,t])=>new Option(t,v)));
+  ms.value=l.model||rec.model||'qwen3:4b';ms.disabled=!!p.running||!l.installed;
+  try{const d=await (await fetch('/api/deepseek')).json();$('dsSt').textContent=d.ready?'DeepSeek ✓ set up':'DeepSeek key';
+    $('dsKey').placeholder=d.ready?'Saved. Paste a new key to replace it, or leave empty and Save to remove':'sk-… from platform.deepseek.com';
+    document.querySelector('input[name=br][value=deepseek]').disabled=!d.ready}catch(e){}
   document.querySelector('input[name=br][value=local]').disabled=!l.ready;
   if(p.running&&!$('settingsModal').hidden)setTimeout(refreshLocal,2000)}
+$('localModel').onchange=async()=>{const m=$('localModel').value;$('localModel').disabled=true;
+  const r=await (await fetch('/api/local',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})})).json();
+  $('setMsg').textContent=r.error||'Getting that model ready (a one-time download): progress shows in Activity.';setTimeout(refreshLocal,800)};
+$('dsSave').onclick=async()=>{const r=await (await fetch('/api/deepseek',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:$('dsKey').value})})).json();
+  $('dsKey').value='';$('setMsg').textContent=r.error||(r.ready?'DeepSeek is set up. Pick it above, or it steps in when the others run out.':'DeepSeek key removed.');refreshLocal()};
 $('localBtn').onclick=async()=>{$('localBtn').disabled=true;
   const r=await (await fetch('/api/local',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
   $('setMsg').textContent=r.error||'Setting up the local AI: you can close Settings, progress shows in Activity.';setTimeout(refreshLocal,800)};
