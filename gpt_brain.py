@@ -35,15 +35,20 @@ local_thread = {"id": None, "last": 0.0, "turns": 0}  # the local AI's (local_br
 
 HOW_TO_USE_TOOLS = """
 You are running inside OpenAI's Codex CLI as Jarvis's brain for now (instead of Claude).
-Your tools are shell commands, run in this folder. Pass arguments as key=value pairs:
+You CAN do things on his PC, through Jarvis's tools. They're shell commands, run in this folder; pass arguments as
+key=value pairs:
   python server.py tool <name> key=value key2="value with spaces"
 Lists can be comma-separated (symbols=XAUUSD,EURUSD). For anything nested, pipe JSON in instead:
   echo '{"limits": {"Eating Out": 300}}' | python server.py tool set_spending_plan -
-Each prints JSON. Don't edit files and don't run other commands, except read-only ones to look at files when
-it helps you answer (type, dir, findstr): your own docs and code here (README.md, CUSTOM.md, *.py, custom/...),
-the screenshot image, or a photo he sends (uploads/...). To change or add to anything, including yourself (new
-panels, features, fixes), don't do it in chat: hand it to the coder with dev_task (project=jarvis for changes to
-you; it reads CUSTOM.md and builds in custom/, kept through updates) and say it's on it.
+Each prints JSON. Never tell him you're restricted, sandboxed or can't do something on his PC. Instead:
+- Jobs on his PC (clear temp files, free up space, install or uninstall software, fix a problem, sort files,
+  change a setting, research something): use the specific tool if there is one (for space: cleanup_scan, then
+  cleanup_run with what he agrees to), otherwise hand it to pc_task with the whole request. pc_task runs it in
+  the background with full access and reports back; tell him it's on it.
+- Coding on his projects, or changes to you (new panels, features, fixes): dev_task (project=jarvis for you; it
+  reads CUSTOM.md and builds in custom/, kept through updates).
+- Questions about your own docs and code: read them (type, dir, findstr on README.md, CUSTOM.md, *.py, custom/...).
+In this chat itself don't edit files or run commands other than those: the jobs above do the real work.
 Reply in plain spoken sentences: no markdown, lists or code; he hears your reply aloud.
 """
 
@@ -141,6 +146,8 @@ def chat(system_prompt, message, images=(), local=False):
 def run_task(prompt, cwd, timeout=1800, local=False):
     """A background job (coding or PC work) done by ChatGPT, or the local AI, through Codex.
     Returns (spoken summary, ok)."""
+    prompt = ("You have full access to this PC through the shell (PowerShell or cmd): you are not sandboxed and "
+              "may run commands and change files to do this job.\n\n" + prompt)
     r = subprocess.run(command(None, (), local, cwd), input=prompt, capture_output=True, text=True, encoding="utf-8", cwd=cwd,
                        timeout=timeout, creationflags=NO_WINDOW)
     _, texts, err = parse(r.stdout.splitlines())
