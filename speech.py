@@ -232,7 +232,7 @@ def selftest():
     cases = {"Gold (XAUUSD) is down -$41.40 today, sir.": "Gold (gold) is down minus 41 dollars 40 today, sir.",
              "Net +2.1R on GBPJPY, win rate 67%.": "Net plus 2.1 R on pound yen, win rate 67 percent.",
              "**Done** - see https://x.com/a": "Done, see a link",
-             "Balance $1,000.00 on MT5": "Balance 1,000 dollars on M T 5",
+             "Balance $2,450.00 on MT5": "Balance 2,450 dollars on M T 5",
              "XAUUSD.n short closed": "gold short closed"}
     for a, b in cases.items():
         assert speakable(a) == b, (speakable(a), b)

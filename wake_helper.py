@@ -113,7 +113,7 @@ if __name__ == "__main__":
     if a.selftest:
         p = magic_packet("AA:BB:CC:DD:EE:FF")
         assert len(p) == 102 and p[:6] == b"\xff" * 6 and p[6:12] == bytes.fromhex("AABBCCDDEEFF")
-        assert allowed("100.64.0.1") and allowed("10.0.0.5") and allowed("::ffff:100.70.1.2")
+        assert allowed("100.101.102.103") and allowed("10.0.0.5") and allowed("::ffff:100.70.1.2")
         assert not allowed("8.8.8.8") and not allowed("2001:4860::1")
         print("wake helper self-test passed")
     elif not (a.mac and a.pc):

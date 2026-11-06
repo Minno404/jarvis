@@ -159,16 +159,16 @@ def selftest():
     reg = features.REGISTRY.copy()
     features.REGISTRY["set_persona"] = personas.append
     try:
-        s = dnd_start([{"name": "Alex", "cls": "rogue"}, {"name": "Josh", "cls": "wizard", "hp": 9}], "The Sunken Keep")
+        s = dnd_start([{"name": "Sam", "cls": "rogue"}, {"name": "Josh", "cls": "wizard", "hp": 9}], "The Sunken Keep")
         assert [p["max_hp"] for p in s["party"]] == [10, 9] and personas == ["dm"]
         random.seed(1)
-        r = dnd_roll("1d20+3", "Alex", "sneak past the guard", dc=12)
+        r = dnd_roll("1d20+3", "Sam", "sneak past the guard", dc=12)
         assert r["total"] == r["rolls"][0] + 3 and r["success"] == (r["total"] >= 12)
         assert sum(dnd_roll("3d6")["rolls"]) <= 18 and "error" in dnd_roll("lots of dice")
-        u = dnd_update(hp={"josh": -12, "Alex": +5}, items_add={"Alex": ["rusty key"]}, gold=15,
+        u = dnd_update(hp={"josh": -12, "Sam": +5}, items_add={"Sam": ["rusty key"]}, gold=15,
                        location="The flooded crypt", note="Found a key")
-        assert u["updated"] == ["Josh 0/9 HP (down!)", "Alex 10/10 HP"] and u["gold"] == 15
-        dnd_update(items_remove={"halen": ["key"]})
+        assert u["updated"] == ["Josh 0/9 HP (down!)", "Sam 10/10 HP"] and u["gold"] == 15
+        dnd_update(items_remove={"sam": ["key"]})
         st = dnd_state()
         assert st["party"][0]["items"] == [] and st["log"][-1].endswith("Found a key") and len(st["rolls"]) == 2
         dnd_end("At the crypt door")
