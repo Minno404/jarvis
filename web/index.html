@@ -296,6 +296,59 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
 .cmdl h4{width:100%;margin:8px 0 2px;font-family:var(--display);font-size:calc(10px*var(--s)*var(--fs));letter-spacing:.2em;text-transform:uppercase;color:var(--mute);font-weight:600}
 .cmd{font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:calc(11px*var(--s)*var(--fs));padding:3px 8px;border-color:var(--line);color:var(--text)}
 .cmd.inst::before{content:"\2605 ";color:var(--cyan)}.cmd:hover{border-color:var(--cyan)}
+/* ---------- Spending report: the whole HUD becomes Spend Breakdown, Jarvis's core moves to a corner ---------- */
+html.spendmode .col,html.spendmode .chips,html.spendmode .sub,html.spendmode .brand,html.spendmode .log,html.spendmode #holo,
+html.spendmode .state,html.spendmode .attach{display:none!important}
+html.spendmode .core-wrap{position:fixed!important;left:12px;bottom:8px;width:min(112px,22vw)!important;z-index:33;cursor:pointer}
+html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bottom:14px;z-index:33;max-width:620px}
+#spendView{position:fixed;inset:0;z-index:30;overflow:auto;padding:16px 18px 130px;display:flex;flex-direction:column;gap:12px;
+  background:radial-gradient(ellipse at top,rgba(var(--rgb),.07),transparent 60%);animation:svIn .5s ease-out}
+@keyframes svIn{from{opacity:0;transform:translateY(12px)}}
+#spendView h2{font-family:var(--display);letter-spacing:.2em;font-size:calc(11px*var(--fs));color:var(--cyan);margin:0 0 10px;text-transform:uppercase}
+#spendView h2 small{color:var(--mute);letter-spacing:.05em;text-transform:none;font-family:var(--mono);margin-left:8px;font-weight:400}
+.sv-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.sv-title h1{margin:0;font-family:var(--display);font-size:clamp(20px,2.6vw,30px);letter-spacing:.3em;text-transform:uppercase;color:var(--text)}
+.sv-title span{color:var(--cyan);letter-spacing:.3em;font-size:11px;text-transform:uppercase}
+.sv-filters{display:flex;gap:10px}.sv-filters label{display:flex;flex-direction:column;gap:2px;color:var(--mute);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+.sv-filters select{min-width:150px}
+.sv-btns{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;align-items:center}.sv-btns button{font-size:calc(10px*var(--fs));padding:6px 10px}
+.sv-btns .gold{border-color:var(--amber);color:var(--amber)}.sv-btns .ghost{border-color:var(--line);color:var(--mute)}
+.sv-btns .holo-x{position:static;font-size:20px;padding:0 8px}
+.sv-msg{min-height:1.2em;color:var(--cyan);font-size:12px;white-space:pre-line}.sv-msg.bad{color:var(--red)}
+.sv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sv-stat span{display:block;color:var(--mute);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+.sv-stat b{font-family:var(--display);font-size:clamp(18px,2.2vw,28px);font-weight:600;color:var(--text)}
+.sv-pay{cursor:pointer}.sv-pay:hover{border-color:var(--cyan)}.sv-stat b.pos{color:#39ff88}.sv-stat b.neg{color:var(--red)}
+.sv-main{display:grid;grid-template-columns:minmax(240px,1fr) minmax(300px,1.4fr) minmax(320px,1.6fr);gap:12px;flex:1;min-height:0}
+.sv-main>.panel{min-height:0;overflow:auto;max-height:calc(100vh - 330px)}
+#svDonut{width:100%;max-width:280px;display:block;margin:0 auto}
+.svc{display:grid;grid-template-columns:14px 1fr auto;gap:2px 8px;align-items:center;padding:6px 6px;border:1px solid transparent;cursor:pointer}
+.svc:hover{background:rgba(var(--rgb),.06)}.svc.drop{border-color:var(--cyan);background:rgba(var(--rgb),.14)}.svc.sel{background:rgba(var(--rgb),.1)}
+.svc i{width:10px;height:10px;border-radius:2px}.svc .nm{font-family:var(--display);letter-spacing:.08em;text-transform:uppercase;font-size:calc(12px*var(--fs))}
+.svc .amt{text-align:right;font-variant-numeric:tabular-nums}.svc .bar{grid-column:2/4;height:4px;background:rgba(var(--line-rgb),.4)}.svc .bar b{display:block;height:100%}
+.svc .meta{grid-column:2/4;color:var(--mute);font-size:11px;display:flex;justify-content:space-between}.svc .del{border:0;padding:0 4px;color:var(--mute);font-size:14px}
+.svc.not .nm{color:var(--mute)}.svc.covered .amt{color:#39ff88}
+.svs{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:4px 6px 4px 28px;font-size:12px;cursor:grab;border-left:1px solid rgba(var(--line-rgb),.5);margin-left:10px}
+.svs:hover,.svs.sel{background:rgba(var(--rgb),.07)}.svs.in{color:#39ff88}.svs small{color:var(--mute)}.svs select{font-size:11px;padding:2px;max-width:120px}
+.svs .mv{border:0;padding:0 4px;color:var(--mute)}
+.svt{width:100%;border-collapse:collapse;font-size:12px}.svt th{color:var(--mute);font-weight:400;text-align:left;font-size:10px;letter-spacing:.15em;text-transform:uppercase;padding:4px;position:sticky;top:0;background:var(--panel)}
+.svt td{padding:5px 4px;border-top:1px solid rgba(var(--line-rgb),.35);vertical-align:top}.svt td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.svt tr{cursor:pointer}.svt tr:hover td{background:rgba(var(--rgb),.06)}.svt tr.in td.n{color:#39ff88}.svt .c{color:var(--mute);white-space:nowrap}
+.sv-overlay{position:fixed;inset:0;z-index:40;background:rgba(1,3,6,.7);display:grid;place-items:center;padding:16px}
+.sv-dlg{width:min(640px,100%);max-height:85vh;overflow:auto}.sv-dlg label{display:block;margin:8px 0;color:var(--mute);font-size:12px}
+.sv-dlg input,.sv-dlg select{width:100%;box-sizing:border-box;margin-top:4px}.sv-dlg .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.ins{border:1px solid var(--line);padding:10px;margin:8px 0}.ins .tag{font-size:9px;letter-spacing:.2em;padding:1px 6px;margin-right:8px;color:#03070c}
+.ins .tag.warn{background:var(--red)}.ins .tag.cancel{background:#ff2bd6}.ins .tag.change{background:var(--amber)}.ins .tag.info{background:var(--cyan)}
+.ins b{display:block;margin:6px 0 4px;font-size:14px}.ins p{margin:0;white-space:pre-line;color:#b9c6d6;line-height:1.5}.ins .save{float:right;color:var(--amber)}
+.svplan{margin-top:14px}.svplan .pr{display:flex;justify-content:space-between;font-size:12px;margin-top:6px}.svplan .bar{height:5px;background:rgba(var(--line-rgb),.4)}
+.svplan .bar b{display:block;height:100%;background:var(--cyan)}.svplan .over b{background:var(--red)}.svplan .ahead b{background:var(--amber)}
+.sv-say{position:fixed;left:calc(min(112px,22vw) + 26px);bottom:62px;right:16px;max-width:620px;z-index:33;color:var(--text);font-size:13px;line-height:1.45;
+  text-shadow:0 1px 6px #000;pointer-events:none;max-height:30vh;overflow:hidden;background:rgba(3,7,12,.88);border:1px solid var(--line);padding:6px 10px}
+.sv-say:empty{display:none}
+.sv-empty{color:var(--mute);line-height:1.6}
+@media (max-width:1100px){.sv-main{grid-template-columns:1fr 1fr}.sv-txp{grid-column:1/-1}}
+@media (max-width:700px){.sv-main{grid-template-columns:1fr;flex:none}.sv-stats{grid-template-columns:1fr 1fr}.sv-main>.panel{max-height:none}
+  .sv-btns{margin-left:0}.sv-filters{width:100%}.sv-filters label{flex:1}.sv-filters select{min-width:0;width:100%}}
 .hlist{list-style:none;margin:0;padding:0}.hlist li{padding:6px 0;border-top:1px dashed rgba(var(--line-rgb),.5);display:flex;gap:8px;line-height:1.35}
 .hlist li:first-child{border:0}.hlist li::before{content:"\25B8";color:var(--cyan)}.hlist li.done::before{content:"\2713"}
 .hlist li.st-ok::before{content:"\2713";color:#4dff9a}.hlist li.st-warn::before{content:"!";color:var(--amber);font-weight:700}
@@ -391,6 +444,34 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
     </fieldset>
     <button type="submit">Start Jarvis</button>
   </form>
+</div>
+<div id="spendView" hidden aria-label="Spending report">
+  <div class="sv-top">
+    <div class="sv-title"><h1>Spend breakdown</h1><span>&#9670; finance</span></div>
+    <div class="sv-filters"><label>Account<select id="svAcc"></select></label><label>Month<select id="svMon"></select></label></div>
+    <div class="sv-btns">
+      <button type="button" id="svAdd">+ Add statement</button><button type="button" id="svScan">Statements folder</button>
+      <button type="button" id="svIns" class="gold">&#10022; Insights</button><button type="button" id="svCat">+ Category</button>
+      <button type="button" id="svRem" class="ghost">Remove account</button>
+      <button type="button" id="svClose" class="holo-x" aria-label="Close the spending report">&times;</button>
+    </div>
+    <input type="file" id="svFile" multiple accept=".csv,.pdf" hidden>
+  </div>
+  <div class="sv-msg" id="svMsg" role="status"></div>
+  <div class="sv-stats">
+    <div class="panel sv-stat"><span>Spent</span><b id="svSpent">-</b></div>
+    <div class="panel sv-stat sv-pay" id="svPay" tabindex="0" role="button" title="Enter your take-home pay"><span id="svEarnLbl">Earned</span><b id="svEarned">-</b></div>
+    <div class="panel sv-stat"><span>Net</span><b id="svNet">-</b></div>
+    <div class="panel sv-stat"><span>Transactions</span><b id="svCount">-</b></div>
+  </div>
+  <div class="sv-main">
+    <div class="panel sv-left"><h2>Where it went</h2><svg id="svDonut" viewBox="0 0 300 300" role="img" aria-label="Spending by category"></svg>
+      <div id="svPlan"></div></div>
+    <div class="panel sv-catp"><h2>Categories <small>tap to open &middot; drag a shop onto another category</small></h2><div id="svCats"></div></div>
+    <div class="panel sv-txp"><h2 id="svTxTitle">All transactions</h2><div id="svTx"></div></div>
+  </div>
+  <div class="sv-overlay" id="svOverlay" hidden><div class="panel sv-dlg" id="svDlg" role="dialog" aria-modal="true"></div></div>
+  <div class="sv-say" id="svSay" aria-live="polite"></div>
 </div>
 <div class="version" id="version" aria-label="Jarvis version"></div>
 <button class="updatebtn" id="updateBtn" hidden></button>
@@ -669,7 +750,9 @@ function copyText(t){
 function copyBtn(sp){const b=document.createElement('button');b.type='button';b.className='copy';b.textContent='Copy';b.setAttribute('aria-label','Copy this message');
   b.onclick=async()=>{try{await copyText(sp.textContent.trim());b.textContent='Copied';b.classList.add('done')}catch(e){b.textContent='Failed'}
     setTimeout(()=>{b.textContent='Copy';b.classList.remove('done')},1500)};return b}
-function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}</b>`;sp.textContent=text;d.append(sp,copyBtn(sp));$('log').append(d);$('log').scrollTop=1e9;return sp}
+function add(who,text){const d=document.createElement('div'),sp=document.createElement('span');d.className='msg '+(who==='you'?'you':'j');d.innerHTML=`<b>${who==='you'?userLabel:'JARVIS'}</b>`;sp.textContent=text;d.append(sp,copyBtn(sp));$('log').append(d);$('log').scrollTop=1e9;
+  if(who!=='you'&&window.svOn){const say=$('svSay'),upd=()=>say.textContent=sp.textContent;upd();new MutationObserver(upd).observe(sp,{childList:true,characterData:true,subtree:true})}  // spending report: his replies by the core
+  return sp}
 // Jarvis's voice: each sentence is sent off to the neural voice as soon as it is written, the clips
 // play back-to-back with no gap, and the core follows the real loudness of the audio.
 let actx=null,analyser=null,abuf=null,voiceOn=false,voiceGen=0,aborter=null;
@@ -919,7 +1002,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -1011,6 +1094,130 @@ if(HOLO){
   $('coreWrap').addEventListener('click',e=>{if(e.detail===1)document.documentElement.classList.toggle('typing')});
   const realAdd=add;add=function(who,text){const sp=realAdd(who,text);if(who!=='you'){const upd=()=>line.textContent=sp.textContent;upd();new MutationObserver(upd).observe(sp,{childList:true,characterData:true,subtree:true})}return sp};
 }
+// ---------- Spending report: Spend Breakdown inside Jarvis (spendview.py). "Jarvis, pull up my spending report" ----------
+const SV={on:false,acc:'',mon:'',sel:null,data:null};
+const $$m=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+async function svGet(u){const r=await fetch(u);return r.json()}
+async function svAct(d){const r=await fetch('/api/spend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});return r.json()}
+function svMsg(t,bad){$('svMsg').textContent=t||'';$('svMsg').classList.toggle('bad',!!bad)}
+function setSpendMode(on){
+  if(on===SV.on||PIN)return;SV.on=window.svOn=on;
+  const core=$('coreWrap'),a=core.getBoundingClientRect();
+  document.documentElement.classList.toggle('spendmode',on);$('spendView').hidden=!on;
+  const b=core.getBoundingClientRect();  // the core glides to (or from) its corner
+  try{core.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/Math.max(1,b.width)})`,transformOrigin:'top left'},
+    {transform:'none',transformOrigin:'top left'}],{duration:700,easing:'cubic-bezier(.2,.8,.2,1)'})}catch(e){}
+  dispatchEvent(new Event('resize'));sfx('panel');
+  if(on){$('svSay').textContent='';svLoad();svAct({action:'scan'}).then(r=>{if(r.report&&r.report.length){svMsg('From your Statements folder:\n'+r.report.join('\n'));svLoad()}})}
+}
+async function svLoad(){
+  let v;try{v=await svGet(`/api/spend?account=${encodeURIComponent(SV.acc)}&month=${encodeURIComponent(SV.mon)}`)}catch(e){return svMsg("Couldn't reach Jarvis.",true)}
+  if(v.error)return svMsg(v.error,true);
+  SV.data=v;SV.acc=v.account;SV.mon=v.month;
+  const fill=(el,all,list,cur)=>{el.replaceChildren(new Option(all,all),...list.map(x=>new Option(x,x)));el.value=cur};
+  fill($('svAcc'),'All accounts',v.accounts,v.account);fill($('svMon'),'All months',v.months,v.month);
+  $('svSpent').textContent=$$m(v.spent);$('svEarned').textContent=$$m(v.earned);$('svCount').textContent=v.count.toLocaleString();
+  $('svNet').textContent=(v.net<0?'-':'+')+$$m(Math.abs(v.net));$('svNet').className=v.net<0?'neg':'pos';
+  $('svEarnLbl').textContent=v.pay?`Earned · your pay${v.pay.months>1?' × '+v.pay.months+' months':''} ✎`:'Earned · tap to enter your pay ✎';
+  svDonut(v);svPlan(v.plan);svCats(v);svTx();
+  if(!v.has_data)svMsg(`No statements yet. Tap "+ Add statement" (CSV or PDF from your bank), or drop them in ${v.statements_folder}\\<account name>\\ and tap "Statements folder".`);
+}
+function svDonut(v){
+  const parts=v.categories.filter(c=>c.kind==='spend'&&c.total>0),R=110,C=2*Math.PI*R;let off=0,svg='';
+  svg+=`<circle cx="150" cy="150" r="138" fill="none" stroke="rgba(var(--line-rgb),.5)" stroke-dasharray="2 6"/>`;
+  svg+=`<circle cx="150" cy="150" r="${R}" fill="none" stroke="rgba(var(--line-rgb),.35)" stroke-width="26"/>`;
+  for(const c of parts){const len=C*c.total/v.spent,gap=parts.length>1?3:0;
+    if(len-gap>0.5)svg+=`<circle cx="150" cy="150" r="${R}" fill="none" stroke="${c.colour}" stroke-width="26" stroke-dasharray="${len-gap} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 150 150)" style="filter:drop-shadow(0 0 6px ${c.colour}88)"><title>${esc(c.name)} ${$$m(c.total)} (${c.pct}%)</title></circle>`;
+    off+=len}
+  svg+=`<text x="150" y="135" text-anchor="middle" fill="var(--mute)" font-size="11" letter-spacing="3">TOTAL SPENT</text>`
+    +`<text x="150" y="166" text-anchor="middle" fill="var(--text)" font-size="28" font-weight="600">${$$m(v.spent).replace(/\\.\\d\\d$/,'')}</text>`
+    +`<text x="150" y="190" text-anchor="middle" fill="var(--cyan)" font-size="11">${parts.length} categories</text>`;
+  $('svDonut').innerHTML=svg;
+}
+function svPlan(p){
+  if(!p){$('svPlan').innerHTML='';return}
+  $('svPlan').innerHTML=`<div class="svplan"><h2>Plan · ${esc(p.month)} <small>${esc(p.month_gone)} of the month gone</small></h2>`
+    +p.categories.map(c=>{const pc=Math.min(100,c.spent/c.limit*100),cls=c.status==='over'?'over':c.status==='ahead of pace'?'ahead':'';
+      return `<div class="pr"><span>${esc(c.category)}</span><span>${$$m(c.spent)} / ${$$m(c.limit)}</span></div><div class="bar ${cls}"><b style="width:${pc}%"></b></div>`}).join('')
+    +(p.warning?`<p class="sv-empty">${esc(p.warning)}</p>`:'')+'</div>';
+}
+function svCats(v){
+  const box=$('svCats'),open=new Set([...box.querySelectorAll('.svc.open')].map(e=>e.dataset.cat));
+  const opts=v.all_categories.map(c=>`<option>${esc(c)}</option>`).join('');
+  box.innerHTML=v.categories.map(c=>{const cov=c.kind!=='not'&&c.total<0,amt=cov?'+'+$$m(-c.total):$$m(c.total);
+    return `<div class="svc${c.kind==='not'?' not':''}${cov?' covered':''}${open.has(c.name)?' open':''}" data-cat="${esc(c.name)}">`
+      +`<i style="background:${c.colour}"></i><span class="nm">${esc(c.name)}${c.kind==='not'?' (not spending)':''}</span>`
+      +`<span class="amt">${amt}${c.deletable?` <button type="button" class="del" title="Delete this category" data-del="${esc(c.name)}">&times;</button>`:''}</span>`
+      +`<div class="bar"><b style="width:${c.pct}%;background:${c.colour}"></b></div>`
+      +`<div class="meta"><span>${c.kind==='spend'?c.pct+'%':cov?'covered by money in':c.kind==='empty'?'empty: drag shops here':''}</span><span>${c.count} txn${c.count==1?'':'s'}</span></div></div>`
+      +(open.has(c.name)?c.shops.map(s=>`<div class="svs${s.way==='in'?' in':''}" draggable="true" data-cat="${esc(c.name)}" data-shop="${esc(s.name)}" data-way="${s.way}">`
+        +`<span>${esc(s.name)}${s.way==='in'?' <small>← money in</small>':''}</span><span>${s.way==='in'?'+':''}${$$m(Math.abs(s.amount))}${s.n>1?` <small>×${s.n}</small>`:''}</span>`
+        +`<select aria-label="Move ${esc(s.name)} to another category"><option value="">Move to…</option><option value="+">+ New category…</option>${opts}</select></div>`).join(''):'');
+  }).join('')||'<p class="sv-empty">Nothing here yet.</p>';
+  box.querySelectorAll('.svc').forEach(r=>{
+    r.onclick=e=>{if(e.target.closest('[data-del]'))return;r.classList.toggle('open');SV.sel={cat:r.dataset.cat};svCats(SV.data);svTx()};
+    r.ondragover=e=>{e.preventDefault();r.classList.add('drop')};r.ondragleave=()=>r.classList.remove('drop');
+    r.ondrop=e=>{e.preventDefault();r.classList.remove('drop');try{const d=JSON.parse(e.dataTransfer.getData('text/plain'));svMove(d,r.dataset.cat)}catch(err){}}});
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>svConfirm(`Delete the "${b.dataset.del}" category? Anything you moved into it goes back to where it was sorted automatically.`,
+    'Delete',async()=>{await svAct({action:'delete_category',name:b.dataset.del});svLoad()}));
+  box.querySelectorAll('.svs').forEach(r=>{const d={shop:r.dataset.shop,way:r.dataset.way,from:r.dataset.cat};
+    r.ondragstart=e=>e.dataTransfer.setData('text/plain',JSON.stringify(d));
+    r.onclick=e=>{if(e.target.tagName==='SELECT')return;SV.sel={cat:d.from,shop:d.shop,way:d.way};svTx()};
+    r.querySelector('select').onchange=e=>{const to=e.target.value;if(to==='+')svNewCat(d);else if(to)svMove(d,to)}});
+}
+async function svMove(d,to){if(!to||to===d.from)return;const r=await svAct({action:'move',...d,to});
+  svMsg(r.error||`Moved ${d.shop} to ${to} (future statements too).`,!!r.error);svLoad()}
+async function svTx(){
+  const s=SV.sel||{},q=new URLSearchParams({account:SV.acc,month:SV.mon,cat:s.cat||'',shop:s.shop||'',way:s.way||''});
+  $('svTxTitle').textContent=s.shop?`${s.shop} · ${s.cat}`:s.cat?s.cat:'All transactions';
+  const rows=await svGet('/api/spend/txns?'+q);
+  $('svTx').innerHTML=rows.length?`<table class="svt"><thead><tr><th>Date</th><th>Description</th><th class="n">Amount</th><th>Category</th></tr></thead><tbody>`
+    +rows.map(t=>`<tr class="${t.amount>0?'in':''}" data-id="${t.id}" title="${esc(t.account)} · tap to re-categorise"><td class="c">${esc(t.date)}</td><td>${esc(t.desc)}</td><td class="n">${t.amount>0?'+':''}${$$m(t.amount)}</td><td class="c">${esc(t.cat)}</td></tr>`).join('')
+    +'</tbody></table>':'<p class="sv-empty">No transactions here.</p>';
+  $('svTx').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>{const t=rows.find(x=>x.id==tr.dataset.id);svRecat(t)});
+}
+function svDialog(html,onOk){$('svDlg').innerHTML=html;$('svOverlay').hidden=false;
+  const close=()=>{$('svOverlay').hidden=true};$('svDlg').querySelectorAll('[data-x]').forEach(b=>b.onclick=close);
+  const ok=$('svDlg').querySelector('[data-ok]');if(ok)ok.onclick=async()=>{if(await onOk()!==false)close()};
+  const f=$('svDlg').querySelector('input,select');if(f)f.focus();
+  $('svDlg').onkeydown=e=>{if(e.key==='Enter'&&ok&&e.target.tagName==='INPUT'){e.preventDefault();ok.click()}if(e.key==='Escape')close()}}
+function svConfirm(text,label,fn){svDialog(`<h2>Are you sure?</h2><p>${esc(text)}</p><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>${esc(label)}</button></div>`,fn)}
+const svCatList=()=>`<datalist id="svCatsDl">${(SV.data?.all_categories||[]).map(c=>`<option value="${esc(c)}">`).join('')}</datalist>`;
+function svRecat(t){const words=(t.shop||(t.desc.match(/[A-Za-z][A-Za-z'&.-]+/g)||[]).slice(0,2).join(' ')).toLowerCase();
+  svDialog(`<h2>Re-categorise</h2><p>${esc(t.desc)} · ${$$m(t.amount)}</p><label>Anything whose description contains<input id="svW" value="${esc(words)}"></label>`
+    +`<label>goes in the category (pick one or type a new one)<input id="svTo" list="svCatsDl" value="${esc(t.cat)}"></label>${svCatList()}`
+    +`<div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Save</button></div>`,
+    async()=>{const r=await svAct({action:'recategorise',words:$('svW').value,to:$('svTo').value});if(r.error){svMsg(r.error,true);return false}svLoad()})}
+function svNewCat(then){svDialog(`<h2>New category</h2><label>Name (e.g. Rent, Internet, Car)<input id="svN"></label><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Create</button></div>`,
+  async()=>{const r=await svAct({action:'new_category',name:$('svN').value});if(r.error){svMsg(r.error,true);return false}
+    if(then)await svMove(then,r.name);else{svMsg(`Created ${r.name}: drag shops onto it.`);svLoad()}})}
+function svPayDlg(){const p=SV.data?.pay||{};svDialog(`<h2>Your pay</h2><p class="sv-empty">Your take-home pay (after tax). Put 0 to go back to the pay found in your statements.</p>`
+  +`<label>Amount ($)<input id="svPA" inputmode="decimal" value="${p.income||''}"></label><label>How often<select id="svPP">${['week','fortnight','month','year'].map(x=>`<option${x===(p.per||'fortnight')?' selected':''}>${x}</option>`).join('')}</select></label>`
+  +`<div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Save</button></div>`,
+  async()=>{const r=await svAct({action:'pay',income:$('svPA').value||'0',per:$('svPP').value});if(r.error){svMsg(r.error,true);return false}svLoad()})}
+async function svInsights(){svDialog('<h2>✦ Insights</h2><p class="sv-empty">Working it out…</p>');
+  const r=await svAct({action:'insights',account:SV.acc}),tag={warn:'WATCH',cancel:'CANCEL',change:'CHANGE',info:'GOOD TO KNOW'};
+  $('svDlg').innerHTML=`<h2>✦ Insights <small>${esc(SV.acc)}</small></h2>`+((r.insights||[]).map(i=>`<div class="ins"><span class="tag ${i.kind}">${tag[i.kind]}</span>`
+    +(i.save?`<span class="save">save ~$${i.save.toLocaleString()}/yr</span>`:'')+`<b>${esc(i.title)}</b><p>${esc(i.body)}</p></div>`).join('')
+    ||'<p class="sv-empty">Nothing stands out yet. Add a few months of statements for better insights.</p>')
+    +`<div class="row"><button type="button" data-x class="ghost">Close</button><button type="button" id="svAsk">Ask Jarvis for more</button></div>`;
+  $('svDlg').querySelector('[data-x]').onclick=()=>$('svOverlay').hidden=true;
+  $('svAsk').onclick=()=>{$('svOverlay').hidden=true;ask('Give me a blunt but friendly review of my spending: what should I cancel, cut back or change? Biggest yearly savings first.')}}
+$('svAcc').onchange=()=>{SV.acc=$('svAcc').value;SV.sel=null;svLoad()};$('svMon').onchange=()=>{SV.mon=$('svMon').value;svLoad()};
+$('svClose').onclick=()=>setSpendMode(false);$('svPay').onclick=svPayDlg;$('svPay').onkeydown=e=>{if(e.key==='Enter')svPayDlg()};
+$('svIns').onclick=svInsights;$('svCat').onclick=()=>svNewCat();
+$('svScan').onclick=async()=>{svMsg('Checking your Statements folder…');const r=await svAct({action:'scan'});
+  svMsg(r.report&&r.report.length?r.report.join('\n'):r.note||'Nothing new in the Statements folder.');svLoad()};
+$('svRem').onclick=()=>{if(!SV.acc||SV.acc==='All accounts')return svMsg('Pick an account in the Account box first.',true);
+  svConfirm(`Remove every transaction from "${SV.acc}"?`,'Remove',async()=>{const r=await svAct({action:'remove_account',account:SV.acc});SV.acc='';svMsg(r.error||`Removed ${r.removed} transactions.`,!!r.error);svLoad()})};
+$('svAdd').onclick=()=>$('svFile').click();
+$('svFile').onchange=async()=>{const fs=[...$('svFile').files];$('svFile').value='';if(!fs.length)return;
+  const files=await Promise.all(fs.map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res({name:f.name,data:String(r.result).split(',')[1]||''});r.readAsDataURL(f)})));
+  const accs=SV.data?.accounts||[];
+  svDialog(`<h2>Which account?</h2><p>${files.map(f=>esc(f.name)).join(', ')}</p><label>Bank / account name (e.g. CommBank Everyday, Example Bank)<input id="svAN" list="svAccDl" value="${esc(SV.acc&&SV.acc!=='All accounts'?SV.acc:accs[0]||'')}"></label>`
+    +`<datalist id="svAccDl">${accs.map(a=>`<option value="${esc(a)}">`).join('')}</datalist><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Add</button></div>`,
+    async()=>{svMsg('Reading…');const r=await svAct({action:'import',files,account:$('svAN').value});if(r.error){svMsg(r.error,true);return false}svMsg(r.report.join('\n'));svLoad()})};
+addEventListener('keydown',e=>{if(e.key==='Escape'&&SV.on&&$('svOverlay').hidden&&document.activeElement!==$('q'))setSpendMode(false)});
 function closePanel(p){if(p.classList.contains('out'))return;sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
 function showPanel(ev){
   const p=document.createElement('div'),h=document.createElement('h3'),x=document.createElement('button');

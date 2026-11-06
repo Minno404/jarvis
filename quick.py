@@ -79,6 +79,14 @@ def quick(text):
         import threading
         threading.Timer(4, R["sleep_pc"]).start()  # after the goodnight is said
         return "Goodnight, {TITLE}. Putting the PC to sleep."
+    if re.fullmatch(r"(?:pull up|bring up|open|show(?: me)?|load)? ?(?:the |my )?(?:spending|spend) (?:report|breakdown)|"
+                    r"spend breakdown", t) and "spending_report" in R:
+        R["spending_report"](True)
+        return "Here's your spending, {TITLE}."
+    if re.fullmatch(r"(?:close|hide|exit)(?: the| my)? (?:spending|spend) (?:report|breakdown)|back to normal", t) \
+            and "spending_report" in R:
+        R["spending_report"](False)
+        return "Back to normal, {TITLE}."
     # --- workout ---
     m = re.fullmatch(r"(stop|end|cancel|pause|resume|skip)(?: the| my)? (?:workout|exercise)", t)
     if m:
@@ -288,6 +296,12 @@ def selftest():
     calls.clear()
     assert quick("Jarvis, put the PC to sleep") and calls[0][0] == "sleep_pc"
     threading.Timer = real_timer
+    features.REGISTRY["spending_report"] = rec("spending_report")
+    for said in ("Jarvis pull up spending report", "pull up my spending report", "show me my spend breakdown"):
+        calls.clear()
+        assert quick(said) and calls[0] == ("spending_report", (True,), {}), said
+    calls.clear()
+    assert quick("close the spending report") and calls[0] == ("spending_report", (False,), {})
     features.REGISTRY["boot_up"] = rec("boot_up")
     calls.clear()
     assert quick("Jarvis, run the boot sequence") and calls[0][0] == "boot_up"

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.29.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.30.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -597,7 +597,9 @@ import dnd        # Jarvis as Dungeon Master: adventures with real dice on the H
 import commands   # "what can you do?": every command as a searchable panel (see commands.py)
 import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
 import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, *custom_loader.load()):
+import spendview  # the full-screen spending report: Spend Breakdown inside Jarvis (see spendview.py)
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
+          *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1503,6 +1505,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"window": bool(LIVE.get("window_open")), "version": VERSION})
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
+        if self.path.startswith("/api/spend"):  # the spending report's data (spendview.py)
+            from urllib.parse import parse_qs, urlsplit
+            q = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
+            try:
+                if self.path.startswith("/api/spend/txns"):
+                    return self.send_json(spendview.transactions(q.get("account"), q.get("month"), q.get("cat"),
+                                                                 q.get("shop"), q.get("way")))
+                return self.send_json(spendview.view(q.get("account", ""), q.get("month", "")))
+            except Exception as e:
+                return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/ambient":
             return self.send_json(ambient())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
@@ -1652,6 +1664,11 @@ class Handler(SimpleHTTPRequestHandler):
             if not LIVE.get("shop"):
                 return self.send_json({"error": "Price checks need the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["shop"]([str(i)[:60] for i in items][:25]))
+        if self.path == "/api/spend":  # the spending report's buttons
+            try:
+                return self.send_json(spendview.act(json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
+            except Exception as e:
+                return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/page_price":  # a product page's price (life.py's price watch), from this PC only
             if not self.local():
                 return self.send_error(403)

@@ -1,29 +1,20 @@
-"""Spending questions, answered from your Spend Breakdown app's own data and categories.
+"""Spending questions, answered from Spend Breakdown's data and categories.
 
-Jarvis loads spend_breakdown.pyw itself (it only runs its window when started directly), so the
-categories, your drag-and-drop rules and the money-saving tips are exactly what the app shows.
+The Spend Breakdown engine is built into Jarvis (spendcore.py) and shares the app's saved data, so the
+categories, your drag-and-drop rules and the money-saving tips are exactly what the app shows (and it works
+without the app installed). The full-screen spending report on the HUD is spendview.py.
 """
 import datetime
-import importlib.machinery
-import importlib.util
-import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
-APP = Path(os.environ.get("JARVIS_SPEND_APP", Path.home() / "Downloads" / "SpendBreakdown" / "spend_breakdown.pyw"))
-_app = None
+import spendcore
+
+_app = None  # a stand-in for tests
 
 
 def app():
-    global _app
-    if _app is None:
-        if not APP.exists():
-            raise FileNotFoundError(f"Can't find Spend Breakdown at {APP}. Set JARVIS_SPEND_APP to its .pyw file.")
-        loader = importlib.machinery.SourceFileLoader("spend_breakdown", str(APP))
-        spec = importlib.util.spec_from_loader("spend_breakdown", loader)
-        _app = importlib.util.module_from_spec(spec)
-        loader.exec_module(_app)
-    return _app
+    return _app or spendcore
 
 
 def _txns():
