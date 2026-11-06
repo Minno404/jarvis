@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.34.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.34.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -789,8 +789,6 @@ def save_prefs(d):
         s["local_on"] = d["local_on"]  # where the local AI runs (local_brain.model)
         def move():  # let go of where it was loaded, get RAM mode's model ready, and have it read up
             local_brain.unload_all()
-            if s["local_on"] == "ram":
-                local_brain.prepare_ram()
             warm_local()
         threading.Thread(target=move, daemon=True).start()
     if d.get("stt_quality") in ("fast", "accurate", "best"):
@@ -1362,6 +1360,8 @@ def warm_local():
     import local_brain
     try:
         if local_brain.ready() and local_brain.ensure_running():
+            if features.settings().get("local_on") == "ram":
+                local_brain.prepare_ram()  # RAM mode's small model (downloads once, in the background)
             body = local_body([{"role": "user", "content": "Ready?"}], stream=False)
             body.setdefault("options", {})["num_predict"] = 1
             req = urllib.request.Request(local_brain.API + "/api/chat", json.dumps(body).encode(),

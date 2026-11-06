@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.34.0** (shown at the bottom right of the HUD)
+**Version 1.34.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.34.1** (7 Nov 2026): RAM mode also gets its smaller model when Jarvis starts already in RAM mode.
 - **1.34.0** (7 Nov 2026): timestamps on messages, and Jarvis's replies show how long they took. The local AI is
   quicker: its instructions are a third of the length, RAM mode runs the smaller Qwen3 4B (downloaded in the
   background when you switch) with a smaller memory window, and the model is loaded and has read its instructions
