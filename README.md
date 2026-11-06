@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.32.7** (shown at the bottom right of the HUD)
+**Version 1.33.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.33.0** (7 Nov 2026): a much faster local AI. Chat now goes straight to Ollama (no Codex in between, so far
+  less to read per message), thinking is switched off, and the model stays loaded for 30 minutes. Coding and PC
+  jobs still go through Codex.
 - **1.32.7** (7 Nov 2026): Settings > Brain > "Local AI runs on": the graphics card (fast) or RAM and the processor
   (slower, but leaves the graphics card free for games).
 - **1.32.6** (7 Nov 2026): instant brain swaps: "online mode", "offline mode" and "swap brain" (flips between the

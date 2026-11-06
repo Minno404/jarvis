@@ -5,6 +5,7 @@ Run:  Jarvis.bat (app window) or python server.py --browser (opens in your brows
 Test: python server.py --test (journal self-check)
 Tool: python server.py tool <name> '<json args>'  (the commands Claude Code runs)
 """
+import urllib.request
 import datetime
 import json
 import os
@@ -18,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.32.7"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.33.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1110,7 +1111,7 @@ def chat_stream(text, photo=None):
     brain = features.settings().get("brain", "auto")
     using = brain_status()["using"]
     if using == "Local":
-        yield from chat_gpt(text, photo, local=True)
+        yield from chat_local(text, photo)
         return
     said = False
     try:
@@ -1126,7 +1127,7 @@ def chat_stream(text, photo=None):
             raise
         print(datetime.datetime.now(), f"{using} limit reached, switching to {nxt}:", str(e)[:200])
         push_event({"type": "brain", "name": nxt})
-        yield from chat_gpt(text, photo, local=nxt == "Local")
+        yield from (chat_local(text, photo) if nxt == "Local" else chat_gpt(text, photo))
 
 
 DEBATE = ("[Split mode, not a normal reply: {{USER}} triple-clicked you into two avatars to weigh something up. You are "
@@ -1320,6 +1321,71 @@ def chat_cli(text):
         finally:
             if proc.poll() is None:
                 proc.kill()
+
+
+local_convo = {"history": [], "last": 0.0}
+LOCAL_TOOL = {"type": "function", "function": {
+    "name": "tool", "description": "Use one of your tools from the list in your instructions.",
+    "parameters": {"type": "object", "required": ["name"], "properties": {
+        "name": {"type": "string", "description": "the tool's name, e.g. web_search"},
+        "args": {"type": "object", "description": "its arguments, e.g. {\"query\": \"cat photo\"}"}}}}}
+
+
+def chat_local(text, photo=None):
+    """The local AI, talking to Ollama directly (no Codex in between: far less to read per message, and no
+    thinking out loud), with Jarvis's tools through one 'tool' function. Yields the reply in pieces."""
+    import local_brain
+    local_brain.ensure_running()
+    system = (persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt()
+              + "\nYou are running on this PC as the local brain. To use a tool, call the `tool` function with its name "
+                "and args (don't write the Bash command). You can't read files or see pictures. Be brief.")
+    now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
+    try:
+        room = awareness.describe(awareness.situation())
+    except Exception:
+        room = ""
+    if photo:
+        text += "\n[He sent a photo, but you can't see pictures: say so.]"
+    with lock:
+        h = local_convo["history"]
+        if time.time() - local_convo["last"] > 1200 or len(h) > 40:  # same fresh-start rule as the other brains
+            h.clear()
+        local_convo["last"] = time.time()
+        h.append({"role": "user", "content": persona(f"[{now}] {room}\n{text}")})
+        for _ in range(6):  # up to 6 rounds of tool use
+            body = {"model": local_brain.model(), "messages": [{"role": "system", "content": system}] + h,
+                    "tools": [LOCAL_TOOL], "think": False, "stream": True, "keep_alive": "30m"}
+            req = urllib.request.Request(local_brain.API + "/api/chat", json.dumps(body).encode(),
+                                         {"Content-Type": "application/json"})
+            said, calls = "", []
+            with urllib.request.urlopen(req, timeout=600) as r:
+                for line in r:
+                    ev = json.loads(line or b"{}")
+                    if ev.get("error"):
+                        raise RuntimeError("Local AI: " + ev["error"])
+                    m = ev.get("message") or {}
+                    calls += m.get("tool_calls") or []
+                    if m.get("content"):
+                        said += m["content"]
+                        yield m["content"]
+            h.append({"role": "assistant", "content": said, **({"tool_calls": calls} if calls else {})})
+            if said:
+                yield None
+            if not calls:
+                return
+            for c in calls:
+                f = c.get("function") or {}
+                args = f.get("arguments") or {}
+                args = json.loads(args) if isinstance(args, str) else args
+                name, args = (args.get("name"), args.get("args") or {}) if f.get("name") == "tool" else (f.get("name"), args)
+                try:
+                    out = FUNCS[name](**(args if isinstance(args, dict) else {}))
+                except KeyError:
+                    out = {"error": f"No tool called {name}"}
+                except Exception as e:
+                    out = {"error": f"{type(e).__name__}: {e}"}
+                h.append({"role": "tool", "content": json.dumps(out, default=str)[:6000]})
+        yield persona("I've gone round in circles on that one, {TITLE}. Try asking it another way.")
 
 
 def chat_api(text):
