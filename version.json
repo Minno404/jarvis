@@ -1,4 +1,4 @@
 {
- "version": "1.32.4",
- "notes": "Local AI no longer hangs without replying."
+ "version": "1.32.5",
+ "notes": "Local AI answers again."
 }

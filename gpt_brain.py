@@ -87,7 +87,7 @@ def command(resume_id=None, images=(), local=False, cwd=HERE):
     if local:  # the AI on this PC, through Ollama (it can't see pictures)
         import local_brain
         local_brain.ensure_running()
-        cmd += ["--oss", "-c", 'oss_provider="ollama"', "-m", local_brain.model()]  # newer Codex needs the provider
+        cmd += ["--oss", "-c", 'oss_provider="ollama"', "-c", 'model_provider="ollama"', "-m", local_brain.model()]  # newer Codex needs the provider
         images = ()
     elif os.environ.get("JARVIS_GPT_MODEL"):
         cmd += ["-m", os.environ["JARVIS_GPT_MODEL"]]
