@@ -106,6 +106,9 @@ def quick(text):
         return _ok(R["media"]("next"))
     if re.fullmatch(r"(previous|last|go back)( a)?( song| track)|previous", t):
         return _ok(R["media"]("previous"))
+    m = re.fullmatch(r"(?:(?:turn )?(?:the )?volume (up|down)|turn (?:it|the music|the volume) (up|down)|(louder)|(quieter|softer))", t)
+    if m:
+        return _ok(R["media"]("volume_up" if (m.group(1) or m.group(2) or "") == "up" or m.group(3) else "volume_down"))
     # --- the TV ---
     if "tv" in t.split() or "telly" in t.split():
         m = re.fullmatch(r"(?:turn|switch|put) (on|off) the (?:tv|telly)|(?:turn|switch|put) the (?:tv|telly) (on|off)|"

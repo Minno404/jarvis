@@ -75,6 +75,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.holo-panel.desk .desknote{margin-top:6px;font-family:var(--display);letter-spacing:.2em;color:var(--cyan);font-size:calc(16px*var(--s)*var(--fs))}
 .holo-panel.desk .desklab{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs));min-height:1.3em}
 .holo-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.05) 0 1px,transparent 1px 3px)}
 .holo-panel.out{animation:holoOut .5s ease-in forwards}
@@ -920,6 +921,21 @@ async function ask(q){
   if(/^(?:desk ?view|desk cam(?:era)?|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?)$/.test(cmd)){
     add('you',q);if(await openDesk())add('j','Desk view is up, sir. Hold something up and ask "what am I holding?".');return}
   if(DESK.stream&&/^(?:close|stop|hide|turn off|end)(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?$/.test(cmd)){add('you',q);closeDesk();add('j','Camera off, sir.');return}
+  if(/^(?:room scan|scan (?:the|my) (?:room|desk)|what(?:'s| is) on my desk|what can you see(?: on my desk)?)$/.test(cmd)&&!busy){
+    if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1800));
+    const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
+    photo=shot;askNote=`\n[A live photo from his desk camera is attached: list what you can see, most interesting first, briefly.`
+      +(DESK.labels.length?` The camera's object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
+  if(/^(?:inventory mode|(?:turn on|start) inventory(?: mode)?)$/.test(cmd)){add('you',q);if(await openDesk())add('j',"Inventory mode, sir. While desk view is open I'll remember where I see things: ask \"where did I leave my phone?\".");return}
+  if(/^(?:gesture(?:s| control)(?: on)?|(?:turn on|start|enable) gesture(?:s| control))$/.test(cmd)){add('you',q);gestures(true);return}
+  if(/^(?:gesture(?:s| control) off|(?:turn off|stop|disable) gesture(?:s| control))$/.test(cmd)){add('you',q);gestures(false);add('j','Gestures off, sir.');return}
+  const spot=cmd.match(/^(?:workout spotter|spot me|(?:spot|count|watch)(?: me| my)?(?: doing)?(?: some)? (squats?|push ?-?ups?|press ?-?ups?|(?:bicep )?curls?|jumping jacks?|star jumps?))$/);
+  if(spot){add('you',q);startSpot(spot[1]||'squats');return}
+  if(SPOT.on&&/^(?:stop|end|finish)(?: the)?(?: counting| spotting| spotter| set)?$|^(?:i'?m )?done$|^that'?s (?:it|enough)$/.test(cmd)){add('you',q);stopSpot();return}
+  if(/^(?:morning radio|(?:play|start)(?: the| my)? (?:morning )?radio(?: show)?|jarvis fm)$/.test(cmd)&&!busy){
+    radioBed(true);q='Jarvis FM, the morning show.';askNote=`\n[Morning radio: present this as "Jarvis FM", a one to two minute upbeat radio show for ${userLabel&&userLabel!=='YOU'?userLabel.charAt(0)+userLabel.slice(1).toLowerCase():'him'}. `
+      +'Open with a station ident, then the weather (weather tool), his reminders today (list_reminders), any bills due soon, two news headlines worth knowing '
+      +'(web_search), one fun fact, and a warm sign-off. Spoken words only: no headings, lists or emoji.]'}
   if(/^(?:what am i holding(?: up)?|what(?:'s| is) (?:this|that|in my hands?)(?: i'?m holding)?|what do i have(?: in my hands?)?|what am i showing you|identify (?:this|that|it)|can you see (?:this|what i'?m holding))$/.test(cmd)&&!busy){
     if(!DESK.stream&&!(await openDesk()))return;
     const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
@@ -1354,14 +1370,90 @@ async function deskDetect(){
   const tick=async()=>{const p=DESK.panel;
     if(!p)return;if(!p.isConnected||p.classList.contains('out'))return closeDesk();
     const v=DESK.video,c=p.querySelector('canvas');
-    if(v.readyState>=2&&v.clientWidth){let preds=[];try{preds=await DESK.model.detect(v,6,.5)}catch(e){}
+    if(v.readyState>=2&&v.clientWidth&&!SPOT.on){let preds=[];try{preds=await DESK.model.detect(v,6,.5)}catch(e){}
       c.width=v.clientWidth;c.height=v.clientHeight;const x=c.getContext('2d'),k=v.clientWidth/v.videoWidth,col=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim()||'#5ef';
       x.strokeStyle=col;x.fillStyle=col;x.lineWidth=2;x.font='12px monospace';
       for(const d of preds){const [bx,by,bw,bh]=d.bbox.map(n=>n*k);x.strokeRect(bx,by,bw,bh);x.fillText(`${d.class} ${Math.round(d.score*100)}%`,bx+4,Math.max(12,by-4))}
-      DESK.labels=[...new Set(preds.filter(d=>d.class!=='person').map(d=>d.class))];
+      DESK.labels=[...new Set(preds.filter(d=>d.class!=='person').map(d=>d.class))];if(DESK.labels.length)invReport(DESK.labels);
       if(lab())lab().textContent=DESK.labels.length?'I can see: '+DESK.labels.join(', '):'Hold something up and ask "what am I holding?"'}
     setTimeout(tick,350)};
   tick()}
+// ---- Inventory mode: what desk view sees goes to inventory.py, with a snapshot when something new turns up ----
+const INV={sent:{},lastPhoto:0};
+async function invReport(labels){const now=Date.now(),fresh=labels.filter(l=>!INV.sent[l]||now-INV.sent[l]>60000);
+  if(!fresh.length)return;labels.forEach(l=>INV.sent[l]=now);let ph=null;
+  if(now-INV.lastPhoto>20000){INV.lastPhoto=now;ph=await deskShot()}
+  fetch('/api/inventory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:labels,photo:ph})}).catch(()=>{})}
+// ---- MediaPipe (Google's on-device hand and body tracking), loaded the first time a gesture or workout needs it ----
+const MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14',MPM='https://storage.googleapis.com/mediapipe-models/';
+let VIS=null;
+async function vision(){if(!VIS){const v=await import(MP+'/vision_bundle.mjs');VIS={v,files:await v.FilesetResolver.forVisionTasks(MP+'/wasm')}}return VIS}
+async function mpTask(kind,model,opts){const {v,files}=await vision();  // the graphics card if it can, else the processor
+  try{return await v[kind].createFromOptions(files,{...opts,baseOptions:{modelAssetPath:MPM+model,delegate:'GPU'}})}
+  catch(e){return await v[kind].createFromOptions(files,{...opts,baseOptions:{modelAssetPath:MPM+model,delegate:'CPU'}})}}
+function deskNote(t){const p=DESK.panel;if(!p)return;let n=p.querySelector('.desknote');if(!n){n=document.createElement('div');n.className='desknote';p.append(n)}n.textContent=t}
+// ---- Gesture control: open palm = play/pause, peace sign = next song, thumbs up/down = louder/quieter,
+// fist = stop talking, pointing up = "what am I holding?" (hold the gesture for half a second) ----
+const GEST={on:false,rec:null,last:'',since:0,cool:0};
+const GMAP={Open_Palm:['Play / pause','pause the music'],Victory:['Next song','next song'],Thumb_Up:['Louder','volume up'],
+  Thumb_Down:['Quieter','volume down'],Closed_Fist:['Quiet',null],Pointing_Up:['What is it?','what am I holding?']};
+async function gestures(on){
+  if(!on){GEST.on=false;deskNote('');return}
+  if(!DESK.stream&&!(await openDesk()))return;
+  try{GEST.rec=GEST.rec||await mpTask('GestureRecognizer','gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',{runningMode:'VIDEO',numHands:1})}
+  catch(e){add('j',"I couldn't load gesture tracking, sir. It needs the internet the first time.");return}
+  GEST.on=true;add('j','Gestures on, sir. Open palm pauses, peace sign skips, thumbs up or down for volume, a fist hushes me.');gestLoop()}
+function gestLoop(){
+  if(!GEST.on)return;if(!DESK.stream){GEST.on=false;return}
+  const v=DESK.video;if(v.readyState>=2){let g=null;try{g=GEST.rec.recognizeForVideo(v,performance.now()).gestures?.[0]?.[0]}catch(e){}
+    const name=g&&g.score>.7&&GMAP[g.categoryName]?g.categoryName:'',now=performance.now();
+    if(name!==GEST.last){GEST.last=name;GEST.since=now}
+    else if(name&&now-GEST.since>500&&now>GEST.cool){GEST.cool=now+2500;GEST.since=now+1e9;const [label,cmd]=GMAP[name];
+      deskNote('Gesture: '+label);sfx('panel');if(cmd)ask(cmd);else{stopSpeaking();setMode('idle')}}}
+  setTimeout(gestLoop,120)}
+// ---- Workout spotter: counts reps from your body's joint angles and calls each one out ----
+const SPOT={on:false,ex:null,reps:0,inRep:false,pose:null};
+const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d};
+const side=(l,L,R)=>{const s=i=>i.reduce((t,k)=>t+(l[k].visibility||0),0);return s(L)>=s(R)?L:R};  // the side the camera sees better
+const EXS={  // inRep: true while you're in the hard half of the rep; a rep counts when you come back out
+  squat:{name:'squats',inRep:(l,w)=>{const [h,k,a]=side(l,[23,25,27],[24,26,28]);return ang(l[h],l[k],l[a])<(w?115:100)}},
+  push:{name:'push-ups',inRep:(l,w)=>{const [s,e,r]=side(l,[11,13,15],[12,14,16]);return ang(l[s],l[e],l[r])<(w?110:95)}},
+  curl:{name:'curls',inRep:(l,w)=>Math.min(ang(l[11],l[13],l[15]),ang(l[12],l[14],l[16]))<(w?70:55)},
+  jack:{name:'jumping jacks',inRep:l=>l[15].y<l[0].y&&l[16].y<l[0].y}};
+async function startSpot(what){
+  const ex=/push|press/.test(what)?EXS.push:/curl/.test(what)?EXS.curl:/jack|star/.test(what)?EXS.jack:EXS.squat;
+  if(!DESK.stream&&!(await openDesk()))return;
+  try{SPOT.pose=SPOT.pose||await mpTask('PoseLandmarker','pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',{runningMode:'VIDEO',numPoses:1})}
+  catch(e){add('j',"I couldn't load body tracking, sir. It needs the internet the first time.");return}
+  Object.assign(SPOT,{on:true,ex,reps:0,inRep:false});deskNote(ex.name.toUpperCase()+': 0');
+  const t=`Spotting your ${ex.name}, sir. Step back so I can see all of you, and go when ready.`;add('j',t);try{audio();const vo=voice();vo.push(t);vo.end()}catch(e){}
+  spotLoop()}
+function spotLoop(){
+  if(!SPOT.on)return;if(!DESK.stream)return stopSpot();
+  const v=DESK.video;if(v.readyState>=2){let l=null;try{l=SPOT.pose.detectForVideo(v,performance.now()).landmarks?.[0]}catch(e){}
+    if(l){const now=SPOT.ex.inRep(l,SPOT.inRep);  // a little slack once in, so a wobble doesn't count twice
+      if(SPOT.inRep&&!now){SPOT.reps++;deskNote(SPOT.ex.name.toUpperCase()+': '+SPOT.reps);try{audio();const vo=voice();vo.push(String(SPOT.reps));vo.end()}catch(e){}}
+      SPOT.inRep=now}}
+  setTimeout(spotLoop,60)}
+function stopSpot(){if(!SPOT.on)return;SPOT.on=false;const n=SPOT.reps,t=n?`That's ${n} ${n===1?SPOT.ex.name.replace(/s$/,''):SPOT.ex.name}, sir. ${n>=20?'Outstanding.':n>=10?'Well done.':'Every rep counts.'}`:'No reps that time, sir.';
+  deskNote('');add('j',t);try{audio();const vo=voice();vo.push(t);vo.end()}catch(e){}}
+// ---- Morning radio: a soft music bed and a jingle under Jarvis FM, faded out when he finishes ----
+const RADIO={on:false,nodes:[],gain:null,t0:0,timer:null};
+function radioBed(on){
+  try{audio()}catch(e){}if(!actx)return;
+  if(!on){if(!RADIO.on)return;RADIO.on=false;clearInterval(RADIO.timer);const g=RADIO.gain,t=actx.currentTime;
+    g.gain.cancelScheduledValues(t);g.gain.setValueAtTime(g.gain.value,t);g.gain.linearRampToValueAtTime(0,t+2.5);
+    const ns=RADIO.nodes;setTimeout(()=>ns.forEach(n=>{try{n.stop()}catch(e){}}),2800);RADIO.nodes=[];return}
+  if(RADIO.on)return;RADIO.on=true;RADIO.t0=Date.now();
+  const g=actx.createGain(),lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;g.gain.value=0;
+  g.gain.linearRampToValueAtTime(.05*Math.min(1,voiceVol||1),actx.currentTime+3);lp.connect(g).connect(actx.destination);RADIO.gain=g;
+  const t0=actx.currentTime;[523.3,659.3,784,1046.5].forEach((f,i)=>{const o=actx.createOscillator(),og=actx.createGain();o.type='sine';o.frequency.value=f;
+    og.gain.setValueAtTime(0,t0+i*.13);og.gain.linearRampToValueAtTime(.09*Math.min(1,voiceVol||1),t0+i*.13+.02);og.gain.exponentialRampToValueAtTime(.0001,t0+i*.13+.5);
+    o.connect(og).connect(actx.destination);o.start(t0+i*.13);o.stop(t0+i*.13+.6)});  // the station jingle
+  const oscs=[0,1,2].map(()=>{const o=actx.createOscillator();o.type='triangle';o.connect(lp);o.start();return o});RADIO.nodes=oscs;
+  const chords=[[220,261.6,329.6],[174.6,220,261.6],[261.6,329.6,392],[196,246.9,293.7]];let i=0;
+  const step=()=>{const c=chords[i++%4],t=actx.currentTime;oscs.forEach((o,k)=>o.frequency.setTargetAtTime(c[k],t,.4))};step();
+  RADIO.timer=setInterval(()=>{step();if(!busy&&!voiceOn&&Date.now()-RADIO.t0>6000)radioBed(false);if(Date.now()-RADIO.t0>300000)radioBed(false)},4000)}
 // ---- "Enlarge ...": one panel fills the HUD, the core moves to a corner (like the spending report) ----
 const BIG={el:null,pending:0};
 function findPanel(name){

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.37.0** (shown at the bottom right of the HUD)
+**Version 1.38.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.38.0** (7 Nov 2026): desk camera extras. "Room scan" / "what's on my desk?" describes what the camera sees.
+  Inventory mode: while desk view is open Jarvis remembers what he sees ("where did I leave my phone?").
+  "Gesture control": open palm play/pause, peace sign next song, thumbs up/down volume, fist stops him talking,
+  pointing up asks what you're holding. Workout spotter: "count my squats" (push-ups, curls, jumping jacks) counts
+  every rep out loud; "I'm done" for the total. "Morning radio" / "Jarvis FM": your morning brief as a radio show
+  with a jingle and a soft music bed. Also "volume up", "quieter", "louder".
 - **1.37.0** (7 Nov 2026): holo mode on the PC ("holo mode", or Protocols > Holo mode): just the core, floating over a
   projector glow, with what he says written underneath; Escape or "exit holo mode" leaves. Settings > Voice >
   Volume (0 to 150%). "Desk view" opens your webcam in a panel with live object labels; "what am I holding?" sends

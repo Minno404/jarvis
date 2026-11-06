@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.37.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.38.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -503,13 +503,13 @@ def _key(vk, times=1):
         ctypes.windll.user32.keybd_event(vk, 0, 2, 0)
 
 
-MEDIA_KEYS = {"play_pause": 0xB3, "next": 0xB0, "previous": 0xB1, "mute": 0xAD}
+MEDIA_KEYS = {"play_pause": 0xB3, "next": 0xB0, "previous": 0xB1, "mute": 0xAD, "volume_up": 0xAF, "volume_down": 0xAE}
 
 
 def media(action):
     if action not in MEDIA_KEYS:
         return {"error": f"action must be one of {list(MEDIA_KEYS)}"}
-    _key(MEDIA_KEYS[action])
+    _key(MEDIA_KEYS[action], 5 if action.startswith("volume") else 1)  # volume: 10% a time
     return {"done": action}
 
 
@@ -603,8 +603,9 @@ import spendview  # the full-screen spending report: Spend Breakdown inside Jarv
 import deepseek  # DeepSeek as a brain: cheap, online, through Claude Code (see deepseek.py)
 import local_brain  # the free AI that runs on this PC: Jarvis's third brain (see local_brain.py)
 import web        # free web search and page reading (see web.py)
+import inventory  # what the desk camera has seen: "where did I leave my phone?" (see inventory.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, *custom_loader.load()):
+          web, inventory, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1792,6 +1793,9 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"ok": action, "in_seconds": wait})
             threading.Timer(wait, updater.restart if action == "restart" else lambda: os._exit(0)).start()
             return
+        if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
+            d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
         if self.path == "/api/upload":  # a photo for Jarvis: raw image bytes in, {"name": ...} out
             try:
                 n = int(self.headers["Content-Length"])
