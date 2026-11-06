@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.39.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.40.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -611,6 +611,27 @@ for m in (features, trading, spending, devhelper, learn, tv, hud, coach, persona
     FUNCS.update(m.FUNCS)
     TOOLS += m.TOOLS
 FUNCS["set_brain"] = lambda brain: set_brain(brain)
+
+
+def voice_mute(on=True):
+    """Mute: Jarvis ignores the microphone entirely, even "Hey Jarvis" (unmute: the mini core's mic button, the tray,
+    or type "unmute")."""
+    features._save("settings.json", {**features.settings(), "voice_muted": bool(on)})
+    try:
+        import voice as voice_mod
+        voice_mod.set_muted(bool(on))
+    except Exception:
+        pass
+    try:
+        import mini as mini_mod
+        mini_mod.send("muted", bool(on))
+    except Exception:
+        pass
+    push_event({"type": "status"})
+    return {"muted": bool(on)}
+
+
+FUNCS["voice_mute"] = voice_mute
 FUNCS["jarvis_power"] = lambda action: jarvis_power(action)
 TOOLS.append({"name": "jarvis_power", "description": "Restart yourself (Jarvis) or power yourself down when he asks "
               "('restart yourself', 'power down', 'shut down Jarvis'). This closes Jarvis, not the PC. Say a short "
@@ -2367,13 +2388,17 @@ if __name__ == "__main__":
                 pystray.MenuItem("Open Jarvis", lambda *_: open_main(), default=True),
                 pystray.MenuItem("Mini core", lambda *_: api.mini(True)),
                 pystray.MenuItem("Quiet mode", lambda *_: FUNCS["quiet_mode"](on=not quiet()), checked=quiet),
+                pystray.MenuItem("Mute (not listening)", lambda *_: FUNCS["voice_mute"](on=not features.settings().get("voice_muted")),
+                                 checked=lambda *_: bool(features.settings().get("voice_muted"))),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart", lambda *_: (LIVE["tray"].stop(), updater.restart())),
                 pystray.MenuItem("Quit", lambda *_: quit_jarvis()))
             LIVE["tray"] = pystray.Icon("Jarvis", Image.open(HERE / "jarvis.ico"), "Jarvis", menu)
             LIVE["tray"].run()
         threading.Thread(target=tray, daemon=True).start()
-        mini.start(on_ask=lambda text: heard_text(text), on_open=open_main)
+        mini.start(on_ask=lambda text: heard_text(text), on_open=open_main,
+                   on_mute=lambda: FUNCS["voice_mute"](on=not features.settings().get("voice_muted")))
+        mini.send("muted", bool(features.settings().get("voice_muted")))
         if features.settings().get("theme"):
             mini.send("colour", features.settings()["theme"])
 
@@ -2551,6 +2576,8 @@ if __name__ == "__main__":
                     speak_now(line)
                 threading.Timer(3.5, hello).start()  # after boot
             if voice:
+                if features.settings().get("voice_muted"):
+                    voice.muted.set()  # still muted from last time
                 voice.start(on_status=lambda t: js(f"voiceStatus({json.dumps(t)})"),
                             on_heard=lambda: (mini.send("mode", "listening"), js("heard()")), on_text=heard_text,
                             on_interrupt=lambda: js("stopSpeaking()"),

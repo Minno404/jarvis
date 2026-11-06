@@ -104,6 +104,16 @@ def ptt_done(held_frames, max_s=30):
 
 
 on_hold = threading.Event()  # "hold on Jarvis": ignore everything until "Hey Jarvis" or the mic button
+muted = threading.Event()    # muted (the mini core's mic button, tray, Settings): ignore everything, even "Hey Jarvis"
+STATUS = {"fn": None}
+
+
+def set_muted(on):
+    (muted.set if on else muted.clear)()
+    _push.clear()
+    _follow["until"] = 0
+    if STATUS["fn"]:
+        STATUS["fn"]("Muted: not listening" if on else 'Say "Hey Jarvis"')
 
 HOLD = re.compile(r"(?:^|\b)(hold on|hang on|hold up|wait|stop|shush|be quiet|quiet|shut up|pause|not now|"
                   r"never ?mind|cancel|that'?s enough)[\s,.!]*(?:jarvis)?[\s,.!]*$", re.I)
@@ -189,6 +199,7 @@ def _open_mic(sd):
 
 
 def _run(on_status, cb):
+    STATUS["fn"] = on_status
     try:
         on_status("Loading…")
         import sounddevice as sd
@@ -212,7 +223,7 @@ def _run(on_status, cb):
     while threading.main_thread().is_alive():
         try:
             stream = _open_mic(sd)
-            on_status('Say "Hey Jarvis"')
+            on_status("Muted: not listening" if muted.is_set() else 'Say "Hey Jarvis"')
             failures = 0
             _listen(stream, wake, stt, name_stt=name_stt, **cb)
         except Exception as e:
@@ -274,6 +285,9 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
         pre = (pre + [frame])[-4:]
         last2s = (last2s + [frame])[-25:]
         noise = float(np.percentile(recent, 20))
+        if muted.is_set():  # the microphone keeps running (so nothing piles up), but nothing is listened to
+            _push.clear()
+            continue
         in_window = time.time() < _follow["until"] and not speaking.is_set() and not on_hold.is_set()
         if following != in_window:
             following = in_window

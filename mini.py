@@ -34,11 +34,12 @@ def send(cmd, *args):
     _q.put((cmd, args))
 
 
-def start(on_ask, on_open, size=170):
-    threading.Thread(target=_run, args=(on_ask, on_open, size), daemon=True).start()
+def start(on_ask, on_open, size=170, on_mute=None):
+    """on_mute(): the mic button was clicked (toggle mute); send('muted', on) shows the result."""
+    threading.Thread(target=_run, args=(on_ask, on_open, size, on_mute), daemon=True).start()
 
 
-def _run(on_ask, on_open, size):
+def _run(on_ask, on_open, size, on_mute=None):
     import ctypes
     import tkinter as tk
 
@@ -50,7 +51,8 @@ def _run(on_ask, on_open, size):
     root.configure(bg=KEY)
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
     st = {"size": size, "mode": "idle", "t": 0.0, "level": 0.0, "target": 0.0, "next": 0.0,
-          "colours": (CYAN, DIM, GLOW), "x": sw - size - 40, "y": sh - size - 110, "drag": None, "moved": False}
+          "colours": (CYAN, DIM, GLOW), "x": sw - size - 40, "y": sh - size - 110, "drag": None, "moved": False,
+          "muted": False}
     cv = tk.Canvas(root, bg=KEY, highlightthickness=0, bd=0)
     cv.pack(fill="both", expand=True)
     entry = tk.Entry(root, bg="#03070c", fg="#cdeefb", insertbackground="#5fe3ff", relief="flat",
@@ -75,16 +77,39 @@ def _run(on_ask, on_open, size):
             entry.place_forget()
 
     # --- input ---
+    def buttons():
+        """The two little buttons above the core: (centre x, centre y, radius) for '-' (hide) and the mic (mute)."""
+        s = st["size"]
+        r = max(9, s * .075)
+        return (s * .12, s * .12, r), (s * .88, s * .12, r)
+
+    def hit(b, e):
+        return (e.x - b[0]) ** 2 + (e.y - b[1]) ** 2 <= (b[2] + 3) ** 2
+
     def press(e):
+        hide_b, mic_b = buttons()
+        if hit(hide_b, e):
+            st["drag"] = "hide"
+            return
+        if hit(mic_b, e):
+            st["drag"] = "mic"
+            return
         st["drag"], st["moved"] = (e.x_root - st["x"], e.y_root - st["y"]), False
 
     def motion(e):
-        if st["drag"]:
+        if isinstance(st["drag"], tuple):
             st["x"], st["y"], st["moved"] = e.x_root - st["drag"][0], e.y_root - st["drag"][1], True
             place()
 
     def release(e):
-        st["drag"] = None
+        d, st["drag"] = st["drag"], None
+        if d == "hide":  # tucked away until Jarvis is minimised again (or "Mini core" in the tray)
+            show(False)
+            return
+        if d == "mic":
+            if on_mute:
+                threading.Thread(target=on_mute, daemon=True).start()
+            return
         if not st["moved"]:  # a click, not a drag: open the input box
             s = st["size"]
             entry.place(x=s * .15, y=s * .72, width=s * .7, height=max(20, s * .13))
@@ -142,6 +167,22 @@ def _run(on_ask, on_open, size):
                 a = math.degrees(t * spd) + j * 360 / n
                 cv.create_arc(c - R, c - R, c + R, c + R, start=-a, extent=-(360 / n) * f,
                               style="arc", outline=col, width=max(1, w * k * 1.6))
+        hide_b, mic_b = buttons()  # the "-" and the mic, drawn on solid discs so they can be clicked
+        red = "#ff5c6c"
+        for (x, y, r), col in ((hide_b, dim), (mic_b, red if st["muted"] else dim)):
+            cv.create_oval(x - r, y - r, x + r, y + r, fill="#06121a", outline=col, width=1)
+        x, y, r = hide_b
+        cv.create_line(x - r * .45, y, x + r * .45, y, fill=bright, width=max(1, r * .16))
+        x, y, r = mic_b  # a microphone: capsule, cradle and stand; struck through when muted
+        mc = red if st["muted"] else bright
+        cv.create_rectangle(x - r * .18, y - r * .55, x + r * .18, y + r * .08, fill=mc, outline="")
+        cv.create_arc(x - r * .38, y - r * .45, x + r * .38, y + r * .3, start=200, extent=140, style="arc", outline=mc,
+                      width=max(1, r * .1))
+        cv.create_line(x, y + r * .3, x, y + r * .55, fill=mc, width=max(1, r * .1))
+        if st["muted"]:
+            cv.create_line(x - r * .55, y + r * .55, x + r * .55, y - r * .55, fill=red, width=max(1, r * .14))
+        if st["muted"]:
+            cv.create_text(c, s * .93, text="MUTED", fill="#ff5c6c", font=("Bahnschrift SemiBold", max(7, int(s * .055))))
         for j in range(72):
             a = j / 72 * math.tau - t * .1
             r1, r2 = 410 * k, (410 - (8 if j % 6 else 20)) * k
@@ -251,6 +292,8 @@ def _run(on_ask, on_open, size):
                     show(True)
                 elif cmd == "hide":
                     show(False)
+                elif cmd == "muted":
+                    st["muted"] = bool(args[0])
                 elif cmd == "mode":
                     st["mode"] = args[0] if args[0] in ("thinking", "speaking", "listening") else "idle"
                 elif cmd == "colour":

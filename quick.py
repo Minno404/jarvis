@@ -99,6 +99,11 @@ def quick(text):
     if re.fullmatch(r"(?:what s|what is) the time|what time is it", t):
         now = datetime.datetime.now()
         return f"It's {now.hour % 12 or 12}:{now:%M} {now:%p}, {{TITLE}}."
+    # --- muting Jarvis's microphone (he then ignores even "Hey Jarvis"; type "unmute" to undo) ---
+    if re.fullmatch(r"(?:mute yourself|stop listening|don'?t listen|mute (?:the |your )?mic(?:rophone)?|voice off)", t) and "voice_mute" in R:
+        return _ok(R["voice_mute"](on=True), "Muted, {TITLE}. I won't listen until you unmute me.")
+    if re.fullmatch(r"(?:unmute(?: yourself)?|start listening|listen again|unmute (?:the |your )?mic(?:rophone)?|voice on)", t) and "voice_mute" in R:
+        return _ok(R["voice_mute"](on=False), "Listening again, {TITLE}.")
     # --- music on the PC ---
     if re.fullmatch(r"(pause|play|resume|stop)( the)?( music| song| spotify| it)?", t):
         return _ok(R["media"]("play_pause"))
