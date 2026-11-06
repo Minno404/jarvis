@@ -484,6 +484,12 @@ html.spendmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;
       <label><input type="radio" name="lm" value="ptt"> Push-to-talk only</label>
       <label><input type="radio" name="lm" value="both"> Both</label>
     </fieldset>
+    <fieldset><legend>Voice recognition</legend>
+      <label><input type="radio" name="stq" value="fast"> Fast: quickest replies, makes the most mistakes</label>
+      <label><input type="radio" name="stq" value="accurate"> Accurate (recommended): hears you much better</label>
+      <label><input type="radio" name="stq" value="best"> Best: hears you best, a little slower (bigger download)</label>
+      <p class="hint">When Jarvis isn't sure he heard you right, he checks first ("did you say…?"); just say yes or no. Takes effect next time Jarvis starts.</p>
+    </fieldset>
     <fieldset><legend>Push-to-talk key</legend>
       <div class="keyrow"><span id="pttName">Not set</span><button type="button" id="pttSet">Set key</button><button type="button" id="pttClear" class="linkbtn">Clear</button></div>
       <p class="hint" id="pttHint">Hold it anywhere, even in a game, and talk; let go to send. Works with keys and the mouse side buttons.</p>
@@ -1058,6 +1064,7 @@ function ambFrame(){if(!ambOn)return;ambT*=.93;ambK+=(ambT-ambK)*.3;$('amb').sty
   requestAnimationFrame(ambFrame)}
 $('ambOn').onchange=()=>savePref({ambient:$('ambOn').checked});
 $('autoStart').onchange=()=>savePref({autostart:$('autoStart').checked});
+document.querySelectorAll('input[name=stq]').forEach(r=>r.onchange=()=>savePref({stt_quality:r.value}));
 document.querySelectorAll('[data-feat]').forEach(c=>c.onchange=()=>{const f={};
   document.querySelectorAll('[data-feat]').forEach(x=>f[x.dataset.feat]=x.checked);applyFeatures(f,true);savePref({features:f})});
 // Trading switched off: its panels close (still there: "show the MT5 journal" brings one back)
@@ -1380,7 +1387,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -1557,6 +1564,7 @@ function showPrefs(p){
   setAvatar(prefs.avatar,prefs.avatar_style);
   if(prefs.text_size!=null){setFs(prefs.text_size);$('textSize').value=prefs.text_size}
   if(prefs.features)document.querySelectorAll('[data-feat]').forEach(c=>c.checked=prefs.features[c.dataset.feat]!==false);
+  document.querySelectorAll('input[name=stq]').forEach(r=>r.checked=r.value===(prefs.stt_quality||'accurate'));
   $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
   $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;
   setAmbient(!!prefs.ambient&&!PIN);

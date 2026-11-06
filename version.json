@@ -1,4 +1,4 @@
 {
- "version": "1.30.1",
- "notes": "Spending report hides every other panel; \"close the report\" brings the HUD back."
+ "version": "1.31.0",
+ "notes": "Better voice recognition, and he checks when he isn't sure what you said."
 }

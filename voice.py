@@ -17,9 +17,35 @@ WAKE_THRESHOLD = float(os.environ.get("JARVIS_WAKE_THRESHOLD", "0.5"))
 # from Whisper on the last ~1.5 s. Lower = catches more, checks more often.
 LOOSE_THRESHOLD = float(os.environ.get("JARVIS_LOOSE_WAKE", "0.12"))
 NAME = re.compile(r"\bjarvis\b", re.I)
-STT_MODEL = os.environ.get("JARVIS_STT_MODEL", "base.en")  # small.en is more accurate but slower
-VOCAB = ("Jarvis, XAUUSD, gold, GBPJPY, MT5, MetaTrader, long, short, stop loss, take profit, R, "
-         "London open, New York session, Spotify, League of Legends.")
+# Speech recognition quality (Settings > Voice recognition): bigger Whisper models hear far better, a bit slower
+STT_MODELS = {"fast": "base.en", "accurate": "small.en", "best": "medium.en"}
+SURE_LOGPROB = -0.6  # Whisper's average confidence below this: he checks "did you say...?" before acting
+
+
+def stt_model():
+    if os.environ.get("JARVIS_STT_MODEL"):
+        return os.environ["JARVIS_STT_MODEL"]
+    try:
+        import features
+        return STT_MODELS.get(features.settings().get("stt_quality") or "accurate", "small.en")
+    except Exception:
+        return "small.en"
+
+
+def vocab():
+    """Words Whisper should expect: his name, Jarvis's own words, and trading terms if he trades."""
+    words = ["Jarvis", "Hey Jarvis", "Spotify", "Discord", "Netflix", "YouTube", "TV", "HUD", "Spend Breakdown",
+             "Claude", "ChatGPT", "split", "merge", "protocol", "Kokoro"]
+    try:
+        import features
+        s = features.settings()
+        words[:0] = [x for x in (s.get("name"), s.get("title")) if x]
+        if features.feature("trading"):
+            words += ["XAUUSD", "gold", "GBPJPY", "MT5", "MetaTrader", "long", "short", "stop loss", "take profit",
+                      "London open", "New York session"]
+    except Exception:
+        pass
+    return ", ".join(dict.fromkeys(words)) + "."
 
 INTERRUPT_THRESHOLD = 0.6   # a bit stricter while he's talking, so his own voice can't set it off
 FOLLOW_UP_S = 8             # after he answers you by voice, keep listening this long for a reply
@@ -155,7 +181,7 @@ def _run(on_status, cb):
         except Exception as e:
             print("voice: wake word model download:", repr(e))
         wake = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
-        stt = WhisperModel(STT_MODEL, device="cpu", compute_type="int8")
+        stt = WhisperModel(stt_model(), device="cpu", compute_type="int8")
     except Exception as e:
         print("voice: can't start:", repr(e))
         on_status("Off (see log)")
@@ -182,10 +208,27 @@ def starts_talking(levels, noise):
     return len(levels) >= 2 and levels[-1] > talk and levels[-2] > talk
 
 
-def _transcribe(stt, frames):
+def _transcribe(stt, frames, careful=False):
+    """What was said. careful (a whole request): a wider search, and also whether Whisper is sure of it."""
     pcm = np.concatenate(frames).astype(np.float32) / 32768
-    segments, _ = stt.transcribe(pcm, language="en", beam_size=1, initial_prompt=VOCAB, vad_filter=True)
-    return " ".join(s.text.strip() for s in segments).strip()
+    segments, _ = stt.transcribe(pcm, language="en", beam_size=5 if careful else 1, initial_prompt=vocab(),
+                                 vad_filter=True)
+    segments = list(segments)
+    text = " ".join(s.text.strip() for s in segments).strip()
+    if not careful:
+        return text
+    return text, sure(segments)
+
+
+def sure(segments):
+    """Is Whisper confident? Its average log-probability (weighted by length), how sure it is that it was speech
+    at all, and whether the text came out repetitive (a sign it's making things up)."""
+    if not segments:
+        return True
+    n = sum(max(1, len(s.text)) for s in segments)
+    lp = sum(s.avg_logprob * max(1, len(s.text)) for s in segments) / n
+    return lp >= SURE_LOGPROB and max(s.no_speech_prob for s in segments) < 0.6 \
+        and max(s.compression_ratio for s in segments) < 2.4
 
 
 def after_name(text):
@@ -257,14 +300,17 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
                 state = end_of_speech(levels, noise)
             if state != "wait":
                 break
-        text = _transcribe(stt, audio) if (state == "done" or by_name) else ""
+        text, confident = _transcribe(stt, audio, careful=True) if (state == "done" or by_name) else ("", True)
         said = after_name(text) if by_name else text
         if is_hold(text) and (not said or is_hold(said)):
             hold()
             on_hold_cmd()
         else:
             on_hold.clear()  # "Hey Jarvis" or the mic button ends a hold
-            on_text(said)
+            try:
+                on_text(said, confident)
+            except TypeError:  # an older listener that takes just the text
+                on_text(said)
         wake.reset()
         last2s = []
         _drain(stream)  # drop audio that piled up while transcribing

@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.30.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.31.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -782,6 +782,8 @@ def save_prefs(d):
         s = features.settings()
     if isinstance(d.get("features"), dict):
         s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
+    if d.get("stt_quality") in ("fast", "accurate", "best"):
+        s["stt_quality"] = d["stt_quality"]  # takes effect next time Jarvis starts
     for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
         if k in d:
             s[k] = bool(d[k])
@@ -799,7 +801,8 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "split_claude_voice",
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
+                                                            "split_claude_voice",
                                                             "split_gpt_voice")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -1072,6 +1075,8 @@ def screen_photo():
 def chat_stream(text, photo=None):
     """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now).
     photo: the name of a picture he sent (in uploads/), for Jarvis to look at."""
+    spoken = LIVE.get("spoken")
+    spoken = bool(spoken and spoken[0] == text and time.time() - spoken[1] < 60)
     shot = not photo and SCREEN_Q.search(text or "") and screen_photo()  # "what's this error?": look first
     if shot:
         text, photo = text + (f"\n[A screenshot of his screen right now: uploads/{shot}. Look at it, then explain "
@@ -1090,6 +1095,10 @@ def chat_stream(text, photo=None):
     if fast:
         yield persona(fast)
         return
+    if spoken:
+        text += ("\n[He said this out loud; speech-to-text can mishear words. If it doesn't quite make sense, or could "
+                 "mean something else, ask a short yes/no question to check before doing anything that changes "
+                 "something (opening or closing apps, the TV, deleting, sending, buying, trades).]")
     global session
     if convo.get("persona") != personas.current():  # new personality: fresh conversations in its own voice
         session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
@@ -1137,6 +1146,9 @@ def debate_stream(q):
 
 
 WAKER = power.Waker()  # quiet wake: the phone woke the PC (see power.py)
+YES = re.compile(r"^\W*(?:yes|yeah|yep|yup|ya|correct|right|that'?s right|that'?s it|exactly|do it|go ahead|affirmative|"
+                 r"sure|please|yes please)\b", re.I)
+NO = re.compile(r"^\W*(?:no|nope|nah|wrong|that'?s wrong|not quite|cancel|never ?mind)\b", re.I)
 
 LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
 claude_out = {"until": 0.0}
@@ -2164,13 +2176,25 @@ if __name__ == "__main__":
             js("holdOn()")
             mini.send("mode", "idle")
 
-        def heard_text(text):
+        def heard_text(text, confident=True):
             if not text:
                 return js("setMode('idle')")
             if voice and voice.is_hold(text):  # e.g. typed into the mini core
                 voice.hold()
                 return do_hold()
             st["voice_at"] = time.time()
+            # Not sure he heard it right: check first ("I heard: ... Is that right?"), then act on yes
+            pending, st["confirm"] = st.get("confirm"), None
+            if pending and time.time() - pending["at"] < 45:
+                if YES.match(text):
+                    text, confident = pending["text"], True
+                elif NO.match(text):
+                    return speak_now("Sorry, sir. Say it again?")
+            if not confident and len(text.split()) >= 2:
+                st["confirm"] = {"text": text, "at": time.time()}
+                js(f"add('you',{json.dumps(text + ' (?)')})")
+                return speak_now(f"Just to check, sir: did you say \"{text.rstrip('.?!')}\"?")
+            LIVE["spoken"] = (text, time.time())  # the brain is told it was spoken, so may be misheard
             if features.is_clip_command(text):  # instant, no thinking needed mid-game
                 r = features.clip_that()
                 return speak_now("Clipped, sir." if r.get("clipped") else r["error"])
