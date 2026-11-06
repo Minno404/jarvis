@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.32.1** (shown at the bottom right of the HUD)
+**Version 1.32.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.32.2** (7 Nov 2026): no more robotic voice: symbols, emoji and local models' "thinking" are never read out,
+  and if the online voice fails Jarvis tries Ryan, then Kokoro, before the Windows voice. Settings > Brain > Local
+  AI voice gives the local AI its own voice (any Kokoro or online voice).
 - **1.32.1** (7 Nov 2026): ChatGPT (and the local AI) no longer say they're "restricted": PC jobs (clearing temp
   files, installing, fixing) go to cleanup or pc_task, coding to dev_task, and Codex jobs are told they have full
   access. Temporary files and caches count as fine to clear in PC jobs.
