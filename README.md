@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.36.0** (shown at the bottom right of the HUD)
+**Version 1.37.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.37.0** (7 Nov 2026): holo mode on the PC ("holo mode", or Protocols > Holo mode): just the core, floating over a
+  projector glow, with what he says written underneath; Escape or "exit holo mode" leaves. Settings > Voice >
+  Volume (0 to 150%). "Desk view" opens your webcam in a panel with live object labels; "what am I holding?" sends
+  a snapshot to the brain (with the labels, so even brains that can't see get a hint).
 - **1.36.0** (7 Nov 2026): "Enlarge ..." (or expand, maximise, full screen): the panel you name fills the HUD, bigger,
   with Jarvis's core in the corner like the spending report. If nothing on screen matches, Jarvis opens it first
   ("enlarge the weather"). "Shrink", the × or Escape go back.

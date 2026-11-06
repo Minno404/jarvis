@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.36.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.37.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -802,6 +802,8 @@ def save_prefs(d):
         s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
+    if "voice_volume" in d:
+        s["voice_volume"] = max(0.0, min(1.5, float(d["voice_volume"])))
     features._save("settings.json", s)
     if isinstance(d.get("background"), dict):  # from Settings: a style, the last photo, or how dark a picture is
         b = {k: v for k, v in d["background"].items() if k in ("style", "photo", "dim")}
@@ -811,7 +813,7 @@ def save_prefs(d):
         s = features.settings()
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
-                                                            "voice_engine", "kokoro_voice", "voice_speed",
+                                                            "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
                                                             "local_voice", "local_on", "split_claude_voice",
                                                             "split_gpt_voice")}, "autostart": autostart_on()})
