@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -59,6 +60,9 @@ def available():
     return bool(CODEX) and ((home / "auth.json").exists() or bool(os.environ.get("OPENAI_API_KEY")))
 
 
+SILENT_LIMIT = 300  # seconds with no word from Codex before it counts as stuck (the local AI's first load is slow)
+
+
 LOCAL_NOTE = ("You are running on this PC as Jarvis's local brain (a free open model, no internet account): be "
               "brief and careful, and use your tools rather than guessing. For anything on the web use the "
               "web_search and read_page tools.")
@@ -83,7 +87,7 @@ def command(resume_id=None, images=(), local=False, cwd=HERE):
     if local:  # the AI on this PC, through Ollama (it can't see pictures)
         import local_brain
         local_brain.ensure_running()
-        cmd += ["--oss", "-m", local_brain.model()]
+        cmd += ["--oss", "-c", 'oss_provider="ollama"', "-m", local_brain.model()]  # newer Codex needs the provider
         images = ()
     elif os.environ.get("JARVIS_GPT_MODEL"):
         cmd += ["-m", os.environ["JARVIS_GPT_MODEL"]]
@@ -120,11 +124,28 @@ def chat(system_prompt, message, images=(), local=False):
     text = message if thread["id"] else f"{system_prompt}\n{how}\n{recent_context()}{message}"
     proc = subprocess.Popen(command(thread["id"], images, local), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", cwd=HERE, creationflags=NO_WINDOW)
+    seen = {"at": time.time()}
+
+    def feed():  # in its own thread, so a long prompt can never deadlock against Codex's output
+        try:
+            proc.stdin.write(text)
+            proc.stdin.close()
+        except OSError:
+            pass
+
+    def watchdog():  # Codex silent this long: it's stuck; stop it so Jarvis says so instead of hanging
+        while proc.poll() is None:
+            if time.time() - seen["at"] > SILENT_LIMIT:
+                print(time.strftime("%Y-%m-%d %H:%M:%S"), "codex silent for", SILENT_LIMIT, "s, stopping it")
+                proc.kill()
+            time.sleep(2)
+
+    threading.Thread(target=feed, daemon=True).start()
+    threading.Thread(target=watchdog, daemon=True).start()
     try:
-        proc.stdin.write(text)
-        proc.stdin.close()
         out = []
         for line in proc.stdout:
+            seen["at"] = time.time()
             out.append(line)
             tid, texts, err = parse([line])
             if tid:

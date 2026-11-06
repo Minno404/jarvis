@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.32.3** (shown at the bottom right of the HUD)
+**Version 1.32.4** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,9 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.32.4** (7 Nov 2026): local AI fixes. Codex is told to use Ollama (newer versions need it), the message is
+  handed over without any chance of a deadlock, and if the AI goes silent for 5 minutes Jarvis stops it and says so
+  instead of hanging.
 - **1.32.3** (7 Nov 2026): faster again. Replies no longer wait ~2 s checking on the local AI, and the quick
   "did he say Jarvis?" check uses the small fast speech model, so the mic keeps up.
 - **1.32.2** (7 Nov 2026): no more robotic voice: symbols, emoji and local models' "thinking" are never read out,
