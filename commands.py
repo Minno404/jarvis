@@ -30,7 +30,7 @@ COMMANDS = {
     "Food and shopping": ["What can I make with chicken, rice and capsicum?", "Show that recipe again",
                           "How much is coffee at Coles?", "Tell me when coffee beans are under $10",
                           "Watch this PS5 and tell me under $600 (paste the link)", "What prices am I watching?"],
-    "Money and bills": ["Add my car rego, $420, due 12 December, yearly", "Show my bills", "I paid the rego",
+    "Money and bills": ["*Pull up my spending report", "*Close the spending report", "Add my car rego, $420, due 12 December, yearly", "Show my bills", "I paid the rego",
                         "How's my spending this month?", "Set a spending plan", "*Split $142 four ways with a 10% tip",
                         "*10% tip on $80", "*100 US dollars to Aussie dollars"],
     "Health and habits": ["Give me a 20-minute workout", "Quick ab workout, no equipment", "*Pause the workout",
