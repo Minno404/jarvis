@@ -11,7 +11,7 @@ COMMANDS = {
                           "*Switch to FRIDAY", "*Casual mode", "*Back to Jarvis", "*What can you do?"],
     "Looks and the HUD": ["*Make the HUD red", "*Change the background to stars",
                           "*Set the background to a picture of a city at night", "*Reset the background",
-                          "Show me a picture of a Lamborghini", "*Close the MT5 journal", "*Show all panels",
+                          "Show me a picture of ...", "*Close the MT5 journal", "*Show all panels",
                           "*Boot up", "*Wake up, daddy's home", "*Enlarge the systems panel",
                           "*Enlarge the weather", "*Shrink it"],
     "Music and your PC": ["*Pause the music", "*Next song", "*Set volume to 30", "*Mute", "*Open Discord",

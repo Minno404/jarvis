@@ -262,7 +262,7 @@ def selftest():
         try:
             assert [x["src"] for x in bing_images("x")] == ["https://example.com/a.jpg", "https://x/tiny.png"]
             r = show_image("x", count=2)
-            assert r["shown"] == 1 and r["sources"] == ["cars.com"], r
+            assert r["shown"] == 1 and r["sources"] == ["example.com"], r
             ev = sent[-1]
             assert ev["kind"] == "image" and ev["src"].startswith("/api/img/") and ev["src"].endswith(".jpg")
             assert (features.HERE / "images" / ev["src"].split("/")[-1]).read_bytes() == jpg
