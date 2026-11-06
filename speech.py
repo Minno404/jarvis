@@ -208,10 +208,12 @@ def _edge_or_ryan(words, voice, rate):
     Kokoro on this PC when it's installed. Never the robotic Windows voice if it can be helped."""
     if not re.search(r"[A-Za-z0-9]", words):
         return SILENCE
-    try:
-        return edge(words, voice, rate), "audio/mpeg"
-    except Exception as e:
-        print(f"online voice {voice} failed:", repr(e))
+    plain = re.sub(r"[^A-Za-z0-9 ,.?!']+", " ", words)  # the online voice sometimes chokes on odd characters
+    for attempt in (words, words, plain):  # its hiccups are usually brief: try again before changing voice
+        try:
+            return edge(attempt, voice, rate), "audio/mpeg"
+        except Exception as e:
+            print(f"online voice {voice} failed on {attempt[:60]!r}:", repr(e))
     if voice != "en-GB-RyanNeural":
         try:
             return edge(words, "en-GB-RyanNeural", rate), "audio/mpeg"
