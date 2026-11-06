@@ -1,4 +1,4 @@
 {
- "version": "1.32.7",
- "notes": "Choose whether the local AI runs on the graphics card or RAM."
+ "version": "1.33.0",
+ "notes": "Much faster local AI."
 }
