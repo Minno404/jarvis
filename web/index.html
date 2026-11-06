@@ -73,6 +73,9 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
   box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
+.holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
+.holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.holo-panel.desk .desklab{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs));min-height:1.3em}
 .holo-panel::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.05) 0 1px,transparent 1px 3px)}
 .holo-panel.out{animation:holoOut .5s ease-in forwards}
 @keyframes holoIn{from{opacity:0;transform:perspective(700px) rotateY(-42deg) translateX(-90px) scale(.82);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
@@ -281,13 +284,27 @@ html.ambient #amb{opacity:1}
 .dice .dsub{color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}.dice .dres{letter-spacing:.25em;font-family:var(--display);margin-top:4px}
 /* Holo mode: the phone becomes a little desk hologram */
 html.holo-mode .col,html.holo-mode .chips,html.holo-mode .sub,html.holo-mode .log,html.holo-mode .version,html.holo-mode .updatebtn,
-html.holo-mode .dragbar,html.holo-mode .winctl,html.holo-mode .wingrip,html.holo-mode #boot{display:none!important}
+html.holo-mode:not(.pc-holo) .dragbar,html.holo-mode:not(.pc-holo) .winctl,html.holo-mode:not(.pc-holo) .wingrip,
+html.holo-mode #boot,html.holo-mode .panel[data-id],html.holo-mode #bgimg~.free{display:none!important}
+/* on the PC: a desk hologram. The core floats above a projector glow, with a faint beam and nothing else on screen */
+html.pc-holo body{background:radial-gradient(ellipse at 50% 46%,rgba(var(--rgb),.10) 0%,rgba(0,0,0,.0) 38%),#020406}
+html.holo-mode.pc-holo .core-wrap{width:min(52vw,52vh)!important;animation:holoFloat 7s ease-in-out infinite}
+html.pc-holo .core-wrap::before{content:"";position:absolute;left:34%;right:34%;top:62%;bottom:-13%;pointer-events:none;z-index:-1;
+  background:linear-gradient(to top,rgba(var(--rgb),.09),transparent 85%);clip-path:polygon(42% 100%,58% 100%,100% 0,0 0);filter:blur(6px)}
+html.pc-holo .core-wrap::after{content:"";position:absolute;left:30%;right:30%;bottom:-15%;height:5%;pointer-events:none;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(var(--rgb),.55),rgba(var(--rgb),.12) 45%,transparent 70%);filter:blur(4px);animation:holoBase 3.5s ease-in-out infinite}
+html.pc-holo .brand{letter-spacing:.9em;opacity:.55;font-size:clamp(16px,1.6vw,24px);margin-bottom:2vh}
+html.pc-holo #holoLine{font-size:clamp(14px,1.2vw,19px);max-width:min(70vw,760px);margin-top:2vh;letter-spacing:.03em;text-shadow:0 0 12px rgba(var(--rgb),.35)}
+html.pc-holo .state{margin-top:10vh}
+@keyframes holoFloat{50%{transform:translateY(-1.2%)}}
+@keyframes holoBase{50%{opacity:.65}}
 html.holo-mode .wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;grid-template-columns:none}
 html.holo-mode .center{width:100%;align-items:center}
 html.holo-mode .core-wrap{width:min(94vw,72vh)!important}
 html.holo-mode .brand{font-size:clamp(18px,6vw,30px)}
 html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
 #holoLine{max-width:min(92vw,560px);text-align:center;color:var(--text);line-height:1.5;min-height:3em;margin-top:6px;opacity:.9}
+html.pc-holo #holoExit{right:150px}
 #holoExit{position:fixed;top:10px;right:12px;z-index:30;border:0;color:var(--mute);font-size:22px;padding:4px 10px}
 #holoWake{position:fixed;inset:0;z-index:45;display:grid;place-items:center;background:rgba(1,3,6,.92);color:var(--cyan);font-family:var(--display);
   letter-spacing:.35em;text-align:center;font-size:14px;cursor:pointer}
@@ -518,7 +535,9 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <p class="hint" id="kokoroSt"></p>
       <div id="kokoroOpts"><select id="kokoroVoice"></select>
         <div class="keyrow"><span class="hint">Speed</span><input type="range" id="voiceSpeed" min="0.8" max="1.2" step="0.05" style="flex:1">
-          <span class="hint" id="speedVal"></span></div></div>
+          <span class="hint" id="speedVal"></span></div>
+        <div class="keyrow"><span class="hint">Volume</span><input type="range" id="voiceVol" min="0" max="1.5" step="0.05" style="flex:1">
+          <span class="hint" id="volVal"></span></div></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
     <fieldset><legend>Split mode voices</legend>
@@ -820,6 +839,8 @@ if(matchMedia('(pointer:coarse)').matches&&!PIN){
   const scan=()=>{document.querySelectorAll('.panel[data-id]').forEach(p=>grip(p,p.dataset.id));grip($('log'),'log',true)};
   scan();[1000,3000,8000].forEach(t=>setTimeout(scan,t));  // add-on panels arrive a little later
 }
+let voiceGain=null,voiceVol=1;  // Settings > Voice > Volume (the core still pulses with the real voice)
+function setVoiceVol(v){voiceVol=Math.max(0,Math.min(1.5,+v||0));if(voiceGain)voiceGain.gain.value=voiceVol}
 // iPhones mute page sound in Silent mode unless the page says it's media playback, like music or a video
 let mediaOn=false;
 const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent));
@@ -832,7 +853,7 @@ function audio(){
   if(!mediaOn&&(/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent)))){
     mediaOn=true;try{const a=document.createElement('audio');a.src='data:audio/wav;base64,UklGRsQPAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAPAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';a.loop=true;a.setAttribute('playsinline','');
       a.setAttribute('x-webkit-airplay','deny');a.volume=0.01;document.body.append(a);a.play().catch(()=>{mediaOn=false})}catch(e){mediaOn=false}}
-  try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;analyser.connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
+  try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;voiceGain=actx.createGain();voiceGain.gain.value=voiceVol;analyser.connect(voiceGain).connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
 function voice(side,lang){
   let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false,sent=0;
@@ -853,7 +874,7 @@ function voice(side,lang){
     end(){this.flush();chain=chain.then(()=>{closed=true;if(cut())return;if(!started){setMode('speaking');setTimeout(()=>browserSpeak(all),Math.max(0,(speechAt-(actx?.currentTime||0))*1000))}else if(!playing)done()})}
   };
 }
-function browserSpeak(text){try{const u=new SpeechSynthesisUtterance(text);u.rate=1.02;u.pitch=.9;u.onboundary=()=>{target=1;nextSyl=performance.now()+90};u.onend=()=>setMode('idle');speechSynthesis.speak(u)}catch(e){setTimeout(()=>setMode('idle'),1500)}}
+function browserSpeak(text){try{const u=new SpeechSynthesisUtterance(text);u.volume=Math.min(1,voiceVol);u.rate=1.02;u.pitch=.9;u.onboundary=()=>{target=1;nextSyl=performance.now()+90};u.onend=()=>setMode('idle');speechSynthesis.speak(u)}catch(e){setTimeout(()=>setMode('idle'),1500)}}
 function flash(){$('journal').classList.remove('flash');void $('journal').offsetWidth;$('journal').classList.add('flash')}
 // Canned replies for when the page runs without the server (e.g. the online preview)
 function canned(q){
@@ -896,6 +917,16 @@ async function ask(q){
   if(split&&/^(merge|merge back|unsplit)( (with|to|into) )?(claude|chat ?gpt)?$/.test(cmd)){add('you',q);
     return mergeSplit(/gpt/.test(cmd)?'gpt':/claude/.test(cmd)?'claude':$('brain').textContent==='ChatGPT'?'gpt':'claude')}
   if(split&&live&&q.trim()&&!busy)return debate(q);
+  if(/^(?:desk ?view|desk cam(?:era)?|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?)$/.test(cmd)){
+    add('you',q);if(await openDesk())add('j','Desk view is up, sir. Hold something up and ask "what am I holding?".');return}
+  if(DESK.stream&&/^(?:close|stop|hide|turn off|end)(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?$/.test(cmd)){add('you',q);closeDesk();add('j','Camera off, sir.');return}
+  if(/^(?:what am i holding(?: up)?|what(?:'s| is) (?:this|that|in my hands?)(?: i'?m holding)?|what do i have(?: in my hands?)?|what am i showing you|identify (?:this|that|it)|can you see (?:this|what i'?m holding))$/.test(cmd)&&!busy){
+    if(!DESK.stream&&!(await openDesk()))return;
+    const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
+    photo=shot;askNote=`\n[A live photo from his desk camera is attached: say what he's holding or showing you, briefly.`
+      +(DESK.labels.length?` The camera's object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
+  if(/^(?:holo(?:gram)?(?: mode)?|go holo|holo mode on|(?:switch to|open|enter) holo(?:gram)?(?: mode)?)$/.test(cmd)&&!HOLO){add('you',q);location.href='/?holo=1';return}
+  if(HOLO&&/^(?:exit|leave|close|end|stop)(?: the)? holo(?:gram)?(?: mode)?|holo(?:gram)?(?: mode)? off|normal mode|full hud|(?:show|back to) (?:the )?(?:full )?hud$/.test(cmd)){location.href='/';return}
   if(BIG.el&&/^(?:shrink|minimi[sz]e|close|exit|leave|un-?enlarge|go back|back|normal|done|that'?s all|make (?:it|that|this) small(?:er)?)(?: (?:it|that|this|the panel|back|to normal))?$/.test(cmd)){
     add('you',q);exitBig();add('j','Back to normal, sir.');return}
   const big=cmd.match(/^(?:enlarge|expand|maximi[sz]e|blow up|full ?screen|make (?:big|bigger|full ?screen))\s+(?:the |my |your |a |an )?(.+?)(?: panel| window| card)?$/);
@@ -920,7 +951,7 @@ async function ask(q){
   const show=t=>{if(!tFirst&&t.trim())tFirst=performance.now();full+=t;el.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
   try{
     aborter=new AbortController();
-    const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,photo:pic}),signal:aborter.signal});
+    const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q+askNote,photo:pic}),signal:aborter.signal});askNote='';
     const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
     for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
       while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line)continue;const m=JSON.parse(line);if(m.t)show(m.t);if(m.flush)v.flush()}}
@@ -1155,15 +1186,16 @@ function bootUp(ev){
 // ---------- Holo mode: open on a phone (Systems > Holo mode) and it becomes a little desk hologram ----------
 const HOLO=new URLSearchParams(location.search).has('holo');
 function holoSay(text){$('holoLine')&&($('holoLine').textContent=text);try{audio();const v=voice();v.push(text+' ');v.end()}catch(e){}}
-if(!LOCAL&&!PIN){$('holoRow').hidden=false;$('holoBtn').onclick=()=>location.href='/?holo=1'}
+if(!PIN){$('holoRow').hidden=false;$('holoBtn').onclick=()=>location.href='/?holo=1'}
 if(HOLO){
-  document.documentElement.classList.add('holo-mode');
+  document.documentElement.classList.add('holo-mode');if(LOCAL)document.documentElement.classList.add('pc-holo');
+  addEventListener('keydown',e=>{if(e.key==='Escape'&&document.activeElement!==$('q'))location.href='/'});
   const line=document.createElement('div');line.id='holoLine';$('state').after(line);
   const ex=document.createElement('button');ex.id='holoExit';ex.type='button';ex.textContent='\u00d7';ex.setAttribute('aria-label','Leave holo mode');ex.onclick=()=>location.href='/';document.body.append(ex);
-  const wake=document.createElement('div');wake.id='holoWake';wake.innerHTML='TAP TO WAKE<br><br><small style="letter-spacing:.2em;color:var(--mute)">Leave this open: Jarvis speaks here too</small>';document.body.append(wake);
+  const wake=document.createElement('div');wake.id='holoWake';wake.innerHTML='TAP TO WAKE<br><br><small style="letter-spacing:.2em;color:var(--mute)">Leave this open: Jarvis speaks here too</small>';if(!LOCAL)document.body.append(wake);
   const KEY='jarvis.holoSeen',greet=()=>{let last=0;try{last=+localStorage.getItem(KEY)||0;localStorage.setItem(KEY,Date.now())}catch(e){}
     if(Date.now()-last>2*3600e3)holoSay(`Welcome home${userLabel&&userLabel!=='YOU'?', '+userLabel.charAt(0)+userLabel.slice(1).toLowerCase():''}.`)};
-  wake.onclick=()=>{audio();wake.remove();greet()};
+  wake.onclick=()=>{audio();wake.remove();greet()};if(LOCAL)setTimeout(greet,600);  // the PC can talk straight away
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!document.getElementById('holoWake'))greet();else try{localStorage.setItem(KEY,Date.now())}catch(e){}});
   $('coreWrap').addEventListener('click',e=>{if(e.detail===1)document.documentElement.classList.toggle('typing')});
   const realAdd=add;add=function(who,text){const sp=realAdd(who,text);if(who!=='you'){const upd=()=>line.textContent=sp.textContent;upd();new MutationObserver(upd).observe(sp,{childList:true,characterData:true,subtree:true})}return sp};
@@ -1292,6 +1324,44 @@ $('svFile').onchange=async()=>{const fs=[...$('svFile').files];$('svFile').value
     +`<datalist id="svAccDl">${accs.map(a=>`<option value="${esc(a)}">`).join('')}</datalist><div class="row"><button type="button" data-x class="ghost">Cancel</button><button type="button" data-ok>Add</button></div>`,
     async()=>{svMsg('Reading…');const r=await svAct({action:'import',files,account:$('svAN').value});if(r.error){svMsg(r.error,true);return false}svMsg(r.report.join('\n'));svLoad()})};
 addEventListener('keydown',e=>{if(e.key==='Escape'&&SV.on&&$('svOverlay').hidden&&document.activeElement!==$('q'))setSpendMode(false)});
+// ---- "Jarvis, desk view": a camera panel with live object labels (TensorFlow's COCO-SSD, on this PC);
+// "what am I holding?" sends a snapshot to the brain, with what the detector sees (for brains that can't see) ----
+let askNote='';
+const DESK={stream:null,panel:null,video:null,labels:[],model:null};
+async function openDesk(){
+  if(DESK.stream)return true;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){add('j','Desk view works in the Jarvis window on the PC, sir.');return false}
+  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false})}
+  catch(e){add('j',"I can't reach a camera, sir. "+(e.name==='NotAllowedError'?'Camera access was blocked: allow it and try again.':'Is one plugged in?'));return false}
+  const p=document.createElement('div');p.className='holo-panel desk';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close desk view">&times;</button><h3>Desk view</h3><div class="deskbox"><video autoplay playsinline muted></video><canvas></canvas></div><div class="desklab">Loading object recognition…</div>';
+  p.querySelector('.holo-x').onclick=closeDesk;$('holo').prepend(p);sfx('panel');
+  const v=p.querySelector('video');v.srcObject=st;Object.assign(DESK,{stream:st,panel:p,video:v,labels:[]});
+  deskDetect();return true}
+function closeDesk(){if(!DESK.stream)return;DESK.stream.getTracks().forEach(t=>t.stop());const p=DESK.panel;
+  Object.assign(DESK,{stream:null,panel:null,video:null,labels:[]});if(p&&p.isConnected&&!p.classList.contains('out'))closePanel(p)}
+async function deskShot(){const v=DESK.video;for(let i=0;i<30&&v&&v.readyState<2;i++)await new Promise(r=>setTimeout(r,100));
+  if(!v||!v.videoWidth)return null;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.88));
+  try{const r=await (await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'image/jpeg'},body:blob})).json();return r.name||null}catch(e){return null}}
+async function deskDetect(){
+  const lab=()=>DESK.panel&&DESK.panel.querySelector('.desklab');
+  try{if(!DESK.model){
+      if(!window.cocoSsd){await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+        await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js')}
+      DESK.model=await cocoSsd.load({base:'lite_mobilenet_v2'})}}
+  catch(e){if(lab())lab().textContent='Live labels need the internet the first time. "What am I holding?" still works.';return}
+  const tick=async()=>{const p=DESK.panel;
+    if(!p)return;if(!p.isConnected||p.classList.contains('out'))return closeDesk();
+    const v=DESK.video,c=p.querySelector('canvas');
+    if(v.readyState>=2&&v.clientWidth){let preds=[];try{preds=await DESK.model.detect(v,6,.5)}catch(e){}
+      c.width=v.clientWidth;c.height=v.clientHeight;const x=c.getContext('2d'),k=v.clientWidth/v.videoWidth,col=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim()||'#5ef';
+      x.strokeStyle=col;x.fillStyle=col;x.lineWidth=2;x.font='12px monospace';
+      for(const d of preds){const [bx,by,bw,bh]=d.bbox.map(n=>n*k);x.strokeRect(bx,by,bw,bh);x.fillText(`${d.class} ${Math.round(d.score*100)}%`,bx+4,Math.max(12,by-4))}
+      DESK.labels=[...new Set(preds.filter(d=>d.class!=='person').map(d=>d.class))];
+      if(lab())lab().textContent=DESK.labels.length?'I can see: '+DESK.labels.join(', '):'Hold something up and ask "what am I holding?"'}
+    setTimeout(tick,350)};
+  tick()}
 // ---- "Enlarge ...": one panel fills the HUD, the core moves to a corner (like the spending report) ----
 const BIG={el:null,pending:0};
 function findPanel(name){
@@ -1306,12 +1376,12 @@ function glideCore(fn){const core=$('coreWrap'),a=core.getBoundingClientRect();f
 function enterBig(p){
   if(PIN)return;if(SV.on)setSpendMode(false);if(BIG.el)exitBig(true);
   Object.assign(BIG,{el:p,parent:p.parentNode,next:p.nextSibling,style:p.getAttribute('style'),hidden:p.hidden,pending:0});
-  p.removeAttribute('style');p.hidden=false;$('bigView').append(p);
+  p.removeAttribute('style');p.hidden=false;$('bigView').append(p);p.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
   glideCore(()=>{document.documentElement.classList.add('bigmode');$('bigView').hidden=false;$('bigClose').hidden=false})}
 function exitBig(quick){
   const b={...BIG};if(!b.el)return;BIG.el=null;
   if(b.el.isConnected&&!b.el.classList.contains('out')){(b.parent.isConnected?b.parent:$('holo')).insertBefore(b.el,b.next&&b.next.parentNode===b.parent?b.next:null);
-    if(b.style)b.el.setAttribute('style',b.style);b.el.hidden=b.hidden}
+    if(b.style)b.el.setAttribute('style',b.style);b.el.hidden=b.hidden;b.el.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}))}
   const off=()=>{document.documentElement.classList.remove('bigmode');$('bigView').hidden=true;$('bigClose').hidden=true};
   if(quick)off();else glideCore(off)}
 $('bigClose').onclick=()=>exitBig();
@@ -1479,7 +1549,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -1651,6 +1721,7 @@ function showPrefs(p){
   document.querySelectorAll('input[name=lm]').forEach(r=>r.checked=r.value===(prefs.listen_mode||'wake'));
   document.querySelectorAll('input[name=as]').forEach(r=>r.checked=r.value===(prefs.avatar_style||'hologram'));
   document.querySelectorAll('input[name=ve]').forEach(r=>r.checked=r.value===(prefs.voice_engine||'edge'));
+  const vv=prefs.voice_volume??1;$('voiceVol').value=vv;$('volVal').textContent=Math.round(vv*100)+'%';setVoiceVol(vv);
   $('voiceSpeed').value=prefs.voice_speed||1;$('speedVal').textContent=(+(prefs.voice_speed||1)).toFixed(2)+'×';
   $('pttName').textContent=keyName(prefs.ptt_key);
   $('pttHint').textContent=/^(Key|Digit|Space|Enter|Tab)/.test(prefs.ptt_key||'')?"Heads up: that key also types, so it'll trigger Jarvis while you type. F-keys, ` or a mouse side button are better for games."
@@ -1713,6 +1784,8 @@ const testSide=(sd,line)=>{audio();const v=voice(sd);v.push(line);v.end()};
 $('splitClaudeTest').onclick=()=>testSide('claude','Claude here, sir. I will make the case for it.');
 $('splitGptTest').onclick=()=>testSide('gpt',"And I'm ChatGPT. I'll tell you why it might be a bad idea.");
 $('voiceSpeed').oninput=()=>$('speedVal').textContent=(+$('voiceSpeed').value).toFixed(2)+'×';
+$('voiceVol').oninput=()=>{setVoiceVol($('voiceVol').value);$('volVal').textContent=Math.round(voiceVol*100)+'%'};
+$('voiceVol').onchange=()=>{savePref({voice_volume:+$('voiceVol').value});try{audio();const v=voice();v.push('Volume set.');v.end()}catch(e){}};
 $('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
 $('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};
 $('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice();refreshLocal()};
