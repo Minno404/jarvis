@@ -169,16 +169,22 @@ class Watch:
         self.news_warned, self.news_retry = set(), 0.0
 
     def tick(self):
-        R = features.REGISTRY
-        self.news()
+        """Trading off (features): only the price alerts he set himself; no guard, tilt, news or review."""
+        R, full = features.REGISTRY, features.feature("trading")
+        alerts = list_alerts()
+        if not full and not alerts:
+            return
+        if full:
+            self.news()
         if "terminal64.exe" not in features.running():
             return
-        alerts = list_alerts()
         if alerts:
             q = R["quote"](sorted({a["symbol"] for a in alerts}))
             for a in triggered_alerts({k: v["bid"] for k, v in q.items()}):
                 self.say(f"Sir, {a['symbol']} is {a['when']} {a['price']:g}."
                          + (f" You said: {a['note']}." if a["note"] else ""))
+        if not full:
+            return
         acct = R["account_status"]()
         server_now = R["quote"](["XAUUSD"])["XAUUSD"]["server_time"]
         today = server_now[:10]
