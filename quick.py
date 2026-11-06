@@ -168,12 +168,15 @@ def quick(text):
                  "edith": "EDITH online. Standing by.", "mate": "G'day mate, Jarvo here. What are we up to?"}
         return _ok(r, hello.get(r.get("now"), "Done."))
     # --- which AI Jarvis thinks with ---
-    m = re.fullmatch(r"(?:switch to|use|swap to|change to|go) (chat ?gpt|gpt|claude|auto(?:matic)?|local(?: ai)?|offline)"
-                     r"(?: brain| mode)?|(chat ?gpt|claude|auto|local|offline) mode", t)
+    m = re.fullmatch(r"(?:switch to|use|swap to|change to|go) (chat ?gpt|gpt|claude|auto(?:matic)?|local(?: ai)?|offline|"
+                     r"online|cloud)(?: brain| mode| ai)?|(chat ?gpt|claude|auto|local|offline|online|cloud) (?:mode|ai|brain)"
+                     r"|(?:swap|switch|change|flip|toggle)(?: the| your| my)? (brains?|ai)", t)
     if m:
-        b = (m.group(1) or m.group(2)).replace(" ", "")
-        b = ("chatgpt" if "gpt" in b else "auto" if b.startswith("auto") else "local" if b.startswith(("local", "offline"))
-             else "claude")
+        b = (m.group(1) or m.group(2) or "").replace(" ", "")
+        if m.group(3):  # "swap brain": between the local AI and the online ones
+            b = "auto" if features.settings().get("brain") == "local" else "local"
+        b = ("chatgpt" if "gpt" in b else "auto" if b.startswith(("auto", "online", "cloud")) else "local"
+             if b.startswith(("local", "offline")) else b if b in ("auto", "local") else "claude")
         r = R["set_brain"](b)
         return _ok(r, {"chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
                        "local": "Running on this PC now, {TITLE}: free, but I'm not as sharp as Claude.",
@@ -259,6 +262,8 @@ def selftest():
         "use claude": ("set_brain", ("claude",), {}),
         "auto mode": ("set_brain", ("auto",), {}),
         "switch to local": ("set_brain", ("local",), {}),
+        "online mode.": ("set_brain", ("auto",), {}),
+        "offline mode": ("set_brain", ("local",), {}),
         "switch to FRIDAY": ("set_persona", ("friday",), {}),
         "Jarvis, casual mode": ("set_persona", ("casual",), {}),
         "back to Jarvis": ("set_persona", ("jarvis",), {}),
