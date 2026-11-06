@@ -1,4 +1,4 @@
 {
- "version": "1.33.1",
- "notes": "Local AI error fixes."
+ "version": "1.34.0",
+ "notes": "Message timestamps and reply times; a quicker local AI, especially in RAM mode."
 }
