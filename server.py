@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.28.6"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.29.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -778,6 +778,8 @@ def save_prefs(d):
     if "autostart" in d:
         set_autostart(bool(d["autostart"]))
         s = features.settings()
+    if isinstance(d.get("features"), dict):
+        s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
     for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
         if k in d:
             s[k] = bool(d[k])
@@ -795,7 +797,7 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed",
-                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "split_claude_voice",
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "split_claude_voice",
                                                             "split_gpt_voice")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -1145,7 +1147,7 @@ def chat_gpt(text, photo=None):
     except Exception:
         room = ""
     with lock:
-        yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt(),
+        yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt(),
                                   persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [])
 
 
@@ -1222,7 +1224,7 @@ def chat_cli(text):
            "--model", os.environ.get("JARVIS_CLI_MODEL", "sonnet"),
            # Fewer tokens per message: Jarvis's own prompt replaces Claude Code's long coding one, only the two
            # tools he uses are loaded, and none of the user's own Claude Code settings or MCP servers.
-           "--system-prompt", persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt(),
+           "--system-prompt", persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt(),
            "--tools", "Bash,Read", "--setting-sources", "project",
            "--allowedTools", "Bash(python server.py tool *)", "--permission-mode", "dontAsk",
            "--strict-mcp-config", "--disable-slash-commands"]
@@ -1293,7 +1295,7 @@ def chat_api(text):
         now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
         while True:
             r = client.messages.create(model=MODEL, max_tokens=1024, tools=json.loads(persona(json.dumps(TOOLS))),
-                                       system=persona(f"{SYSTEM}\nCurrent local time: {now}.") + features.memory_prompt(),
+                                       system=persona(f"{SYSTEM}\nCurrent local time: {now}.") + features.memory_prompt() + features.feature_prompt(),
                                        messages=history)
             history.append({"role": "assistant", "content": r.content})
             if r.stop_reason != "tool_use":
@@ -1467,7 +1469,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/boot":
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             # settings first: live status ("brain", "persona") must win over the saved setting of the same name
-            return self.send_json({**features.settings(), "memories": len(features.memories()),
+            return self.send_json({**features.settings(), "features": {k: features.feature(k) for k in features.FEATURES},
+                                   "memories": len(features.memories()),
                                    "protocols": len(features.list_routines()), "mt5": mt5_on, "version": VERSION,
                                    "brain": brain_status(), "persona": personas.get(),
                                    "autostart": autostart_on()})
@@ -1547,7 +1550,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/settings":  # first-launch setup
             d = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            return self.send_json(features.save_settings(d.get("name", ""), d.get("city", ""), d.get("title", "sir")))
+            return self.send_json(features.save_settings(d.get("name", ""), d.get("city", ""), d.get("title", "sir"),
+                                                         d.get("features")))
         if self.path == "/api/update":  # the HUD's Update button: install the new version and restart
             if not self.local():
                 return self.send_error(403)
@@ -2200,8 +2204,9 @@ if __name__ == "__main__":
                     state = features._load("state.json", {})
                     if awareness.late_night_due(sit, state):
                         features._save("state.json", state)
-                        say(f"It's past {sit['now'].hour} in the morning, sir. The charts will still be "
-                            "there after some sleep.")
+                        say(f"It's past {sit['now'].hour} in the morning, sir. "
+                            + ("The charts will still be there after some sleep." if features.feature("trading")
+                               else "Whatever it is will still be there after some sleep."))
                     if sit and learn.learn_due(sit["idle_s"]) and learning.acquire(blocking=False):
                         def run_learning():
                             try:
@@ -2218,7 +2223,7 @@ if __name__ == "__main__":
                         say(f"Reminder, sir: {r['text']}" if not r["text"].lower().startswith("timer")
                             else f"Sir, your {r['text']} is done.", urgent=True)
                     if features.morning_due():
-                        ask_claude_and_say(features.MORNING_PROMPT)
+                        ask_claude_and_say(features.morning_prompt())
                 except Exception as e:
                     print(datetime.datetime.now(), "watcher:", repr(e))
                 try:
@@ -2228,7 +2233,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(datetime.datetime.now(), "dev job:", repr(e))
                 try:
-                    if time.time() - st.get("plan_check", 0) > 3600:  # spending only changes with new statements
+                    if features.feature("spending") and time.time() - st.get("plan_check", 0) > 3600:
                         st["plan_check"] = time.time()
                         for w in spending.plan_warnings():
                             say(persona(f"Budget note, {{TITLE}}: {w}"))

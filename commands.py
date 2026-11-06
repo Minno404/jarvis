@@ -57,7 +57,7 @@ COMMANDS = {
 
 def show_commands(search=None):
     """Show everything Jarvis can do as a searchable panel on the HUD (optionally pre-filtered)."""
-    groups = dict(COMMANDS)
+    groups = {k: v for k, v in COMMANDS.items() if k != "Trading" or features.feature("trading")}
     try:  # add-ons in custom/ can add their own: COMMANDS = {"Group": ["phrase", ...]}
         import custom_loader
         for m in custom_loader.modules:

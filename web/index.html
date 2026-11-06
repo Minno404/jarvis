@@ -186,7 +186,10 @@ body[data-bg=image]::before,body[data-bg=stars]::before,body[data-bg=rain]::befo
 .vgrip::after{content:"";position:absolute;left:12px;right:12px;top:9px;height:4px;border-radius:2px;background:rgba(var(--rgb),.45)}
 .vgrip.loggrip{position:relative;margin:2px auto 6px}.settings fieldset{border:1px solid var(--line);margin:12px 0;padding:10px 12px}
 .settings legend{color:var(--cyan);font-family:var(--display);font-size:calc(11px*var(--fs));letter-spacing:.2em;text-transform:uppercase;padding:0 6px}
-.settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.settings input[type=radio],.settings input[type=checkbox]{flex:none;accent-color:var(--cyan);width:auto;padding:0}
+.settings label{display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer}.featpick{border:1px solid var(--line);padding:6px 10px 2px;margin:8px 0}.featpick legend{color:var(--mute);font-size:12px;padding:0 4px}
+.featpick label{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13px;line-height:1.4}
+.featpick input{flex:none;width:auto;padding:0;margin-top:3px;accent-color:var(--cyan)}.featpick b{font-weight:600;color:var(--text)}
+.settings input[type=radio],.settings input[type=checkbox]{flex:none;accent-color:var(--cyan);width:auto;padding:0}
 .settings .keyrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}.settings .keyrow button{padding:6px 12px}
 .settings #pttName{font-family:var(--display);color:var(--text);min-width:120px}.settings .hint{color:var(--mute);font-size:calc(11px*var(--fs));line-height:1.5;margin:6px 0 0}
 .settings input[type=range]{accent-color:var(--cyan);padding:0}
@@ -380,6 +383,12 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
     <label class="field">Your name<input id="setName" required autocomplete="given-name" placeholder="e.g. Sam"></label>
     <label class="field">Your city (for the weather)<input id="setCity" autocomplete="address-level2" placeholder="e.g. Melbourne"></label>
     <label class="field">What should he call you?<input id="setTitle" value="sir" placeholder="sir, ma'am, boss, or your name"></label>
+    <fieldset class="featpick"><legend>What do you want Jarvis to keep an eye on?</legend>
+      <label><input type="checkbox" id="setTrading"><span><b>Day trading and markets</b>: MetaTrader 5 journal, price and news alerts, trade-habit warnings, gold in the morning brief, a daily trading review</span></label>
+      <label><input type="checkbox" id="setSpending"><span><b>Spending</b>: budget notes from the Spend Breakdown app</span></label>
+      <label><input type="checkbox" id="setTv" checked><span><b>TV control</b>: a Hisense smart TV on your Wi-Fi</span></label>
+      <p class="hint">Anything you leave off still works if you ask for it; he just won't bring it up by himself. You can change this later in Settings.</p>
+    </fieldset>
     <button type="submit">Start Jarvis</button>
   </form>
 </div>
@@ -415,6 +424,12 @@ html.holo-mode form{display:none}html.holo-mode.typing form{display:flex}
       <div class="keyrow"><span class="hint">See-through</span><input type="range" id="panelAlpha" min="0.05" max="0.9" step="0.05" style="flex:1;direction:rtl"></div>
       <div class="keyrow"><span class="hint">Text size</span><input type="range" id="textSize" min="0.7" max="1.3" step="0.05" style="flex:1"><span class="hint" id="textSizeVal"></span></div>
       <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
+    </fieldset>
+    <fieldset><legend>Features</legend>
+      <label><input type="checkbox" data-feat="trading"> Day trading and markets (journal, alerts, trade warnings, market news, daily review)</label>
+      <label><input type="checkbox" data-feat="spending"> Spending (budget notes from Spend Breakdown)</label>
+      <label><input type="checkbox" data-feat="tv"> TV control</label>
+      <p class="hint">Off means he won't bring it up by himself; it still works whenever you ask.</p>
     </fieldset>
     <fieldset><legend>Startup &amp; closing</legend>
       <label><input type="checkbox" id="autoStart"> Start Jarvis when Windows starts (he waits in the tray by the clock if the option below is on)</label>
@@ -957,6 +972,12 @@ function ambFrame(){if(!ambOn)return;ambT*=.93;ambK+=(ambT-ambK)*.3;$('amb').sty
   requestAnimationFrame(ambFrame)}
 $('ambOn').onchange=()=>savePref({ambient:$('ambOn').checked});
 $('autoStart').onchange=()=>savePref({autostart:$('autoStart').checked});
+document.querySelectorAll('[data-feat]').forEach(c=>c.onchange=()=>{const f={};
+  document.querySelectorAll('[data-feat]').forEach(x=>f[x.dataset.feat]=x.checked);applyFeatures(f,true);savePref({features:f})});
+// Trading switched off: its panels close (still there: "show the MT5 journal" brings one back)
+const TRADING_PANELS=['mt5','journal','report'];
+function applyFeatures(f,changed){if(f&&f.trading===false)TRADING_PANELS.forEach(id=>setPanel(id,false));
+  else if(changed&&f&&f.trading)TRADING_PANELS.filter(id=>id!=='mt5').forEach(id=>setPanel(id,true))}
 $('closeTray').onchange=()=>savePref({close_to_tray:$('closeTray').checked});
 $('ambMusic').onchange=()=>savePref({ambient_music:$('ambMusic').checked});
 $('bootOn').onchange=()=>savePref({bootup:$('bootOn').checked});
@@ -1149,14 +1170,16 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
   else if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){  // first launch on this PC
     $('setupModal').hidden=false;$('setName').focus();
     $('setupForm').onsubmit=async e=>{e.preventDefault();
-      const d={name:$('setName').value,city:$('setCity').value,title:$('setTitle').value||'sir'};
+      const d={name:$('setName').value,city:$('setCity').value,title:$('setTitle').value||'sir',
+        features:{trading:$('setTrading').checked,spending:$('setSpending').checked,tv:$('setTv').checked}};
+      applyFeatures(d.features);showPrefs({features:d.features});
       try{await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)})}catch(err){}
       $('setupModal').hidden=true;$('sub').textContent='Personal assistant · Online for '+d.name;userLabel=d.name.toUpperCase();
       announce(`Pleasure to meet you, ${d.title.toLowerCase()==='sir'?'sir':d.title}. All systems are online.`)};
@@ -1323,6 +1346,7 @@ function showPrefs(p){
   if(prefs.listen_mode==='ptt'&&!prefs.ptt_key)$('setMsg').textContent='Push-to-talk only needs a key: set one above.';
   setAvatar(prefs.avatar,prefs.avatar_style);
   if(prefs.text_size!=null){setFs(prefs.text_size);$('textSize').value=prefs.text_size}
+  if(prefs.features)document.querySelectorAll('[data-feat]').forEach(c=>c.checked=prefs.features[c.dataset.feat]!==false);
   $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
   $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;
   setAmbient(!!prefs.ambient&&!PIN);

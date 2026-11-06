@@ -41,8 +41,10 @@ def settings():
     return {"name": "", "city": "", "title": "sir", **_load("settings.json", {})}
 
 
-def save_settings(name, city="", title="sir"):
+def save_settings(name, city="", title="sir", features=None):
     s = {**settings(), "name": name.strip(), "city": city.strip(), "title": title.strip() or "sir"}
+    if isinstance(features, dict):  # first-launch choices: which kinds of things Jarvis brings up by himself
+        s["features"] = {k: bool(features.get(k, True)) for k in FEATURES}
     _save("settings.json", s)
     return s
 
@@ -76,6 +78,42 @@ def forget(id=None, text=None):
 
 def memories():
     return _load("memory.json", [])
+
+
+# ---------- Features he picked at setup: the rest stay available, but quiet unless he asks ----------
+FEATURES = {
+    "trading": "Day trading and markets: MetaTrader 5 journal, market watch, trade guard, tilt warnings, news alerts, "
+               "gold in the morning brief and an end-of-day trading review",
+    "spending": "Spending: budget notes from the Spend Breakdown app",
+    "tv": "TV control: a Hisense (VIDAA) TV on the same Wi-Fi",
+}
+
+
+def feature(name):
+    """Is this feature switched on? Installs from before the setup question have everything on."""
+    return bool((settings().get("features") or {}).get(name, True))
+
+
+def feature_prompt():
+    """A note for the brain about the features he switched off: there if he asks, never brought up otherwise."""
+    off = [k for k in FEATURES if not feature(k)]
+    if not off:
+        return ""
+    what = {"trading": "trading, markets, MetaTrader, gold, economic news or his trading journal",
+            "spending": "his spending or budget", "tv": "the TV"}
+    return ("\nHe switched these off, so never bring them up or use their tools on your own; only if he asks: "
+            + "; ".join(what[k] for k in off) + ".")
+
+
+def morning_prompt():
+    """The morning brief, with the market parts only if trading is on."""
+    p = ("[Automatic morning brief, not typed by {USER}] Give {USER} his morning brief, as if he just sat down: a "
+         "short greeting, the weather (weather tool), today's reminders (list_reminders)")
+    if feature("trading"):
+        p += (", high-impact news in the next 24 hours (upcoming_news), and gold with market_snapshot if MT5 is open "
+              "(skip it quietly if not). If MT5 is open, call session_debrief and give its focus_tomorrow as the one "
+              "thing to watch today")
+    return p + ". 4-6 spoken sentences."
 
 
 def memory_prompt():
@@ -441,6 +479,10 @@ def selftest():
         remember("Alex's birthday is 12 March")
         assert forget(text="car service") == {"forgot": 1} and len(memories()) == 1
         assert "Alex" in memory_prompt()
+        assert feature("trading") and feature_prompt() == "" and "market_snapshot" in morning_prompt()
+        save_settings("Alex", "Perth", "mate", {"trading": False, "tv": True})
+        assert not feature("trading") and feature("spending") and "trading, markets" in feature_prompt()
+        assert "market_snapshot" not in morning_prompt() and "weather" in morning_prompt()
         add_reminder("call Alex", at="2029-12-31 18:00")
         t = add_reminder("pizza", in_minutes=20)["set"]
         assert [r["text"] for r in list_reminders()][-1] == "call Alex"

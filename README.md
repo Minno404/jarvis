@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.28.6** (shown at the bottom right of the HUD)
+**Version 1.29.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -187,6 +187,10 @@ pairing are kept. (Updates come from github.com/Minno404/jarvis.)
 
 ## Version history
 
+- **1.29.0** (7 Nov 2026): first-launch setup asks what Jarvis should keep an eye on: day trading and markets,
+  spending, TV. Anything left off still works when asked, but he won't bring it up himself (no market news,
+  trade warnings, trading review or gold in the morning brief, and the trading panels stay closed). Change it
+  any time in Settings > Features. Existing installs keep everything on.
 - **1.28.6** (5 Nov 2026): Jarvis never opens MetaTrader 5 by himself (MetaTrader's connector used to start it
   whenever anything asked for live data); he uses MT5 only when it's already open, or opens it when asked.
 - **1.28.5** (5 Nov 2026): iPhone, normal view: Jarvis's sound starts from your first tap (like holo mode's "tap

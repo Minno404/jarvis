@@ -167,6 +167,12 @@ def greeting(now=None, reminders_today=0, recent=None):
     pool = GREETINGS[part] * 2 + GREETINGS.get(now.strftime("%A"), []) * 2
     if part not in ("small_hours", "late"):
         pool += GREETINGS["any"]
+    try:
+        import features
+        if not features.feature("trading"):  # not a trader: no market small talk
+            pool = [g for g in pool if not any(w in g.lower() for w in ("chart", "market", "session"))]
+    except Exception:
+        pass
     recent = recent if recent is not None else []
     fresh = [g for g in pool if g not in recent] or pool
     first = random.choice(fresh)
