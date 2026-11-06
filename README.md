@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.38.0** (shown at the bottom right of the HUD)
+**Version 1.39.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.39.0** (7 Nov 2026): talk to Jarvis from your phone. A Mic button (and a mic under the core in holo mode)
+  records until you stop talking; the PC turns it into text with the same speech recognition as "Hey Jarvis".
+  Phones only allow the microphone on secure pages, so Jarvis sets up Tailscale's secure link
+  (https://<your PC>.<tailnet>.ts.net, only your own devices can open it); it's listed first in Pair phone.
 - **1.38.0** (7 Nov 2026): desk camera extras. "Room scan" / "what's on my desk?" describes what the camera sees.
   Inventory mode: while desk view is open Jarvis remembers what he sees ("where did I leave my phone?").
   "Gesture control": open palm play/pause, peace sign next song, thumbs up/down volume, fist stops him talking,

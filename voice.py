@@ -22,6 +22,25 @@ STT_MODELS = {"fast": "base.en", "accurate": "small.en", "best": "medium.en"}
 SURE_LOGPROB = -0.6  # Whisper's average confidence below this: he checks "did you say...?" before acting
 
 
+STT = {}  # the loaded Whisper model
+
+
+def transcribe_audio(data, suffix=".m4a"):
+    """A recording from the phone's microphone (any format a browser records: mp4/aac, webm/opus) -> (text, sure)."""
+    import tempfile
+    if not STT.get("model"):
+        from faster_whisper import WhisperModel
+        STT["model"] = WhisperModel(stt_model(), device="cpu", compute_type="int8")
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+        f.write(data)
+    try:
+        segments, _ = STT["model"].transcribe(f.name, language="en", beam_size=5, initial_prompt=vocab(), vad_filter=True)
+        segments = list(segments)
+    finally:
+        os.unlink(f.name)
+    return " ".join(s.text.strip() for s in segments).strip(), sure(segments)
+
+
 def stt_model():
     if os.environ.get("JARVIS_STT_MODEL"):
         return os.environ["JARVIS_STT_MODEL"]
@@ -182,6 +201,7 @@ def _run(on_status, cb):
             print("voice: wake word model download:", repr(e))
         wake = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
         stt = WhisperModel(stt_model(), device="cpu", compute_type="int8")
+        STT["model"] = stt  # shared with the phone's microphone (transcribe_audio)
         # the quick "did he just say Jarvis?" check runs often, so it always uses the small fast model
         name_stt = stt if stt_model() == "base.en" else WhisperModel("base.en", device="cpu", compute_type="int8")
     except Exception as e:
