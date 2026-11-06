@@ -20,6 +20,10 @@ HERE = Path(__file__).resolve().parent
 
 def find_codex():
     global CODEX
+    # Node.js installed while Jarvis was running isn't on his PATH yet, and codex.cmd needs it ("node" not found)
+    node = Path(os.environ.get("ProgramFiles", "")) / "nodejs"
+    if os.name == "nt" and (node / "node.exe").exists() and str(node).lower() not in os.environ["PATH"].lower():
+        os.environ["PATH"] = str(node) + os.pathsep + os.environ["PATH"]
     CODEX = shutil.which("codex") or shutil.which("codex.cmd") or shutil.which("codex", path=str(
         Path(os.environ.get("APPDATA", Path.home())) / "npm"))  # npm's global folder on Windows
     return CODEX

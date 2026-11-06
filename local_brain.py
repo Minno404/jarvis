@@ -85,9 +85,9 @@ def model():
     base = s.get("local_model") or recommend(0)["model"]
     if s.get("local_on") != "ram":
         return base
-    name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-")
+    name = "jarvis-ram-" + base.replace(":", "-").replace("/", "-") + ":latest"  # Codex wants the exact name
     have = models()
-    if have is not None and not any(m.split(":")[0] == name for m in have):
+    if have is not None and not name in have:
         with _api("/api/create", {"model": name, "from": base, "parameters": {"num_gpu": 0}, "stream": False},
                   timeout=120):
             pass

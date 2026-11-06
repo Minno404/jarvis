@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.33.0** (shown at the bottom right of the HUD)
+**Version 1.33.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.33.1** (7 Nov 2026): local AI fixes: RAM mode no longer fails with "pull model manifest: file does not exist",
+  and Codex jobs find Node.js when it was installed while Jarvis was running.
 - **1.33.0** (7 Nov 2026): a much faster local AI. Chat now goes straight to Ollama (no Codex in between, so far
   less to read per message), thinking is switched off, and the model stays loaded for 30 minutes. Coding and PC
   jobs still go through Codex.

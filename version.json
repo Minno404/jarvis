@@ -1,4 +1,4 @@
 {
- "version": "1.33.0",
- "notes": "Much faster local AI."
+ "version": "1.33.1",
+ "notes": "Local AI error fixes."
 }
