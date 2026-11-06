@@ -18,7 +18,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.31.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.32.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -598,8 +598,10 @@ import commands   # "what can you do?": every command as a searchable panel (see
 import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
 import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
 import spendview  # the full-screen spending report: Spend Breakdown inside Jarvis (see spendview.py)
+import local_brain  # the free AI that runs on this PC: Jarvis's third brain (see local_brain.py)
+import web        # free web search and page reading (see web.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          *custom_loader.load()):
+          web, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1103,21 +1105,25 @@ def chat_stream(text, photo=None):
     if convo.get("persona") != personas.current():  # new personality: fresh conversations in its own voice
         session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
     brain = features.settings().get("brain", "auto")
-    if brain_status()["using"] == "ChatGPT":
-        yield from chat_gpt(text, photo)
+    using = brain_status()["using"]
+    if using == "Local":
+        yield from chat_gpt(text, photo, local=True)
         return
     said = False
     try:
-        for p in _chat_claude(text):
+        for p in (chat_gpt(text, photo) if using == "ChatGPT" else _chat_claude(text)):
             said = said or bool(p)
             yield p
     except Exception as e:
-        if said or brain != "auto" or not gpt_brain.available() or not LIMIT_HIT.search(str(e)):
+        if said or brain != "auto" or not LIMIT_HIT.search(str(e)):
             raise
-        claude_out["until"] = time.time() + 3600  # try Claude again in an hour
-        print(datetime.datetime.now(), "Claude limit reached, switching to ChatGPT:", str(e)[:200])
-        push_event({"type": "brain", "name": "ChatGPT"})
-        yield from chat_gpt(text, photo)
+        (claude_out if using == "Claude" else gpt_out)["until"] = time.time() + 3600  # try it again in an hour
+        nxt = brain_status()["using"]
+        if nxt == using:
+            raise
+        print(datetime.datetime.now(), f"{using} limit reached, switching to {nxt}:", str(e)[:200])
+        push_event({"type": "brain", "name": nxt})
+        yield from chat_gpt(text, photo, local=nxt == "Local")
 
 
 DEBATE = ("[Split mode, not a normal reply: {{USER}} triple-clicked you into two avatars to weigh something up. You are "
@@ -1154,7 +1160,7 @@ LIMIT_HIT = re.compile(r"limit|quota|usage|exceeded|overloaded|429", re.I)
 claude_out = {"until": 0.0}
 
 
-def chat_gpt(text, photo=None):
+def chat_gpt(text, photo=None, local=False):
     now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
     try:
         room = awareness.describe(awareness.situation())
@@ -1162,7 +1168,7 @@ def chat_gpt(text, photo=None):
         room = ""
     with lock:
         yield from gpt_brain.chat(persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt(),
-                                  persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [])
+                                  persona(f"[{now}] {room}\n{text}"), [UPLOADS / photo] if photo else [], local=local)
 
 
 def quiet_mode(on=True):
@@ -1189,6 +1195,8 @@ def activity():
                                                     .total_seconds() < 3600):
             jobs.append({"what": j["request"][:90], "project": j.get("project"), "status": j["status"],
                          "since": j.get("finished") or j.get("asked")})
+    if local_brain.progress["running"]:
+        TASKS["local_ai"] = {"label": "Local AI: " + local_brain.progress["step"], "progress": local_brain.progress["pct"]}
     downloads = [dict(v, name=k) for k, v in TASKS.items()]
     if speech.status["kokoro"] in ("installing", "downloading"):
         downloads.append({"name": "kokoro", "label": "Kokoro voice: " + speech.status["kokoro"],
@@ -1200,19 +1208,36 @@ def activity():
 
 
 def brain_status():
+    """Which brain answers now. auto: Claude, then ChatGPT when Claude's limit is hit, then the local AI when
+    ChatGPT's is too (or whichever of them this PC has)."""
     b = features.settings().get("brain", "auto")
-    no_claude = not CLAUDE and not os.environ.get("ANTHROPIC_API_KEY")  # a mate who only has ChatGPT
-    using = ("ChatGPT" if gpt_brain.available() and (b == "chatgpt" or (b == "auto" and (no_claude or time.time()
-                                                                                         < claude_out["until"])))
-             else "Claude")
-    return {"setting": b, "using": using, "chatgpt_ready": gpt_brain.available()}
+    gpt, local = gpt_brain.available(), local_brain.ready()
+    claude_ok = (CLAUDE or os.environ.get("ANTHROPIC_API_KEY")) and time.time() >= claude_out["until"]
+    gpt_ok = gpt and time.time() >= gpt_out["until"]
+    if b == "local" and local:
+        using = "Local"
+    elif b == "chatgpt" and gpt:
+        using = "ChatGPT"
+    elif b == "claude" or claude_ok:
+        using = "Claude"
+    elif gpt_ok or (gpt and not local):
+        using = "ChatGPT"
+    else:
+        using = "Local" if local else "Claude"
+    return {"setting": b, "using": using, "chatgpt_ready": gpt, "local_ready": local}
+
+
+gpt_out = {"until": 0.0}  # ChatGPT's limit was hit: the local AI fills in for an hour
 
 
 def set_brain(brain):
     """Which AI Jarvis thinks with: auto (Claude, ChatGPT when the Claude limit is hit), claude or chatgpt."""
-    b = {"gpt": "chatgpt", "openai": "chatgpt", "codex": "chatgpt", "anthropic": "claude"}.get(brain.lower(), brain.lower())
-    if b not in ("auto", "claude", "chatgpt"):
-        return {"error": "brain must be auto, claude or chatgpt"}
+    b = {"gpt": "chatgpt", "openai": "chatgpt", "codex": "chatgpt", "anthropic": "claude", "ollama": "local",
+         "offline": "local"}.get(brain.lower(), brain.lower())
+    if b not in ("auto", "claude", "chatgpt", "local"):
+        return {"error": "brain must be auto, claude, chatgpt or local"}
+    if b == "local" and not local_brain.ready():
+        return {"error": "The local AI isn't set up yet: Settings > Local AI > Install."}
     if b == "chatgpt" and not gpt_brain.available():
         return {"error": "ChatGPT isn't set up on this PC yet: install Node.js, then run 'npm install -g "
                          "@openai/codex' and 'codex login' (Sign in with ChatGPT)."}
@@ -1527,6 +1552,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(spendview.view(q.get("account", ""), q.get("month", "")))
             except Exception as e:
                 return self.send_json({"error": f"{type(e).__name__}: {e}"})
+        if self.path == "/api/local":  # the local AI: what's set up, the recommended model, install progress
+            return self.send_json(local_brain.status())
         if self.path == "/api/ambient":
             return self.send_json(ambient())
         if self.path == "/api/voice":  # Kokoro setup progress and the voices to choose from, for Settings
@@ -1688,6 +1715,25 @@ class Handler(SimpleHTTPRequestHandler):
             if not re.match(r"https?://", url) or not LIVE.get("page_price"):
                 return self.send_json({"error": "Needs a web link, and the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["page_price"](url))
+        if self.path == "/api/local":  # install the local AI (in the background; progress in Activity)
+            if not self.local():
+                return self.send_error(403)
+            d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            if local_brain.progress["running"]:
+                return self.send_json({"error": "Already installing."})
+
+            def go():
+                TASKS["local_ai"] = {"label": "Setting up the local AI", "progress": None}
+                try:
+                    r = local_brain.install(d.get("model"))
+                    push_event({"type": "brain", "name": brain_status()["using"]})
+                    LIVE.get("say", print)(persona("Your local AI is ready, {TITLE}. I can think on this PC now, "
+                                                   "for free." if r.get("ready")
+                                                   else f"The local AI didn't finish setting up: {r.get('error')}"))
+                finally:
+                    TASKS.pop("local_ai", None)
+            threading.Thread(target=go, daemon=True).start()
+            return self.send_json({"started": True})
         if self.path == "/api/bootup":  # Settings' "Play the boot-up"
             if not self.local():
                 return self.send_error(403)
@@ -2164,6 +2210,7 @@ if __name__ == "__main__":
                 st["held"].append(text)
             else:
                 speak_now(text)
+        LIVE["say"] = say
 
         def deliver_held(greet):
             held, st["held"] = st["held"][:6], []

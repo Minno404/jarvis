@@ -7,7 +7,7 @@ import features
 COMMANDS = {
     "Talking to Jarvis": ["*Hey Jarvis…", "*Hold on", "*Undo that", "*Quiet mode",
                           "*Quiet mode off", "*Restart yourself", "*Power down", "*Jarvis split", "*Jarvis merge",
-                          "*Merge with ChatGPT", "*Switch to ChatGPT", "*Switch to Claude", "*Auto mode",
+                          "*Merge with ChatGPT", "*Switch to ChatGPT", "*Switch to Claude", "*Switch to local", "*Auto mode",
                           "*Switch to FRIDAY", "*Casual mode", "*Back to Jarvis", "*What can you do?"],
     "Looks and the HUD": ["*Make the HUD red", "*Change the background to stars",
                           "*Set the background to a picture of a city at night", "*Reset the background",
@@ -36,7 +36,7 @@ COMMANDS = {
     "Health and habits": ["Give me a 20-minute workout", "Quick ab workout, no equipment", "*Pause the workout",
                           "*Skip the exercise", "*Stop the workout", "I went to the gym",
                           "Track running, 3 times a week", "How are my habits going?"],
-    "Handy": ["*What's 15% of 240?", "*12 times 7 plus 3", "*180 Celsius in Fahrenheit", "*5 km in miles",
+    "Handy": ["Search the web for the best budget headphones", "Read this page for me (paste a link)", "*What's 15% of 240?", "*12 times 7 plus 3", "*180 Celsius in Fahrenheit", "*5 km in miles",
               "*2 cups in ml", "How do I say 'where's the bathroom' in Japanese?",
               "Translate 'thank you very much' into French"],
     "Gaming": ["Coach me", "Watch my gameplay and only give me a review at the end", "Coach every game from now on",

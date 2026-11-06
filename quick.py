@@ -168,14 +168,16 @@ def quick(text):
                  "edith": "EDITH online. Standing by.", "mate": "G'day mate, Jarvo here. What are we up to?"}
         return _ok(r, hello.get(r.get("now"), "Done."))
     # --- which AI Jarvis thinks with ---
-    m = re.fullmatch(r"(?:switch to|use|swap to|change to) (chat ?gpt|gpt|claude|auto(?:matic)?)(?: brain| mode)?|"
-                     r"(chat ?gpt|claude|auto) mode", t)
+    m = re.fullmatch(r"(?:switch to|use|swap to|change to|go) (chat ?gpt|gpt|claude|auto(?:matic)?|local(?: ai)?|offline)"
+                     r"(?: brain| mode)?|(chat ?gpt|claude|auto|local|offline) mode", t)
     if m:
         b = (m.group(1) or m.group(2)).replace(" ", "")
-        b = "chatgpt" if "gpt" in b else "auto" if b.startswith("auto") else "claude"
+        b = ("chatgpt" if "gpt" in b else "auto" if b.startswith("auto") else "local" if b.startswith(("local", "offline"))
+             else "claude")
         r = R["set_brain"](b)
         return _ok(r, {"chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
-                       "auto": "Automatic it is: Claude first, ChatGPT if the Claude allowance runs out."}[b])
+                       "local": "Running on this PC now, {TITLE}: free, but I'm not as sharp as Claude.",
+                       "auto": "Automatic it is: Claude first, then ChatGPT, then the local AI if the others run out."}[b])
     # --- the HUD's background ---
     m = re.fullmatch(r"(?:change|set|make|switch|turn) (?:the |your |my )?(?:hud )?background (?:to |into )?(?:a |an |the )?"
                      r"(?:picture of |photo of |image of )?(.+?)|(?:reset|default) (?:the )?background|background (\w+)", t)
@@ -256,6 +258,7 @@ def selftest():
         "switch to ChatGPT": ("set_brain", ("chatgpt",), {}),
         "use claude": ("set_brain", ("claude",), {}),
         "auto mode": ("set_brain", ("auto",), {}),
+        "switch to local": ("set_brain", ("local",), {}),
         "switch to FRIDAY": ("set_persona", ("friday",), {}),
         "Jarvis, casual mode": ("set_persona", ("casual",), {}),
         "back to Jarvis": ("set_persona", ("jarvis",), {}),

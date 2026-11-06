@@ -139,7 +139,8 @@ def run_job(job, claude, brain="claude"):
     import gpt_brain
     prompt = features.personal(PC_PROMPT if job.get("kind") == "pc" else DEV_PROMPT) + _self_rule(job) + job["request"]
     text, status = "", "error"
-    if brain != "chatgpt" and claude:
+    import local_brain
+    if brain not in ("chatgpt", "local") and claude:
         base = [claude, "-p", "--output-format", "json", "--model", os.environ.get("JARVIS_DEV_MODEL", "sonnet"),
                 "--strict-mcp-config"]
         if job.get("kind") == "pc":
@@ -156,14 +157,15 @@ def run_job(job, claude, brain="claude"):
         except Exception as e:
             text, status = f"It didn't work: {type(e).__name__}.", "error"
         limited = status == "error" and re.search(r"limit|quota|usage|exceeded|429", text, re.I)
-        if limited and gpt_brain.available():
-            brain = "chatgpt"  # Claude's allowance ran out: let ChatGPT do the job instead
-    if brain == "chatgpt" or not claude:
-        if not gpt_brain.available():
-            text, status = text or "Neither Claude nor ChatGPT is set up for jobs on this PC.", "error"
+        if limited and (gpt_brain.available() or local_brain.ready()):
+            brain = "chatgpt" if gpt_brain.available() else "local"  # Claude's allowance ran out: hand it on
+    if brain in ("chatgpt", "local") or not claude:
+        local = brain == "local" or not gpt_brain.available()
+        if not (local_brain.ready() if local else gpt_brain.available()):
+            text, status = text or "No AI is set up for jobs on this PC (Claude, ChatGPT or the local AI).", "error"
         else:
             try:
-                text, ok = gpt_brain.run_task(prompt, job["path"])
+                text, ok = gpt_brain.run_task(prompt, job["path"], local=local)
                 status = "done" if ok else "error"
             except Exception as e:
                 text, status = f"It didn't work: {type(e).__name__}.", "error"

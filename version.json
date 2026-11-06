@@ -1,4 +1,4 @@
 {
- "version": "1.31.0",
- "notes": "Better voice recognition, and he checks when he isn't sure what you said."
+ "version": "1.32.0",
+ "notes": "A free local AI as Jarvis's third brain (Settings > Brain), plus free web search."
 }
