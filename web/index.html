@@ -97,6 +97,14 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bp3{position:absolute;inset:0;background:#0b2748 radial-gradient(ellipse at 50% 60%,#123a66,#0b2748 70%)}
 .holo-panel.blueprint .bp3 canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
 #bigView>.holo-panel.blueprint .bpbox{height:calc((100vh - 250px)/1.6)}#bigView>.holo-panel.blueprint .bpbox svg{height:100%}
+.holo-panel.blueprint .bpcard{position:absolute;top:10px;right:10px;width:min(300px,45%);z-index:3;background:rgba(6,22,40,.92);
+  border:1px solid #9fd2ff;padding:12px 14px;box-shadow:0 0 24px rgba(0,0,0,.5);color:#dff4ff;font-size:calc(12px*var(--s)*var(--fs));max-height:calc(100% - 20px);overflow:auto}
+.holo-panel.blueprint .bpcard h4{margin:0 22px 4px 0;color:#ffd36b;letter-spacing:.12em;text-transform:uppercase;font-size:1.1em}
+.holo-panel.blueprint .bpcard .bpcnote{margin:0 0 8px;color:#9fc8ee}.holo-panel.blueprint .bpcq{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.holo-panel.blueprint .bpcard button{font-size:.85em;padding:3px 7px;letter-spacing:.04em;text-transform:none}.holo-panel.blueprint .bpcf{display:flex;gap:6px}
+.holo-panel.blueprint .bpcf input{flex:1;min-width:0}.holo-panel.blueprint .bpca{margin-top:8px;line-height:1.5;white-space:pre-wrap}.holo-panel.blueprint .bpca:empty{display:none}
+.holo-panel.blueprint .bpcback{margin-top:8px}
+.holo-panel.blueprint .bppart{cursor:pointer}
 .holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
@@ -1059,7 +1067,8 @@ async function ask(q){
   const el=add('j',''),v=voice(),before=trades.length,t0=performance.now();let full='',tFirst=0;
   const took=()=>{const ts=el.previousElementSibling.querySelector('.ts'),s=ms=>((ms-t0)/1000).toFixed(1)+'s';
     if(ts)ts.textContent+=` · replied in ${s(tFirst||performance.now())}`+(tFirst?` · finished in ${s(performance.now())}`:'')};
-  const show=t=>{if(!tFirst&&t.trim())tFirst=performance.now();full+=t;el.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
+  const mirror=askMirror;askMirror=null;  // (a blueprint part's details card shows the answer too)
+  const show=t=>{if(!tFirst&&t.trim())tFirst=performance.now();full+=t;el.textContent=full.trimStart();if(mirror)mirror.textContent=full.trimStart();$('log').scrollTop=1e9;v.push(t)};
   try{
     aborter=new AbortController();
     const res=await fetch('/api/chat-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q+askNote,photo:pic}),signal:aborter.signal});askNote='';
@@ -1651,7 +1660,7 @@ function showBlueprint(ev){
   ev.inside.forEach((c,i)=>{const w=Math.max(18,c.size[0]*aw),h=Math.max(14,c.size[1]*ah),ox=A.x+c.at[0]*aw,oy=A.y+c.at[1]*ah;
     const col=cols[sides[i]],row=col.indexOf(i),rowH=(VH-130)/col.length,colW=A.x-50;
     const tx=sides[i]<0?A.x/2+10:A.x+aw+(VW-A.x-aw)/2-10,ty=50+rowH*(row+.5)-14,k=Math.max(.3,Math.min(1,(colW-10)/w,(rowH-48)/h));
-    s+=`<g class="bppart" style="--dx:${tx-ox}px;--dy:${ty-oy}px;--k:${k.toFixed(3)};transition-delay:${i*90}ms"><line class="bplead" x1="${ox}" y1="${oy}" x2="${ox}" y2="${oy}" stroke="#7fd4ff" stroke-dasharray="3 5"/>`
+    s+=`<g class="bppart" data-i="${i}" style="--dx:${tx-ox}px;--dy:${ty-oy}px;--k:${k.toFixed(3)};transition-delay:${i*90}ms"><line class="bplead" x1="${ox}" y1="${oy}" x2="${ox}" y2="${oy}" stroke="#7fd4ff" stroke-dasharray="3 5"/>`
       +`<g class="bpmove"><g transform="translate(${ox},${oy})" fill="rgba(127,212,255,.08)" stroke="#dff4ff" stroke-width="1.6">${bpShape(c,w,h)}</g></g>`
       +`<g class="bplabel"><text x="${tx}" y="${ty+h*k/2+18}" text-anchor="middle" fill="#ffffff" font-size="15">${esc(c.name)}</text>`  // labels stay full size
       +(c.note?`<text x="${tx}" y="${ty+h*k/2+33}" text-anchor="middle" fill="#9fc8ee" font-size="11">${esc(c.note)}</text>`:'')+`</g></g>`});
@@ -1660,7 +1669,8 @@ function showBlueprint(ev){
   s+=`<g font-size="12" fill="#dff4ff"><rect x="${VW-300}" y="${VH-86}" width="284" height="70" fill="#0b2748" stroke="#dff4ff"/><line x1="${VW-300}" y1="${VH-60}" x2="${VW-16}" y2="${VH-60}" stroke="#dff4ff"/>`
     +`<text x="${VW-290}" y="${VH-67}" font-size="14" font-weight="bold">${esc(ev.title.toUpperCase())}</text>`
     +`<text x="${VW-290}" y="${VH-43}">MATERIAL: ${esc(ev.material||'-')}</text><text x="${VW-290}" y="${VH-25}">NOT TO SCALE · DRAWN BY J.A.R.V.I.S. · ${today}</text></g></svg>`;
-  p.querySelector('.bpbox').innerHTML=s;p.querySelector('.bpnote').textContent=(ev.note?ev.note+' · ':'')+(ev.source?'Parts from '+ev.source+' · ':'')+(ev.inside.length?'Say "pull it apart" to see inside.':'');
+  p.querySelector('.bpbox').innerHTML=s;
+  p.querySelector('.bpbox svg').ondblclick=e=>{const g=e.target.closest('.bppart');if(g&&BP.exploded)bpDetails(+g.dataset.i)};p.querySelector('.bpnote').textContent=(ev.note?ev.note+' · ':'')+(ev.source?'Parts from '+ev.source+' · ':'')+(ev.inside.length?'Say "pull it apart" to see inside.':'');
   if(BP.pending==='explode')setTimeout(()=>bpExplode(true),1400);BP.pending=''}
 function bpExplode(on){
   const p=BP.panel;if(!p)return;BP.exploded=on;p.classList.toggle('exploded',on);sfx('panel');
@@ -1751,7 +1761,7 @@ function bp3dOn(){
     else{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);ray.setFromCamera(ndc,cam);
       const pt=new T.Vector3();if(ray.ray.intersectPlane(plane,pt)){pt.sub(grab);sel.position.copy(world.worldToLocal(pt));sel.userData.manual=true}}};
   cv.onpointerup=()=>{mode=''};
-  cv.ondblclick=e=>{const o=pick(e);if(o){o.userData.manual=false;o.quaternion.set(0,0,0,1)}else reset()};
+  cv.ondblclick=e=>{const o=pick(e);if(o){select(o);bpDetails(BP3.parts.indexOf(o))}else reset()};
   cv.onwheel=e=>{e.preventDefault();dist=Math.max(2,Math.min(20,dist*(e.deltaY>0?1.1:.9)))};
   Object.assign(BP3,{on:true,host,r,cam,world});
   const frame=()=>{if(!BP3.on||!p.isConnected){r.dispose();host.remove();BP3.on=false;p.classList.remove('in3d');return}
@@ -1760,8 +1770,26 @@ function bp3dOn(){
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
     shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
     r.render(scene,cam);requestAnimationFrame(frame)};
-  frame();p.querySelector('.bpnote').textContent='3D: drag to turn it · drag a part to move it · right-drag a part to spin it · scroll to zoom · double-click to reset'}
+  frame();p.querySelector('.bpnote').textContent='3D: drag to turn it · drag a part to move it · right-drag a part to spin it · double-click a part for details · scroll to zoom · double-click empty space to reset'}
 function bp3dOff(){BP3.on=false}
+// Double-click a component (3D or the pulled-apart drawing): its details, with questions you can ask Jarvis about it
+let askMirror=null;
+function bpDetails(i){
+  const p=BP.panel,c=BP.ev&&BP.ev.inside[i];if(!p||!c)return;
+  let card=p.querySelector('.bpcard');if(!card){card=document.createElement('div');card.className='bpcard';p.querySelector('.bpbox').append(card)}
+  card.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h4></h4><p class="bpcnote"></p><div class="bpcq"></div>'
+    +'<div class="bpcf"><input placeholder="Ask about it…" aria-label="Ask about this part"><button type="button">Ask</button></div><div class="bpca"></div>'
+    +(BP3.on?'<button type="button" class="bpcback">Put it back</button>':'');
+  card.querySelector('h4').textContent=c.name;card.querySelector('.bpcnote').textContent=c.note||'';
+  const go=question=>{const a=card.querySelector('.bpca');a.textContent='…';askMirror=a;
+    ask(`About the ${c.name} inside the ${BP.ev.title} on the blueprint: ${question} (Answer in 2 to 4 sentences; look it up if you're not sure.)`)};
+  for(const qq of ['What does it do?','What is it made of?','How does it work?','What goes wrong with it?','What would a replacement cost?']){
+    const b=document.createElement('button');b.type='button';b.textContent=qq;b.onclick=()=>go(qq);card.querySelector('.bpcq').append(b)}
+  const inp=card.querySelector('.bpcf input'),send=()=>{const v=inp.value.trim();if(v){go(v);inp.value=''}};
+  card.querySelector('.bpcf button').onclick=send;inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();send()}};
+  card.querySelector('.holo-x').onclick=()=>card.remove();
+  const back=card.querySelector('.bpcback');if(back)back.onclick=()=>{const g=BP3.parts[i];if(g){g.userData.manual=false;g.quaternion.set(0,0,0,1)}};
+  sfx('panel')}
 // ---- Workout spotter: counts reps from your body's joint angles and calls each one out ----
 const SPOT={on:false,ex:null,reps:0,inRep:false,pose:null};
 const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d};
