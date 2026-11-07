@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.40.3"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.41.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -2140,6 +2140,67 @@ if __name__ == "__main__":
             mini.send("hide")
             show_pins(False)
 
+        def drag_window():
+            import ctypes
+            from ctypes import wintypes
+            u = ctypes.windll.user32
+            try:
+                hwnd = ctypes.c_void_p(main.native.Handle.ToInt64())
+            except Exception:
+                return
+
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT),
+                            ("dwFlags", wintypes.DWORD)]
+            u.MonitorFromPoint.restype = ctypes.c_void_p
+            pt, r = wintypes.POINT(), wintypes.RECT()
+            u.GetCursorPos(ctypes.byref(pt))
+            u.GetWindowRect(hwnd, ctypes.byref(r))
+            frac, offy = (pt.x - r.left) / max(1, r.right - r.left), pt.y - r.top
+            moved, edge, hint = False, "", ""
+            start = (pt.x, pt.y)
+            while u.GetAsyncKeyState(0x01) & 0x8000:  # while the left button is held
+                u.GetCursorPos(ctypes.byref(pt))
+                if not moved and abs(pt.x - start[0]) + abs(pt.y - start[1]) < 4:
+                    time.sleep(0.008)
+                    continue  # a click (or the first half of a double-click), not a drag
+                if not moved:
+                    moved = True
+                    if win["max"]:  # dragging a maximised window: it comes back to its normal size under the mouse
+                        main.restore()
+                        time.sleep(0.05)
+                u.GetWindowRect(hwnd, ctypes.byref(r))
+                w = r.right - r.left
+                u.SetWindowPos(hwnd, None, int(pt.x - frac * w), pt.y - offy, 0, 0, 0x0001 | 0x0004 | 0x0010)
+                mi = MONITORINFO(cbSize=ctypes.sizeof(MONITORINFO))
+                u.GetMonitorInfoW(ctypes.c_void_p(u.MonitorFromPoint(pt, 2)), ctypes.byref(mi))
+                m = mi.rcMonitor
+                edge = "top" if pt.y <= m.top + 1 else "left" if pt.x <= m.left + 1 else "right" if pt.x >= m.right - 2 else ""
+                if edge != hint:
+                    hint = edge
+                    try:
+                        main.evaluate_js(f"snapHint({json.dumps(edge)})")
+                    except Exception:
+                        pass
+                time.sleep(0.008)
+            if hint:
+                try:
+                    main.evaluate_js("snapHint('')")
+                except Exception:
+                    pass
+            if edge == "top":
+                main.maximize()
+            if moved:
+                try:  # the HUD's maximise button shows the right icon
+                    main.evaluate_js(f"window.maxIcon&&maxIcon({{max:{'true' if edge == 'top' else 'false'}}})")
+                except Exception:
+                    pass
+            if edge and edge != "top":
+                wa = mi.rcWork
+                half = (wa.right - wa.left) // 2
+                u.SetWindowPos(hwnd, None, wa.left if edge == "left" else wa.left + half, wa.top, half,
+                               wa.bottom - wa.top, 0x0004 | 0x0010)
+
         # ---- Pinned panels: up to 3 HUD panels that float over other windows while Jarvis is out of focus ----
         pins = {}  # panel id -> its little window
 
@@ -2252,6 +2313,11 @@ if __name__ == "__main__":
             def mini(self, show):
                 mini.send("show" if show else "hide")
                 show_pins(show)
+
+            def drag(self):
+                """The HUD's title strip was pressed: move the window with the mouse, like a normal window. Hit the top
+                of the screen to maximise, the left or right edge to fill that half (the HUD shows a prompt first)."""
+                threading.Thread(target=drag_window, daemon=True).start()
 
             def win(self, action, w=None, h=None):  # the HUD's own window buttons and resize corner
                 if action == "min":
