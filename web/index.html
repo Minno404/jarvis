@@ -73,7 +73,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
   box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
-.holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
+.holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .holo-panel.desk .desknote{margin-top:6px;font-family:var(--display);letter-spacing:.2em;color:var(--cyan);font-size:calc(16px*var(--s)*var(--fs))}
 .holo-panel.desk .desklab{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs));min-height:1.3em}
@@ -1386,6 +1386,7 @@ async function openDesk(){
   const p=document.createElement('div');p.className='holo-panel desk';
   p.innerHTML='<button type="button" class="holo-x" aria-label="Close desk view">&times;</button><h3>Desk view</h3><div class="deskbox"><video autoplay playsinline muted></video><canvas></canvas></div><div class="desklab">Loading object recognition…</div>';
   p.querySelector('.holo-x').onclick=closeDesk;$('holo').prepend(p);sfx('panel');
+  movable(p,'desk');if(layout.desk)free(p,fromLayout(layout.desk));  // drag it by its title; it reopens where you left it
   const v=p.querySelector('video');v.srcObject=st;Object.assign(DESK,{stream:st,panel:p,video:v,labels:[]});
   deskDetect();return true}
 function closeDesk(){if(!DESK.stream)return;DESK.stream.getTracks().forEach(t=>t.stop());const p=DESK.panel;
@@ -1491,7 +1492,7 @@ function radioBed(on){
 // ---- "Enlarge ...": one panel fills the HUD, the core moves to a corner (like the spending report) ----
 const BIG={el:null,pending:0};
 function findPanel(name){
-  const words=name.toLowerCase().split(/\W+/).filter(w=>w.length>2),all=[...document.querySelectorAll('#holo>.holo-panel:not(.out),.panel[data-id]')];
+  const words=name.toLowerCase().split(/\W+/).filter(w=>w.length>2),all=[...document.querySelectorAll('#holo>.holo-panel:not(.out),.holo-panel.free:not(.out),.panel[data-id]')];
   const title=p=>((p.querySelector('h2,h3')||{}).textContent||'').toLowerCase()+' '+(p.dataset.id||'');
   return all.find(p=>title(p).includes(name.toLowerCase()))||all.find(p=>words.length&&words.every(w=>title(p).includes(w)))
     ||all.find(p=>words.some(w=>title(p).includes(w)))}
