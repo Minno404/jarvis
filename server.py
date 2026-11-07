@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.41.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.42.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -604,8 +604,9 @@ import deepseek  # DeepSeek as a brain: cheap, online, through Claude Code (see 
 import local_brain  # the free AI that runs on this PC: Jarvis's third brain (see local_brain.py)
 import web        # free web search and page reading (see web.py)
 import inventory  # what the desk camera has seen: "where did I leave my phone?" (see inventory.py)
+import leftoff    # where I left off: what was open, offered back after a break (see leftoff.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, *custom_loader.load()):
+          web, inventory, leftoff, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -632,6 +633,107 @@ def voice_mute(on=True):
 
 
 FUNCS["voice_mute"] = voice_mute
+
+
+# ---- "Finish this": Jarvis looks at the window you were in, drafts the missing part, and types it once you say so ----
+FINISH = {}  # the window being finished, and the draft
+
+
+def finish_capture():
+    """Step Jarvis aside, note the window he was using and take a picture of the screen. Returns {photo, app, title}."""
+    if os.name != "nt":
+        return {"error": "Only on the Windows PC."}
+    import ctypes
+    import io
+    from PIL import ImageGrab
+    hide, show = LIVE.get("shot_hide"), LIVE.get("shot_show")
+    if hide:
+        hide()
+        time.sleep(0.6)
+    try:
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        exe, title, _ = awareness.foreground()
+        img = ImageGrab.grab()
+    finally:
+        if show:
+            show()
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, "JPEG", quality=90)
+    FINISH.clear()
+    FINISH.update(hwnd=hwnd, app=exe.removesuffix(".exe"), title=title)
+    return {"photo": save_upload(buf.getvalue(), "image/jpeg"), "app": FINISH["app"], "title": title}
+
+
+def fill_in(text):
+    """Show the draft for "finish this"; nothing is typed until he says "type it" (or presses Type it)."""
+    if not FINISH.get("hwnd"):
+        return {"error": "Nothing to finish: he needs to say 'finish this' first."}
+    FINISH["text"] = str(text)
+    features._panel({"type": "panel", "kind": "text", "title": f"Ready to type into {FINISH['title'][:40] or FINISH['app']}",
+                     "text": FINISH["text"], "stay": True, "actions": [["Type it", "type it"], ["Scrap it", "don't type it"]]})
+    return {"shown": True, "note": "It's on the HUD. Tell him to click where it should go, then say 'type it'. "
+                                   "Nothing is sent or submitted."}
+
+
+def type_it():
+    """Type the "finish this" draft into the window it's for, at its cursor. New lines go in as Shift+Enter (so a
+    chat box doesn't send early). Never presses Send or Submit."""
+    if os.name != "nt" or not FINISH.get("text"):
+        return {"error": "No draft to type. Say 'finish this' first."}
+    import ctypes
+    import ctypes.wintypes as wt
+    u = ctypes.windll.user32
+    hwnd = FINISH["hwnd"]
+    if LIVE.get("shot_hide"):
+        LIVE["shot_hide"]()
+        time.sleep(0.4)
+    if u.IsIconic(hwnd):
+        u.ShowWindow(hwnd, 9)
+    me, them = ctypes.windll.kernel32.GetCurrentThreadId(), u.GetWindowThreadProcessId(hwnd, None)
+    u.AttachThreadInput(me, them, True)  # lets Windows hand the keyboard to his window
+    u.SetForegroundWindow(hwnd)
+    u.AttachThreadInput(me, them, False)
+    time.sleep(0.4)
+
+    class KI(ctypes.Structure):
+        _fields_ = [("wVk", wt.WORD), ("wScan", wt.WORD), ("dwFlags", wt.DWORD), ("time", wt.DWORD),
+                    ("dwExtraInfo", ctypes.c_size_t)]
+
+    class INPUT(ctypes.Structure):
+        class _U(ctypes.Union):
+            _fields_ = [("ki", KI), ("pad", ctypes.c_byte * 32)]
+        _anonymous_ = ("u",)
+        _fields_ = [("type", wt.DWORD), ("u", _U)]
+
+    def send(*keys):
+        arr = (INPUT * len(keys))(*[INPUT(type=1, ki=KI(wVk=vk, wScan=sc, dwFlags=fl)) for vk, sc, fl in keys])
+        u.SendInput(len(keys), arr, ctypes.sizeof(INPUT))
+
+    text = FINISH["text"].replace("\r\n", "\n")
+    for ch in text:
+        if ch == "\n":  # Shift+Enter
+            send((0x10, 0, 0), (0x0D, 0, 0), (0x0D, 0, 2), (0x10, 0, 2))
+        else:
+            data = ch.encode("utf-16-le")  # (emoji are two units)
+            for i in range(0, len(data), 2):
+                code = int.from_bytes(data[i:i + 2], "little")
+                send((0, code, 4), (0, code, 4 | 2))  # KEYEVENTF_UNICODE, then key up
+        time.sleep(0.004)
+    n = len(text)
+    FINISH.pop("text", None)
+    return {"typed": n, "into": FINISH.get("title")}
+
+
+def drop_draft():
+    had = bool(FINISH.pop("text", None))
+    return {"dropped": had}
+
+
+FUNCS["fill_in"], FUNCS["type_it"], FUNCS["drop_draft"] = fill_in, type_it, drop_draft
+TOOLS += [{"name": "fill_in", "description": "For 'finish this': show him the text you've drafted to complete the "
+           "form, email or message in the screenshot (only the missing part, in his voice). He checks it, then says "
+           "'type it' to have it typed at his cursor. Never claims anything was sent.",
+           "input_schema": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string"}}}}]
 FUNCS["jarvis_power"] = lambda action: jarvis_power(action)
 TOOLS.append({"name": "jarvis_power", "description": "Restart yourself (Jarvis) or power yourself down when he asks "
               "('restart yourself', 'power down', 'shut down Jarvis'). This closes Jarvis, not the PC. Say a short "
@@ -1851,6 +1953,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"ok": action, "in_seconds": wait})
             threading.Timer(wait, updater.restart if action == "restart" else lambda: os._exit(0)).start()
             return
+        if self.path == "/api/finish":  # "finish this": the window he was in, and a picture of the screen
+            try:
+                return self.send_json(finish_capture())
+            except Exception as e:
+                return self.send_json({"error": repr(e)})
         if self.path == "/api/stt":  # the phone's microphone: a recording in, what was said out
             n = int(self.headers.get("Content-Length") or 0)
             if not 0 < n < 15_000_000:
@@ -2544,10 +2651,24 @@ if __name__ == "__main__":
             trading.save_review(day, text)
             say(text)
 
+        def offer_left_off():
+            """Back after a few hours (or the PC's just started): what he had open last time, and the offer to reopen."""
+            try:
+                r = leftoff.where_i_left_off()
+                if not r.get("found") or not 3 <= r["age_hours"] <= 96:
+                    return
+                features._panel({"type": "panel", "kind": "stats", "title": "Where you left off", "stay": True,
+                                 "rows": [[w["app"], w["title"][:70]] for w in r["windows"][:8]],
+                                 "actions": [["Reopen them", "reopen them"]]})
+                say(persona(r["line"] + " Say 'reopen them' and I'll bring it all back, {TITLE}."))
+            except Exception as e:
+                print(datetime.datetime.now(), "left off:", repr(e))
+
         def watcher():
             """Every 10 s: reminders, the morning brief, price alerts, trade guard, news and the day's review."""
             watch = trading.Watch(lambda text: say(text, urgent=True), review, coach.TiltWatch())
             learning = threading.Lock()
+            threading.Timer(40, offer_left_off).start()  # just started (e.g. the next morning): where you left off
             while True:
                 try:
                     sit = awareness.situation()
@@ -2557,8 +2678,14 @@ if __name__ == "__main__":
                             power.sleep_pc()
                         LIVE["quiet_wake"] = WAKER.quiet(sit["idle_s"])
                     change = presence.update(sit["idle_s"]) if sit else None
+                    if sit:
+                        leftoff.tick(sit["idle_s"])
+                    if change == "away":
+                        leftoff.snapshot()  # what was open when he stepped away
                     st["away"] = presence.away
                     was_game, st["game"] = st["game"], sit.get("game")
+                    if change == "back" and presence.last_gone >= 3 * 3600:
+                        threading.Timer(12, offer_left_off).start()  # after the welcome: where you left off
                     if change == "back":
                         if presence.last_gone >= 3 * 3600 and features.settings().get("bootup", True):
                             held, st["held"] = st["held"][:6], []

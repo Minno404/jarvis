@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.41.0** (shown at the bottom right of the HUD)
+**Version 1.42.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.42.0** (7 Nov 2026): Where I left off: Jarvis notes what you have open (every 10 minutes, when you step away,
+  and before the PC sleeps). Back after 3+ hours, or the next morning, he shows it and offers "reopen them".
+  "Where was I?" any time. Finish this: with a half-written email, form or message on screen, say "finish this":
+  he reads the screen, drafts the missing part in your voice and shows it; "type it" types it where your cursor is
+  (new lines as Shift+Enter, never presses Send).
 - **1.41.0** (7 Nov 2026): the window drags like a normal Windows window. Drag the strip along the top: push the
   mouse into the top of the screen and "Release to maximise" shows (left or right edge: fill that half). Dragging a
   maximised window brings it back to its normal size under the mouse.
