@@ -22,6 +22,8 @@ COMMANDS = {
     "Blueprint mode": ["*Blueprint this (hold something up to the camera)", "*Pull it apart",
                        "*What's inside it?", "*Put it back together",
                        "*Enlarge blueprint (3D: drag parts, right-drag to spin them)"],
+    "Simulations": ["Simulate saving $50 a week for a year", "Compare saving $50, $100 and $150 a week for 2 years",
+                    "What if I pay $200 more a month off the car loan?", "Simulate cutting my takeaway spending in half"],
     "Hologram workshop": ["*Hologram workshop", "*Show me the model player", "*Hologram of the pistol",
                           "Drop a .glb/.obj/.stl/.fbx on the panel", "*Spin it", "*Stop spinning", "*Close the workshop",
                           "With gestures on: move your hand to turn it, pinch to zoom"],

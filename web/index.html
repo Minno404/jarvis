@@ -106,6 +106,12 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpcback{margin-top:8px}
 .holo-panel.blueprint .bppart{cursor:pointer}
 .holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
+.holo-panel.sim .simbox{margin-top:6px}.holo-panel.sim canvas{width:100%;display:block}
+.holo-panel.sim.free .simbox{flex:1;min-height:0}.holo-panel.sim.free canvas{height:100%}
+.holo-panel.sim .simleg{display:flex;flex-direction:column;gap:3px;margin-top:6px;font-size:calc(12px*var(--s)*var(--fs))}
+.holo-panel.sim .simleg div{display:flex;align-items:center;gap:8px}.holo-panel.sim .simleg i{width:14px;height:3px;display:inline-block}
+.holo-panel.sim .simleg span{margin-left:auto;color:var(--text)}.holo-panel.sim .simleg span,.holo-panel.sim .simins{opacity:0;transition:opacity .6s}
+.holo-panel.sim.done .simleg span,.holo-panel.sim.done .simins{opacity:1}.holo-panel.sim .simins{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -1205,7 +1211,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -1790,6 +1796,39 @@ function bpDetails(i){
   card.querySelector('.holo-x').onclick=()=>card.remove();
   const back=card.querySelector('.bpcback');if(back)back.onclick=()=>{const g=BP3.parts[i];if(g){g.userData.manual=false;g.quaternion.set(0,0,0,1)}};
   sfx('panel')}
+// ---- Run a simulation (simulate.py): the projection plays out like a suit simulation, scenarios side by side ----
+function showSim(ev){
+  const p=document.createElement('div');p.className='holo-panel sim wide';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3></h3><div class="simbox"><canvas></canvas></div><div class="simleg"></div><div class="simins"></div><div class="hacts"><button type="button">Run it again</button></div>';
+  p.querySelector('h3').textContent='Simulation · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
+  p.querySelector('.simins').textContent=ev.insight||'';$('holo').prepend(p);[...$('holo').children].slice(3).forEach(closePanel);
+  movable(p,'sim');if(layout.sim)free(p,fromLayout(layout.sim));sfx('panel');
+  const cols=[css('--cyan')||'#5fe3ff','#ffb347','#4dff9a'],runs=ev.runs,c=p.querySelector('canvas'),leg=p.querySelector('.simleg');
+  leg.innerHTML=runs.map((r,i)=>`<div><i style="background:${cols[i]}"></i><b></b><span></span></div>`).join('');
+  runs.forEach((r,i)=>{const row=leg.children[i];row.querySelector('b').textContent=r.name;row.querySelector('span').textContent=r.end});
+  const n=Math.max(...runs.map(r=>r.points.length)),all=runs.flatMap(r=>r.points),lo=Math.min(0,...all),hi=Math.max(...all)||1;
+  const money=v=>(ev.unit||'')+(Math.abs(v)>=1000?Math.round(v).toLocaleString():(+v).toFixed(Math.abs(v)<10?2:0));
+  const xLabel=i=>ev.labels?.[i]??(ev.model==='custom'?String(i):i===0?'Now':i%12===0?`${i/12} yr`:`${i} mo`);
+  let t0=performance.now(),dur=3200;
+  const draw=()=>{if(!p.isConnected)return;const H=c.closest('.free')||c.closest('#bigView')?Math.max(160,(c.parentElement.clientHeight)/(+css('--s')||1)-4):200;
+    const [g,W]=sizeCanvas(c,H),L=58,R=16,T=26,B=24,X=i=>L+(W-L-R)*i/Math.max(1,n-1),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo||1));
+    const k=Math.min(1,(performance.now()-t0)/dur),ease=1-Math.pow(1-k,3),upto=ease*(n-1);
+    g.clearRect(0,0,W,H);g.font='11px monospace';g.textBaseline='middle';
+    for(let j=0;j<=4;j++){const v=lo+(hi-lo)*j/4,y=Y(v);g.strokeStyle='rgba(120,200,255,.12)';g.beginPath();g.moveTo(L,y);g.lineTo(W-R,y);g.stroke();
+      g.fillStyle='rgba(180,220,255,.6)';g.textAlign='right';g.fillText(money(v),L-6,y)}
+    g.textAlign='center';const step=Math.max(1,Math.round((n-1)/6));for(let i=0;i<n;i+=step){g.fillStyle='rgba(180,220,255,.55)';g.fillText(xLabel(i),X(i),H-10)}
+    runs.forEach((r,ri)=>{const pts=r.points,last=Math.min(pts.length-1,upto);if(last<0)return;
+      g.strokeStyle=cols[ri];g.lineWidth=2.2;g.shadowColor=cols[ri];g.shadowBlur=10;g.beginPath();
+      for(let i=0;i<=Math.floor(last);i++){i?g.lineTo(X(i),Y(pts[i])):g.moveTo(X(i),Y(pts[i]))}
+      const fi=Math.floor(last),fr=last-fi,vx=fi<pts.length-1?pts[fi]+(pts[fi+1]-pts[fi])*fr:pts[fi];g.lineTo(X(last),Y(vx));g.stroke();g.shadowBlur=0;
+      g.fillStyle=cols[ri];g.beginPath();g.arc(X(last),Y(vx),4,0,7);g.fill();g.textAlign='left';g.fillText(money(vx),Math.min(W-90,X(last)+8),Y(vx)-12-ri*2)});
+    const sx=X(upto);g.strokeStyle='rgba(120,220,255,.35)';g.lineWidth=1;g.beginPath();g.moveTo(sx,T);g.lineTo(sx,H-B);g.stroke();
+    g.textAlign='left';g.fillStyle=k<1?'#ffb347':css('--cyan');g.font='bold 12px monospace';
+    g.fillText(k<1?`SIMULATING ${Math.round(k*100)}%`:'SIMULATION COMPLETE',L,10);
+    if(k<1)requestAnimationFrame(draw);else{sfx('panel');p.classList.add('done')}};
+  p.querySelector('.hacts button').onclick=()=>{t0=performance.now();p.classList.remove('done');draw()};
+  new ResizeObserver(()=>{if(performance.now()-t0>dur)requestAnimationFrame(draw)}).observe(c);
+  requestAnimationFrame(draw)}
 // ---- Workout spotter: counts reps from your body's joint angles and calls each one out ----
 const SPOT={on:false,ex:null,reps:0,inRep:false,pose:null};
 const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d};
