@@ -73,6 +73,8 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
   box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
+.handoff{text-align:center;color:var(--cyan);letter-spacing:.25em;font-size:calc(10px*var(--s)*var(--fs));margin:10px 0;opacity:.8;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0;text-transform:uppercase}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -1145,10 +1147,23 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
+// ---- Hand-off: walk away from the PC and the phone carries on (the conversation, and the panels on screen) ----
+let pickedUp=0;
+async function pickUp(live){
+  if(Date.now()-pickedUp<60000)return;pickedUp=Date.now();
+  let h;try{h=await (await fetch('/api/handoff')).json()}catch(e){return}
+  if(!live&&!h.away)return;  // opened the phone while still at the PC: nothing to hand over
+  if(!h.chat.length&&!h.panels.length)return;
+  const d=document.createElement('div');d.className='handoff';d.textContent='Picked up from your PC';$('log').append(d);
+  const at=(el,t)=>{const s=el?.previousElementSibling?.querySelector('.ts');if(s&&t)s.textContent=t};  // when it was said on the PC
+  for(const c of h.chat){if(c.you)at(add('you',c.you),c.t);if(c.jarvis)at(add('j',c.jarvis),c.t)}
+  for(const ev of h.panels)if(!PIN)showPanel(ev);
+  sfx('panel')}
+setTimeout(()=>{if(!LOCAL&&!PIN)pickUp(false)},1500);  // opened on the phone after leaving the PC
 // Workout coach: times each exercise, calls it out and says what's next (from life.py's workout tool)
 let wk=null;
 function runWorkout(p,ev){

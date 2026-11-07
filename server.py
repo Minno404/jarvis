@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.42.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.43.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1619,9 +1619,20 @@ EVENTS, EVENTS_LOCK = [], threading.Lock()
 def push_event(ev):
     with EVENTS_LOCK:
         seq = EVENTS[-1]["seq"] + 1 if EVENTS else 1
-        EVENTS.append(dict(ev, seq=seq))
+        EVENTS.append(dict(ev, seq=seq, at=time.time()))
         del EVENTS[:-30]
     return seq
+
+
+def handoff():
+    """What the phone needs to carry on from the PC: the last few exchanges and the panels from the last 15 minutes."""
+    d, rows = HERE / "conversations", []
+    for f in sorted(d.glob("*.jsonl"))[-2:] if d.exists() else []:
+        rows += [json.loads(r) for r in f.read_text(encoding="utf-8").splitlines() if r.strip()]
+    chat = [{"t": r.get("t", ""), "you": r.get("user", r.get("halen", "")), "jarvis": r.get("jarvis", "")} for r in rows[-4:]]
+    with EVENTS_LOCK:
+        panels = [e for e in EVENTS if e.get("type") == "panel" and time.time() - e.get("at", 0) < 900][-3:]
+    return {"chat": chat, "panels": panels, "away": bool(LIVE.get("away"))}
 
 
 # ---------- Phone access ----------
@@ -1744,6 +1755,7 @@ class Handler(SimpleHTTPRequestHandler):
         """This PC always; his devices on Tailscale; a phone once it has opened the pairing link (it keeps a cookie)."""
         if self.local():
             return True
+        LIVE["phone_seen"] = time.time()  # (allowed or not: only used to decide whether to hand off to the phone)
         if self.tailnet() and features.settings().get("trust_tailscale", True):
             if not self.path.startswith(("/api/events", "/api/stats", "/api/status")):
                 WAKER.phone_used()
@@ -1832,6 +1844,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/local":  # the local AI: what's set up, the recommended model, install progress
             return self.send_json(local_brain.status())
+        if self.path == "/api/handoff":  # the phone picking up where the PC left off
+            return self.send_json(handoff())
         if self.path == "/api/secure":  # Tailscale's secure link for the phone (its microphone needs https)
             return self.send_json(LIVE.get("ts_https") or {})
         if self.path == "/api/deepseek":  # whether a DeepSeek key is saved (never the key itself)
@@ -2594,6 +2608,9 @@ if __name__ == "__main__":
         def say(text, urgent=False):
             """Jarvis speaks up on his own. While you're away, or mid-game or in quiet mode for anything that can
             wait, it's held and told to you when you're back."""
+            if st["away"] and time.time() - LIVE.get("phone_seen", 0) < 120:
+                push_event({"type": "phone_say", "text": persona(text)})  # he's left the PC but has his phone: tell him there
+                return
             if st["away"] or ((st["game"] or features.settings().get("quiet")) and not urgent):
                 st["held"].append(text)
             else:
@@ -2682,6 +2699,9 @@ if __name__ == "__main__":
                         leftoff.tick(sit["idle_s"])
                     if change == "away":
                         leftoff.snapshot()  # what was open when he stepped away
+                        if time.time() - LIVE.get("phone_seen", 0) < 120:
+                            push_event({"type": "handoff"})  # the phone picks up the conversation and panels
+                    LIVE["away"] = bool(presence.away)
                     st["away"] = presence.away
                     was_game, st["game"] = st["game"], sit.get("game")
                     if change == "back" and presence.last_gone >= 3 * 3600:
