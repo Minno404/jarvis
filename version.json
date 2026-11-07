@@ -1,4 +1,4 @@
 {
- "version": "1.46.1",
- "notes": "Fixes Claude failing with FileNotFoundError."
+ "version": "1.46.2",
+ "notes": "Panels no longer reopen as a speck in the top-left corner."
 }

@@ -1147,6 +1147,7 @@ const LAYOUT='jarvis-layout';
 let layout={};try{layout=JSON.parse(localStorage.getItem(LAYOUT)||'{}')}catch(e){}
 for(const [k,b] of Object.entries(layout))if(b&&b.v===2&&b.w*(+getComputedStyle(document.documentElement).getPropertyValue('--s')||1)>=innerWidth*.95
   &&b.h*(+getComputedStyle(document.documentElement).getPropertyValue('--s')||1)>=innerHeight*.9)delete layout[k];  // a full-window size saved by mistake (an enlarged panel)
+for(const [k,b] of Object.entries(layout))if(!b||!(b.w>=100)||!(b.h>=50))delete layout[k];  // a closed panel's 0 x 0 saved by mistake (it opened as a speck top left)
 const saveLayout=()=>{try{localStorage.setItem(LAYOUT,JSON.stringify(layout))}catch(e){}};
 let topZ=10;
 // Moved panels are remembered relative to the window (where across and down, and size in HUD scale), so the same
@@ -1175,9 +1176,10 @@ let reflowT;addEventListener('resize',()=>{clearTimeout(reflowT);reflowT=setTime
 function movable(p,id){
   if(PIN)return;  // a pinned panel's window moves as a whole instead
   const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
-  const remember=(mine)=>{if(!id||p.closest('#bigView'))return;  // (enlarged: not where he put it)
+  const remember=(mine)=>{if(!id||p.closest('#bigView')||!p.isConnected||p.classList.contains('out'))return;  // (enlarged or closing: not where he put it)
+    const r=p.getBoundingClientRect();if(r.width<120||r.height<60)return;  // (a closing panel shrinks to nothing)
     if(!mine&&Date.now()-(+p.dataset.reflow||0)<800)return;  // a window resize or enlarge/shrink, not his change
-    layout[id]=toLayout(p.getBoundingClientRect());saveLayout()};
+    layout[id]=toLayout(r);saveLayout()};
   h.addEventListener('pointerdown',e=>{
     if(e.button||innerWidth<1000||e.target.closest('button')||p.closest('#bigView'))return;
     e.preventDefault();if(p.classList.contains('free'))p.style.zIndex=++topZ;else free(p);p.classList.add('lifted');
