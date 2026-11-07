@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.46.0** (shown at the bottom right of the HUD)
+**Version 1.46.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.46.1** (7 Nov 2026): fixes "I can't reach my brain right now, sir. FileNotFoundError": Jarvis's instructions
+  for Claude had grown past Windows' 32,767-character command-line limit, so they're now passed in a file.
 - **1.46.0** (7 Nov 2026): run a simulation. "Simulate saving $50 a week for a year", "compare $50, $100 and $150 a
   week", "what if I pay $200 more a month off the car loan?": the projection plays out on the HUD like a suit
   simulation (up to 3 scenarios, a scan line, the numbers ticking up), then the results: totals, when a goal is
