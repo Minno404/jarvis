@@ -29,6 +29,11 @@ def sleep_pc(reopen=True):
     if os.name != "nt":
         return {"error": "Only on Windows."}
     import psutil
+    try:
+        import leftoff
+        leftoff.snapshot()  # where he left off, for the morning
+    except Exception:
+        pass
     want, paths = _blockers(), {}
     for p in psutil.process_iter(["name", "exe"]):
         n = (p.info["name"] or "").lower().removesuffix(".exe")

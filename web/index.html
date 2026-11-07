@@ -73,6 +73,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
   box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
   transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
+.hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .holo-panel.desk .desknote{margin-top:6px;font-family:var(--display);letter-spacing:.2em;color:var(--cyan);font-size:calc(16px*var(--s)*var(--fs))}
@@ -958,6 +959,12 @@ async function ask(q){
   if(/^(?:desk ?view|desk cam(?:era)?|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?)$/.test(cmd)){
     add('you',q);if(await openDesk())add('j','Desk view is up, sir. Hold something up and ask "what am I holding?".');return}
   if(DESK.stream&&/^(?:close|stop|hide|turn off|end)(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?$/.test(cmd)){add('you',q);closeDesk();add('j','Camera off, sir.');return}
+  if(/^(?:finish (?:this|that|it)(?: off)?|complete (?:this|that)|fill (?:this|it) (?:in|out))$/.test(cmd.replace(/ for me$/,''))&&!busy){
+    let r={};try{r=await (await fetch('/api/finish',{method:'POST'})).json()}catch(e){}
+    if(!r.photo)return add('j',"I couldn't see your screen, sir"+(r.error?': '+r.error:'.'));
+    photo=r.photo;askNote=`\n[Finish this: the attached screenshot is his screen. He was using ${r.app||'an app'}, window "${r.title||''}". `
+      +'Find the half-finished form, email or message there and write only the missing part, in his own voice, using what you know about him. '
+      +"Then call fill_in with exactly the text to type. Say one short line. Don't invent facts you don't know (leave a [blank] instead), and never send or submit anything.]"}
   if(/^(?:room scan|scan (?:the|my) (?:room|desk)|what(?:'s| is) on my desk|what can you see(?: on my desk)?)$/.test(cmd)&&!busy){
     if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1800));
     const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
@@ -1598,6 +1605,9 @@ function showPanel(ev){
   else{const c=document.createElement('canvas');p.append(c);const drawIt=()=>({chart:drawCandles,line:drawLine,donut:drawDonut}[ev.kind]||drawBars)(c,ev);
     requestAnimationFrame(drawIt);new ResizeObserver(()=>requestAnimationFrame(drawIt)).observe(c)}
   if(ev.note){const n=document.createElement('div');n.className='note';n.textContent=ev.note;p.append(n)}
+  if(ev.actions?.length){const a=document.createElement('div');a.className='hacts';  // buttons that say a command for you
+    for(const [label,say] of ev.actions){const b=document.createElement('button');b.type='button';b.textContent=label;
+      b.onclick=()=>{closePanel(p);ask(say)};a.append(b)}p.append(a)}
   movable(p,null);
   if(ev.kind!=='countdown'&&!ev.stay)setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
 }

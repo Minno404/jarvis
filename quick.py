@@ -99,8 +99,23 @@ def quick(text):
     if re.fullmatch(r"(?:what s|what is) the time|what time is it", t):
         now = datetime.datetime.now()
         return f"It's {now.hour % 12 or 12}:{now:%M} {now:%p}, {{TITLE}}."
+    # --- "finish this": typing the draft he's checked; where he left off ---
+    if re.fullmatch(r"(?:(?:go ahead and |ok(?:ay)? |yes,? )?type (?:it|that)(?: in)?(?: for me| please)?)", t) and "type_it" in R:
+        r = R["type_it"]()
+        return _ok(r, None if r.get("error") else "Done, {TITLE}. Have a look before you send it.")
+    if re.fullmatch(r"(?:don ?t type (?:it|that)|scrap (?:it|that|the draft)|drop the draft)", t) and "drop_draft" in R:
+        return _ok(R["drop_draft"](), "Scrapped, {TITLE}.")
+    if re.fullmatch(r"(?:where (?:did i|was i|i) (?:leave off|left off|up to)|what was i (?:doing|working on|up to)|where was i)", t) \
+            and "where_i_left_off" in R:
+        r = R["where_i_left_off"]()
+        return _ok(r, r["line"] + " Say 'reopen them' to bring it back." if r.get("found") else r["note"])
+    if re.fullmatch(r"(?:reopen (?:them|it all|everything|my (?:stuff|apps|windows))|bring (?:it all|everything|them) back)", t) \
+            and "reopen_left_off" in R:
+        r = R["reopen_left_off"]()
+        return _ok(r, r["note"] if r.get("found") is False else ("Reopening " + ", ".join(r["reopened"]) + ", {TITLE}.")
+                   if r.get("reopened") else "It's all still open, {TITLE}.")
     # --- muting Jarvis's microphone (he then ignores even "Hey Jarvis"; type "unmute" to undo) ---
-    if re.fullmatch(r"(?:mute yourself|stop listening|don'?t listen|mute (?:the |your )?mic(?:rophone)?|voice off)", t) and "voice_mute" in R:
+    if re.fullmatch(r"(?:mute yourself|stop listening|don ?t listen|mute (?:the |your )?mic(?:rophone)?|voice off)", t) and "voice_mute" in R:
         return _ok(R["voice_mute"](on=True), "Muted, {TITLE}. I won't listen until you unmute me.")
     if re.fullmatch(r"(?:unmute(?: yourself)?|start listening|listen again|unmute (?:the |your )?mic(?:rophone)?|voice on)", t) and "voice_mute" in R:
         return _ok(R["voice_mute"](on=False), "Listening again, {TITLE}.")

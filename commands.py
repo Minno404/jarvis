@@ -19,6 +19,8 @@ COMMANDS = {
                     "*Spot my push-ups", "*Count my curls", "*Count my jumping jacks", "*I'm done",
                     "*Enlarge desk view", "*Close desk view"],
     "Morning radio": ["*Morning radio", "*Jarvis FM"],
+    "Picking up where you left off": ["*Where was I?", "*What was I doing?", "*Reopen them",
+                                      "*Finish this (an email, form or message on screen)", "*Type it", "*Don't type it"],
     "Music and your PC": ["*Pause the music", "*Next song", "*Volume up", "*Quieter", "*Set volume to 30", "*Mute", "*Open Discord",
                           "Close Chrome", "Clip that", "What's on my screen?", "What's this error?",
                           "Clean up my PC", "What's hogging my memory?",
