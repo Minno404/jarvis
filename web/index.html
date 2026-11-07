@@ -129,7 +129,11 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 ::-webkit-scrollbar-thumb{background:rgba(var(--rgb),.3);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:rgba(var(--rgb),.7)}
 ::-webkit-scrollbar-button{display:none;width:0;height:0}
 /* No Windows title bar in the app: drag along the top strip, and the window buttons live in the HUD */
-.dragbar{position:fixed;top:0;left:0;right:120px;height:22px;z-index:30}
+.dragbar{position:fixed;top:0;left:0;right:120px;height:22px;z-index:30;cursor:grab}
+#snapHint{position:fixed;inset:6px;z-index:60;border:2px solid var(--cyan);background:rgba(var(--rgb),.10);box-shadow:inset 0 0 60px rgba(var(--rgb),.25);
+  display:grid;place-items:center;pointer-events:none;animation:svIn .25s ease-out}
+#snapHint[hidden]{display:none}
+#snapHint div{font-family:var(--display);letter-spacing:.3em;color:var(--cyan);font-size:clamp(14px,1.6vw,22px);text-shadow:0 0 14px rgba(var(--rgb),.6)}
 .winctl{position:fixed;top:4px;right:6px;display:flex;gap:2px;z-index:31}
 .winctl button{border:0;width:30px;height:22px;padding:0;color:var(--mute);font-family:var(--mono);font-size:calc(13px*var(--fs));letter-spacing:0;line-height:22px;opacity:.6}
 .winctl button:hover{opacity:1;color:var(--cyan);background:rgba(var(--rgb),.1)}.winctl #wClose:hover{color:#fff;background:rgba(255,77,94,.75)}
@@ -393,7 +397,8 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
 .legend span:nth-child(3n){text-align:right;color:var(--text)}.legend span{color:var(--mute)}
 </style>
 
-<div class="dragbar pywebview-drag-region" id="dragbar" hidden title="Drag to move · double-click to maximise"></div>
+<div class="dragbar" id="dragbar" hidden title="Drag to move (to the top of the screen to maximise) · double-click to maximise"></div>
+<div id="snapHint" hidden><div></div></div>
 <div class="winctl" id="winctl" hidden><button type="button" id="wMin" aria-label="Minimise" title="Minimise">&#x2013;</button><button type="button" id="wMax" aria-label="Maximise" title="Maximise">&#x25A1;</button><button type="button" id="wClose" aria-label="Close Jarvis" title="Close Jarvis">&times;</button></div>
 <div class="wingrip" id="wingrip" hidden></div>
 <div id="bgimg" hidden></div><canvas id="bgfx" hidden aria-hidden="true"></canvas>
@@ -1492,6 +1497,10 @@ function radioBed(on){
   const chords=[[220,261.6,329.6],[174.6,220,261.6],[261.6,329.6,392],[196,246.9,293.7]];let i=0;
   const step=()=>{const c=chords[i++%4],t=actx.currentTime;oscs.forEach((o,k)=>o.frequency.setTargetAtTime(c[k],t,.4))};step();
   RADIO.timer=setInterval(()=>{step();if(!busy&&!voiceOn&&Date.now()-RADIO.t0>6000)radioBed(false);if(Date.now()-RADIO.t0>300000)radioBed(false)},4000)}
+// Dragging the window to a screen edge (server.py drag_window): show what letting go will do
+function snapHint(edge){const h=$('snapHint');h.hidden=!edge;
+  h.firstElementChild.textContent={top:'RELEASE TO MAXIMISE',left:'RELEASE TO FILL THE LEFT HALF',right:'RELEASE TO FILL THE RIGHT HALF'}[edge]||'';
+  if(edge)sfx('panel')}
 // ---- "Enlarge ...": one panel fills the HUD, the core moves to a corner (like the spending report) ----
 const BIG={el:null,pending:0};
 function findPanel(name){
@@ -1832,10 +1841,11 @@ async function pinBoot(){  // inside a pinned panel's window
 addEventListener('pywebviewready',()=>{
   if(PIN||!api()?.win)return;
   for(const id of ['dragbar','winctl','wingrip'])$(id).hidden=false;
-  const maxIcon=r=>{$('wMax').innerHTML=r?.max?'&#x2750;':'&#x25A1;';$('wMax').title=r?.max?'Restore':'Maximise'};
+  const maxIcon=window.maxIcon=r=>{$('wMax').innerHTML=r?.max?'&#x2750;':'&#x25A1;';$('wMax').title=r?.max?'Restore':'Maximise'};
   $('wMin').onclick=()=>api().win('min');
   $('wMax').onclick=async()=>maxIcon(await api().win('max'));
   $('dragbar').ondblclick=async()=>maxIcon(await api().win('max'));
+  $('dragbar').onpointerdown=e=>{if(e.button===0)api()?.drag()};  // moved by the PC itself, so it can snap like a normal window
   $('wClose').onclick=()=>api().win('close');
   let st=null,t=0;const g=$('wingrip');
   g.onpointerdown=e=>{st={x:e.screenX,y:e.screenY,w:outerWidth,h:outerHeight};g.setPointerCapture(e.pointerId)};

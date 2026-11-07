@@ -1,4 +1,4 @@
 {
- "version": "1.40.3",
- "notes": "Enlarged panels shrink back properly."
+ "version": "1.41.0",
+ "notes": "Drag the window to a screen edge to maximise or snap it."
 }

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.40.3** (shown at the bottom right of the HUD)
+**Version 1.41.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.41.0** (7 Nov 2026): the window drags like a normal Windows window. Drag the strip along the top: push the
+  mouse into the top of the screen and "Release to maximise" shows (left or right edge: fill that half). Dragging a
+  maximised window brings it back to its normal size under the mouse.
 - **1.40.3** (7 Nov 2026): shrinking an enlarged panel you'd moved now puts it back at its own size (it used to
   remember the full-screen size); a full-window size saved by that bug is cleared.
 - **1.40.2** (7 Nov 2026): desk view's object labels grow with the panel, so they're readable when it's big.
