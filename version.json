@@ -1,4 +1,4 @@
 {
- "version": "1.40.1",
- "notes": "Desk view panel can be moved and resized."
+ "version": "1.40.2",
+ "notes": "Readable object labels in a big desk view."
 }

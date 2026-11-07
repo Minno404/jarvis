@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.40.1** (shown at the bottom right of the HUD)
+**Version 1.40.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.40.2** (7 Nov 2026): desk view's object labels grow with the panel, so they're readable when it's big.
 - **1.40.1** (7 Nov 2026): the desk view panel moves and resizes like the others (drag its title, corner to resize),
   and reopens where you left it.
 - **1.40.0** (7 Nov 2026): two buttons above the mini core. "-" tucks it away until you next minimise Jarvis (or tray >
