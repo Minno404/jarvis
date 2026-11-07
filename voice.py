@@ -19,7 +19,7 @@ LOOSE_THRESHOLD = float(os.environ.get("JARVIS_LOOSE_WAKE", "0.12"))
 NAME = re.compile(r"\bjarvis\b", re.I)
 # Speech recognition quality (Settings > Voice recognition): bigger Whisper models hear far better, a bit slower
 STT_MODELS = {"fast": "base.en", "accurate": "small.en", "best": "medium.en"}
-SURE_LOGPROB = -0.6  # Whisper's average confidence below this: he checks "did you say...?" before acting
+SURE_LOGPROB = -0.85  # Whisper's average confidence below this: he checks "did you say...?" before acting
 
 
 STT = {}  # the loaded Whisper model
@@ -54,7 +54,9 @@ def stt_model():
 def vocab():
     """Words Whisper should expect: his name, Jarvis's own words, and trading terms if he trades."""
     words = ["Jarvis", "Hey Jarvis", "Spotify", "Discord", "Netflix", "YouTube", "TV", "HUD", "Spend Breakdown",
-             "Claude", "ChatGPT", "split", "merge", "protocol", "Kokoro"]
+             "Claude", "ChatGPT", "DeepSeek", "split", "merge", "protocol", "Kokoro", "desk view", "enlarge", "shrink",
+             "swap brain", "offline mode", "online mode", "holo mode", "blueprint", "pull it apart", "hologram workshop",
+             "room scan", "gesture control", "Jarvis FM"]
     try:
         import features
         s = features.settings()

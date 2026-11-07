@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.45.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.45.3"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -2694,6 +2694,13 @@ if __name__ == "__main__":
                     text, confident = pending["text"], True
                 elif NO.match(text):
                     return speak_now("Sorry, sir. Say it again?")
+            # a known command, slightly misheard ("swap brand", "DeskV") or with chatter after it ("shrink. Yeah, you're
+            # right"): just do the command, no "did you say?"
+            first = re.split(r"(?<=[.!?])\s+", voice.after_name(text) if voice and re.search(r"\bjarvis\b", text, re.I)
+                             else text)[0]
+            fixed = commands.snap(first, exact=True)
+            if fixed and (fixed != commands._plain(text) or not confident):
+                text, confident = fixed, True
             if not confident and len(text.split()) >= 2:
                 st["confirm"] = {"text": text, "at": time.time()}
                 js(f"add('you',{json.dumps(text + ' (?)')})")

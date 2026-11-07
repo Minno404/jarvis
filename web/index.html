@@ -1000,9 +1000,11 @@ async function ask(q){
     if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1200));
     const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
     BP.pending=bpPull?'explode':'show';photo=shot;
-    askNote='\n[Blueprint mode: the attached desk-camera photo shows what he is holding up. Work out what it is and call the blueprint tool: '
-      +'bbox of the object in the photo, its visible features with positions in the photo, a size estimate, material, and the components '
-      +'typically inside it with shapes, positions and sizes relative to the object. Then say one short line.'
+    askNote='\n[Blueprint mode: the attached desk-camera photo shows what he is holding up. Work out exactly what it is (brand and model '
+      +'if you can read them). Then look it up online first (web_search its teardown, exploded view or parts diagram, and read_page the best '
+      +'result) so the inside components, their order and their sizes are right. Then call the blueprint tool: bbox of the object in the '
+      +'photo, its visible features with positions in the photo, size, material, shell, explode, and the components inside with shapes, '
+      +'positions, sizes, layer and thickness. Then say one short line.'
       +(DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:(?:open |show |start )?(?:the )?(?:hologram )?workshop|hologram workshop|holo workshop)$/.test(cmd)){add('you',q);if(openWorkshop())add('j','The workshop, sir. Drop a model in, or name one.');return}
   if(WS.panel&&/^(?:close|exit|leave)(?: the)? (?:hologram )?workshop$/.test(cmd)){add('you',q);closePanel(WS.panel);return}
@@ -1658,7 +1660,7 @@ function showBlueprint(ev){
   s+=`<g font-size="12" fill="#dff4ff"><rect x="${VW-300}" y="${VH-86}" width="284" height="70" fill="#0b2748" stroke="#dff4ff"/><line x1="${VW-300}" y1="${VH-60}" x2="${VW-16}" y2="${VH-60}" stroke="#dff4ff"/>`
     +`<text x="${VW-290}" y="${VH-67}" font-size="14" font-weight="bold">${esc(ev.title.toUpperCase())}</text>`
     +`<text x="${VW-290}" y="${VH-43}">MATERIAL: ${esc(ev.material||'-')}</text><text x="${VW-290}" y="${VH-25}">NOT TO SCALE · DRAWN BY J.A.R.V.I.S. · ${today}</text></g></svg>`;
-  p.querySelector('.bpbox').innerHTML=s;p.querySelector('.bpnote').textContent=(ev.note?ev.note+' · ':'')+(ev.inside.length?'Say "pull it apart" to see inside.':'');
+  p.querySelector('.bpbox').innerHTML=s;p.querySelector('.bpnote').textContent=(ev.note?ev.note+' · ':'')+(ev.source?'Parts from '+ev.source+' · ':'')+(ev.inside.length?'Say "pull it apart" to see inside.':'');
   if(BP.pending==='explode')setTimeout(()=>bpExplode(true),1400);BP.pending=''}
 function bpExplode(on){
   const p=BP.panel;if(!p)return;BP.exploded=on;p.classList.toggle('exploded',on);sfx('panel');
@@ -1711,16 +1713,24 @@ function bp3dOn(){
   const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(DESK.lastShot?DESK.lastShot.width/DESK.lastShot.height:4/3);
   let W=asp>=1?2.4:2.4*asp,H=asp>=1?2.4/asp:2.4;const nums=(ev.size.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,c)=>a-c);
   const D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
-  const shellGeo=new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
+  const sh=ev.shell||'box',shellGeo=sh==='disc'?new T.CylinderGeometry(W/2,W/2,D,48).rotateX(Math.PI/2).scale(1,H/W,1)
+    :sh==='cylinder'?new T.CylinderGeometry(W/2,W/2,H,40):sh==='sphere'?new T.SphereGeometry(.5,32,16).scale(W,H,Math.max(D,Math.min(W,H)))
+    :sh==='rounded'?(()=>{const s2=new T.Shape(),rr=Math.min(W,H)*.15,x0=-W/2,y0=-H/2;s2.moveTo(x0+rr,y0);s2.lineTo(x0+W-rr,y0);s2.quadraticCurveTo(x0+W,y0,x0+W,y0+rr);
+      s2.lineTo(x0+W,y0+H-rr);s2.quadraticCurveTo(x0+W,y0+H,x0+W-rr,y0+H);s2.lineTo(x0+rr,y0+H);s2.quadraticCurveTo(x0,y0+H,x0,y0+H-rr);s2.lineTo(x0,y0+rr);
+      s2.quadraticCurveTo(x0,y0,x0+rr,y0);return new T.ExtrudeGeometry(s2,{depth:D,bevelEnabled:false,curveSegments:8}).translate(0,0,-D/2)})()
+    :new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
   const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
   const shellLabel=bpLabel(ev.title.toUpperCase(),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
-  BP3.parts=ev.inside.map((c,i)=>{const w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.04,Math.min(w,h,D*.7));
-    const g=bpMesh(c,w,h,d),home=new T.Vector3((c.at[0]-.5)*W,(.5-c.at[1])*H,((i%3)-1)*D*.22);
-    let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
-    const out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)));
+  const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
+  BP3.parts=ev.inside.map((c,i)=>{const w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
+    const g=bpMesh(c,w,h,d),z=c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,home=new T.Vector3((c.at[0]-.5)*W,(.5-c.at[1])*H,z);
+    let out;
+    if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
+    else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
+      out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
     const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,h/2+.14,0);g.add(lab);
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false});g.position.copy(home);world.add(g);return g});
-  let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(-.5);dist=9};reset();
+  let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
   const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
     ray.setFromCamera(ndc,cam);const hit=ray.intersectObjects(BP3.parts,true).find(h=>!h.object.isSprite&&!h.object.isLineSegments);
     let o=hit&&hit.object;while(o&&!o.userData.part)o=o.parent;return o||null};

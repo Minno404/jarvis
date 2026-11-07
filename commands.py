@@ -70,6 +70,43 @@ COMMANDS = {
 }
 
 
+# Short commands Whisper tends to mishear ("swap brand", "DeskV"): snapped to the real phrase when close enough
+EXTRA = ["desk view", "close desk view", "enlarge desk view", "enlarge blueprint", "shrink", "shrink it", "swap brain",
+         "online mode", "offline mode", "holo mode", "exit holo mode", "blueprint this", "pull it apart",
+         "put it back together", "room scan", "gesture control", "gestures off", "hologram workshop",
+         "close the workshop", "morning radio", "what am i holding", "where was i", "reopen them", "type it",
+         "finish this", "stop listening", "jarvis split", "jarvis merge", "close spending report",
+         "pull up my spending report", "what can you do", "inventory mode", "i'm done", "count my squats"]
+
+
+def _plain(t):
+    import re
+    t = re.sub(r"^(hey |ok |okay )?jarvis[,.!]?\s*", "", t.lower().strip())
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9' ]", " ", t)).strip()
+
+
+def snap(text, exact=False):
+    """A short thing he said that's very close to a known command -> that command (else None). exact: an exact
+    match counts too."""
+    import difflib
+    t = _plain(text)
+    if not t or len(t.split()) > 6:
+        return None
+    phrases = {_plain(p.lstrip("*").split("(")[0]) for v in COMMANDS.values() for p in v if p.startswith("*")}
+    phrases |= set(EXTRA)
+    if t in phrases:
+        return t if exact else None  # already exactly right
+    best, score = None, 0.0
+    squash = t.replace(" ", "")
+    for p in phrases:
+        r = difflib.SequenceMatcher(None, t, p).ratio()
+        if " " not in t and len(squash) >= 5 and len(p.split()) <= 2 and p.replace(" ", "").startswith(squash):
+            r = max(r, 0.9)  # cut off: "DeskV" for "desk view"
+        if r > score:
+            best, score = p, r
+    return best if score >= 0.88 else None
+
+
 def show_commands(search=None):
     """Show everything Jarvis can do as a searchable panel on the HUD (optionally pre-filtered)."""
     groups = {k: v for k, v in COMMANDS.items() if k != "Trading" or features.feature("trading")}
@@ -98,6 +135,9 @@ TOOLS = [{"name": "show_commands", "description": "Show everything you can do as
 def selftest():
     assert all(isinstance(v, list) and v for v in COMMANDS.values())
     assert show_commands()["groups"][0] == "Talking to Jarvis"
+    assert snap("swap brand.") == "swap brain" and snap("Hey Jarvis, DeskV") == "desk view"
+    assert snap("what's the weather like in Sydney today") is None and snap("Hello,") is None
+    assert snap("desk view") is None and snap("Shrink.") is None
     print("commands self-test passed")
 
 
