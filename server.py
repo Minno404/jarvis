@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.43.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.44.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -605,8 +605,9 @@ import local_brain  # the free AI that runs on this PC: Jarvis's third brain (se
 import web        # free web search and page reading (see web.py)
 import inventory  # what the desk camera has seen: "where did I leave my phone?" (see inventory.py)
 import leftoff    # where I left off: what was open, offered back after a break (see leftoff.py)
+import workshop   # the hologram workshop: 3D models from his projects (see workshop.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, *custom_loader.load()):
+          web, inventory, leftoff, workshop, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1803,6 +1804,19 @@ class Handler(SimpleHTTPRequestHandler):
                                    "protocols": len(features.list_routines()), "mt5": mt5_on, "version": VERSION,
                                    "brain": brain_status(), "persona": personas.get(),
                                    "autostart": autostart_on()})
+        if self.path.startswith("/api/modelfile/"):  # the hologram workshop's 3D models (and their textures)
+            f = workshop.resolve(self.path[len("/api/modelfile/"):].split("?")[0])
+            if not f or f.stat().st_size > 300_000_000:
+                return self.send_error(404)
+            data = f.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", {".gltf": "model/gltf+json", ".glb": "model/gltf-binary", ".png": "image/png",
+                                              ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}.get(f.suffix.lower(),
+                                                                                              "application/octet-stream"))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if self.path.startswith(("/api/img/", "/api/photo/")):  # pictures for the HUD, and photos he sent
             name = self.path.rsplit("/", 1)[-1]
             f = (UPLOADS if self.path.startswith("/api/photo/") else HERE / hud.IMAGES) / name

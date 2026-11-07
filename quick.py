@@ -99,6 +99,11 @@ def quick(text):
     if re.fullmatch(r"(?:what s|what is) the time|what time is it", t):
         now = datetime.datetime.now()
         return f"It's {now.hour % 12 or 12}:{now:%M} {now:%p}, {{TITLE}}."
+    # --- the hologram workshop ---
+    m = re.fullmatch(r"(?:show|load|open|put up|bring up)(?: me)?(?: the| my| a)? (?:3d )?model(?: of)? (.+)|hologram of (?:the |my |a )?(.+)", t)
+    if m and "show_model" in R:
+        r = R["show_model"]((m.group(1) or m.group(2)).strip())
+        return r["note"] if r.get("found") is False else _ok(r, f"Here's {r.get('shown', 'it')}, {{TITLE}}.")
     # --- "finish this": typing the draft he's checked; where he left off ---
     if re.fullmatch(r"(?:(?:go ahead and |ok(?:ay)? |yes,? )?type (?:it|that)(?: in)?(?: for me| please)?)", t) and "type_it" in R:
         r = R["type_it"]()
