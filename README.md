@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.44.0** (shown at the bottom right of the HUD)
+**Version 1.45.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.45.0** (7 Nov 2026): blueprint mode. Hold something up to the desk camera and say "blueprint this": Jarvis works
+  out what it is and draws it on blueprint paper, traced from the photo, with labelled features, a size estimate and
+  a title block. "Pull it apart" flies the components typically inside it out into labelled columns around the
+  outline; "put it back together" closes it up. Saying "pull it apart" first does both.
 - **1.44.0** (7 Nov 2026): the hologram workshop. "Show me the model player" finds a .glb/.gltf/.obj/.stl/.fbx in your
   projects, Desktop, Documents or Downloads and shows it as a glowing wireframe hologram over a grid, with a scanning
   plane. Drag to turn, scroll to zoom, double-click to reset; with gesture control on, move your hand to turn it and

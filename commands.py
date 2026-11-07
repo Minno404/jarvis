@@ -19,6 +19,8 @@ COMMANDS = {
                     "*Spot my push-ups", "*Count my curls", "*Count my jumping jacks", "*I'm done",
                     "*Enlarge desk view", "*Close desk view"],
     "Morning radio": ["*Morning radio", "*Jarvis FM"],
+    "Blueprint mode": ["*Blueprint this (hold something up to the camera)", "*Pull it apart",
+                       "*What's inside it?", "*Put it back together"],
     "Hologram workshop": ["*Hologram workshop", "*Show me the model player", "*Hologram of the pistol",
                           "Drop a .glb/.obj/.stl/.fbx on the panel", "*Spin it", "*Stop spinning", "*Close the workshop",
                           "With gestures on: move your hand to turn it, pinch to zoom"],

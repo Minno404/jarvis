@@ -82,6 +82,17 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.workshop .wsbox::after{content:"";position:absolute;inset:0;pointer-events:none;
   background:repeating-linear-gradient(to bottom,rgba(var(--rgb),.05) 0 1px,transparent 1px 3px)}
 .holo-panel.workshop .wsnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
+.holo-panel.blueprint .bpbox{margin-top:6px}.holo-panel.blueprint svg{width:100%;height:auto;display:block}
+.holo-panel.blueprint.free .bpbox{flex:1;min-height:0}.holo-panel.blueprint.free svg{height:100%}
+.holo-panel.blueprint .bpout,.holo-panel.blueprint .bpcall,.holo-panel.blueprint .bpdim{transition:opacity .8s}
+.holo-panel.blueprint.exploded .bpout{opacity:.28}.holo-panel.blueprint.exploded .bpcall,.holo-panel.blueprint.exploded .bpdim{opacity:0}
+.holo-panel.blueprint .bppart{opacity:0;transition:opacity .6s}.holo-panel.blueprint.exploded .bppart{opacity:1}
+.holo-panel.blueprint .bpmove{transition:transform 1.3s cubic-bezier(.2,.8,.2,1);transition-delay:inherit}
+.holo-panel.blueprint .bpmove{transform-box:fill-box;transform-origin:center}
+.holo-panel.blueprint.exploded .bpmove{transform:translate(var(--dx),var(--dy)) scale(var(--k))}
+.holo-panel.blueprint .bplead{transition:all 1.3s cubic-bezier(.2,.8,.2,1)}
+.holo-panel.blueprint .bplabel{opacity:0;transition:opacity .5s}.holo-panel.blueprint.exploded .bplabel{opacity:1;transition-delay:1s}
+.holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -968,6 +979,17 @@ async function ask(q){
   if(/^(?:desk ?view|desk cam(?:era)?|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?)$/.test(cmd)){
     add('you',q);if(await openDesk())add('j','Desk view is up, sir. Hold something up and ask "what am I holding?".');return}
   if(DESK.stream&&/^(?:close|stop|hide|turn off|end)(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?$/.test(cmd)){add('you',q);closeDesk();add('j','Camera off, sir.');return}
+  const bpPull=/^(?:(?:pull|take|break|tear|split) (?:it|this|that) (?:apart|open)|dissect (?:it|this|that)|explode (?:it|this|that)|(?:what'?s|what is|show me what'?s) inside(?: (?:it|this|that))?)$/.test(cmd);
+  if(bpPull&&BP.panel&&BP.panel.isConnected){add('you',q);bpExplode(true);return}
+  if(BP.panel&&/^(?:put it back(?: together)?|reassemble(?: it)?|close it up)$/.test(cmd)){add('you',q);bpExplode(false);return}
+  if((bpPull||/^(?:blueprint(?: mode| this| it| that)?|draw (?:this|it|that) as a blueprint|(?:make|show) (?:a |me a )?blueprint(?: of (?:this|it|that))?)$/.test(cmd))&&!busy){
+    if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1200));
+    const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
+    BP.pending=bpPull?'explode':'show';photo=shot;
+    askNote='\n[Blueprint mode: the attached desk-camera photo shows what he is holding up. Work out what it is and call the blueprint tool: '
+      +'bbox of the object in the photo, its visible features with positions in the photo, a size estimate, material, and the components '
+      +'typically inside it with shapes, positions and sizes relative to the object. Then say one short line.'
+      +(DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:(?:open |show |start )?(?:the )?(?:hologram )?workshop|hologram workshop|holo workshop)$/.test(cmd)){add('you',q);if(openWorkshop())add('j','The workshop, sir. Drop a model in, or name one.');return}
   if(WS.panel&&/^(?:close|exit|leave)(?: the)? (?:hologram )?workshop$/.test(cmd)){add('you',q);closePanel(WS.panel);return}
   if(WS.panel&&/^(?:spin it|start spinning|keep spinning)$/.test(cmd)){add('you',q);WS.spin=true;WS.idle=0;return}
@@ -1158,7 +1180,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -1433,7 +1455,7 @@ async function openDesk(){
 function closeDesk(){if(!DESK.stream)return;DESK.stream.getTracks().forEach(t=>t.stop());const p=DESK.panel;
   Object.assign(DESK,{stream:null,panel:null,video:null,labels:[]});if(p&&p.isConnected&&!p.classList.contains('out'))closePanel(p)}
 async function deskShot(){const v=DESK.video;for(let i=0;i<30&&v&&v.readyState<2;i++)await new Promise(r=>setTimeout(r,100));
-  if(!v||!v.videoWidth)return null;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+  if(!v||!v.videoWidth)return null;const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);DESK.lastShot=c;
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.88));
   try{const r=await (await fetch('/api/upload',{method:'POST',headers:{'Content-Type':'image/jpeg'},body:blob})).json();return r.name||null}catch(e){return null}}
 async function deskDetect(){
@@ -1551,6 +1573,83 @@ function wsHand(lm){  // gestures on: move your hand to turn the model, pinch th
   if(WS.hand){WS.rotY-=(x-WS.hand.x)*6;WS.rotX=Math.max(-.2,Math.min(1.3,WS.rotX+(y-WS.hand.y)*3));
     if(pinch<.35)WS.dist=Math.max(1.2,WS.dist*.985);else if(pinch>1.1)WS.dist=Math.min(12,WS.dist*1.01);WS.idle=performance.now()}
   WS.hand={x,y}}
+// ---- Blueprint mode: the photo traced into a sketch on blueprint paper, labelled; "pull it apart" flies the inside out ----
+const BP={panel:null,ev:null,exploded:false,pending:''};
+function edgeSketch(src,box){  // the object's part of the photo, as light edge lines (Sobel) on transparent
+  const sx=box[0]*src.width,sy=box[1]*src.height,sw=Math.max(8,(box[2]-box[0])*src.width),sh=Math.max(8,(box[3]-box[1])*src.height);
+  const W=Math.min(640,Math.round(sw)),H=Math.max(8,Math.round(W*sh/sw)),c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');x.filter='blur(1px)';x.drawImage(src,sx,sy,sw,sh,0,0,W,H);x.filter='none';
+  const im=x.getImageData(0,0,W,H),d=im.data,g=new Float32Array(W*H),m=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++)g[i]=.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2];
+  for(let yy=1;yy<H-1;yy++)for(let xx=1;xx<W-1;xx++){const i=yy*W+xx;
+    const gx=g[i-W+1]+2*g[i+1]+g[i+W+1]-g[i-W-1]-2*g[i-1]-g[i+W-1],gy=g[i+W-1]+2*g[i+W]+g[i+W+1]-g[i-W-1]-2*g[i-W]-g[i-W+1];m[i]=Math.hypot(gx,gy)}
+  const sorted=Float32Array.from(m).sort(),thr=Math.max(40,sorted[Math.floor(sorted.length*.86)]);
+  for(let i=0;i<W*H;i++){const a=m[i]>thr?Math.min(255,(m[i]-thr)*3+120):0;d[i*4]=225;d[i*4+1]=244;d[i*4+2]=255;d[i*4+3]=a}
+  x.putImageData(im,0,0);return{url:c.toDataURL(),W,H}}
+function bpShape(s,w,h){  // a component drawn as a simple schematic shape, centred on 0,0
+  const hw=w/2,hh=h/2,r=Math.min(hw,hh);
+  switch(s.shape){
+    case'rounded':return`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="${r*.4}"/>`;
+    case'circle':return`<ellipse rx="${hw}" ry="${hh}"/><ellipse rx="${hw*.55}" ry="${hh*.55}" stroke-dasharray="4 4"/>`;
+    case'cylinder':return`<rect x="${-hw}" y="${-hh+6}" width="${w}" height="${Math.max(4,h-12)}"/><ellipse cy="${-hh+6}" rx="${hw}" ry="6"/><path d="M${-hw} ${hh-6} A${hw} 6 0 0 0 ${hw} ${hh-6}"/>`;
+    case'board':{let o=`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="3"/>`;
+      for(let i=0;i<4;i++){const cx=-hw+w*(.15+.22*i),cy=(i%2?.2:-.25)*h;o+=`<rect x="${cx}" y="${cy-h*.1}" width="${w*.14}" height="${h*.2}"/><line x1="${cx+w*.07}" y1="${cy+h*.1}" x2="${cx+w*.07}" y2="${hh}" stroke-dasharray="2 3"/>`}return o}
+    case'coil':case'spring':{let p=`M${-hw} 0`;const n=Math.max(4,Math.round(w/10));for(let i=1;i<=n;i++)p+=` L${-hw+w*i/n-w/n/2} ${i%2?-hh:hh} L${-hw+w*i/n} 0`;return`<path d="${p}"/>`}
+    case'battery':return`<rect x="${-hw}" y="${-hh}" width="${w*.92}" height="${h}" rx="3"/><rect x="${hw-w*.08}" y="${-hh*.4}" width="${w*.08}" height="${h*.4}"/><text x="${-hw+8}" y="5" font-size="14">+</text>`;
+    case'screw':return`<circle r="${r*.6}"/><line x1="${-r*.4}" y1="0" x2="${r*.4}" y2="0"/>`;
+    case'lens':return`<ellipse rx="${hw}" ry="${hh}"/><path d="M${-hw*.5} ${-hh*.3} Q0 ${-hh*.8} ${hw*.5} ${-hh*.3}"/>`;
+    case'wire':return`<path d="M${-hw} ${hh} C${-hw*.2} ${-hh} ${hw*.2} ${hh} ${hw} ${-hh}"/>`;
+    case'fan':return`<circle r="${r}"/><circle r="${r*.2}"/>`+[0,72,144,216,288].map(a=>`<path d="M0 0 Q${r*.6} ${-r*.2} ${r*.85} 0" transform="rotate(${a})"/>`).join('');
+    default:return`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}"/>`}}
+function showBlueprint(ev){
+  if(BP.panel&&BP.panel.isConnected)closePanel(BP.panel);
+  const p=document.createElement('div');p.className='holo-panel blueprint wide';BP.ev=ev;BP.exploded=false;
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
+  p.querySelector('h3').textContent='Blueprint · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
+  $('holo').prepend(p);sfx('panel');movable(p,'blueprint');if(layout.blueprint)free(p,fromLayout(layout.blueprint));BP.panel=p;
+  const VW=1000,VH=640,esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const b=ev.bbox,src=DESK.lastShot,sk=src?edgeSketch(src,b):null,asp=sk?sk.W/sk.H:((b[2]-b[0])/(b[3]-b[1]))*(4/3);
+  let aw=480,ah=aw/asp;if(ah>420){ah=420;aw=ah*asp}
+  const A={x:(VW-aw)/2,y:(VH-ah)/2-20,w:aw,h:ah},cx=A.x+aw/2,cy=A.y+ah/2;
+  const fx=pt=>A.x+((pt[0]-b[0])/(b[2]-b[0]))*aw,fy=pt=>A.y+((pt[1]-b[1])/(b[3]-b[1]))*ah;
+  let s=`<svg viewBox="0 0 ${VW} ${VH}" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="bpg" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="rgba(160,210,255,.12)"/></pattern>`
+    +`<pattern id="bpG" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="url(#bpg)"/><path d="M100 0H0V100" fill="none" stroke="rgba(160,210,255,.25)"/></pattern>`
+    +`<marker id="bpa" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#dff4ff"/></marker></defs>`
+    +`<rect width="${VW}" height="${VH}" fill="#0b2748"/><rect width="${VW}" height="${VH}" fill="url(#bpG)"/><rect x="8" y="8" width="${VW-16}" height="${VH-16}" fill="none" stroke="#dff4ff" stroke-width="2"/>`;
+  s+=`<g class="bpout">`+(sk?`<image href="${sk.url}" x="${A.x}" y="${A.y}" width="${aw}" height="${ah}"/>`:'')
+    +`<rect x="${A.x}" y="${A.y}" width="${aw}" height="${ah}" fill="none" stroke="#dff4ff" stroke-dasharray="6 6" opacity="${sk?.35:.9}"/></g>`;
+  if(ev.size){s+=`<g class="bpdim" stroke="#dff4ff" fill="#dff4ff"><line x1="${A.x}" y1="${A.y+ah+28}" x2="${A.x+aw}" y2="${A.y+ah+28}" marker-start="url(#bpa)" marker-end="url(#bpa)"/>`
+    +`<line x1="${A.x}" y1="${A.y+ah+8}" x2="${A.x}" y2="${A.y+ah+36}"/><line x1="${A.x+aw}" y1="${A.y+ah+8}" x2="${A.x+aw}" y2="${A.y+ah+36}"/>`
+    +`<text x="${cx}" y="${A.y+ah+50}" text-anchor="middle" stroke="none" font-size="16">${esc(ev.size)}</text></g>`}
+  const fs=[...ev.features].sort((a,b2)=>a.at[1]-b2.at[1]),L=fs.filter(f=>fx(f.at)<cx),R=fs.filter(f=>fx(f.at)>=cx);s+='<g class="bpcall">';
+  for(const [side,list] of [[-1,L],[1,R]])list.forEach((f,i)=>{const px=fx(f.at),py=fy(f.at),ly=60+i*(VH-160)/Math.max(1,list.length-1||1),lx=side<0?40:VW-40,ex=side<0?A.x-30:A.x+aw+30;
+    s+=`<circle cx="${px}" cy="${py}" r="5" fill="none" stroke="#ffd36b" stroke-width="2"/><polyline points="${px},${py} ${ex},${ly} ${side<0?lx+170:lx-170},${ly}" fill="none" stroke="#ffd36b"/>`
+      +`<text x="${side<0?lx:lx}" y="${ly-6}" text-anchor="${side<0?'start':'end'}" fill="#ffd36b" font-size="17">${esc(f.name)}</text>`
+      +(f.note?`<text x="${lx}" y="${ly+16}" text-anchor="${side<0?'start':'end'}" fill="#cfe6ff" font-size="12">${esc(f.note)}</text>`:'')});
+  s+='</g><g class="bpin">';
+  // pulled apart: each component flies to a column beside the outline (its own side), in order top to bottom, shrunk to fit
+  let flip=0;const sides=ev.inside.map(c=>Math.abs(c.at[0]-.5)<.08?(flip++%2?1:-1):c.at[0]<.5?-1:1);
+  const cols={'-1':ev.inside.map((c,i)=>i).filter(i=>sides[i]<0).sort((a,b2)=>ev.inside[a].at[1]-ev.inside[b2].at[1]),
+              '1':ev.inside.map((c,i)=>i).filter(i=>sides[i]>0).sort((a,b2)=>ev.inside[a].at[1]-ev.inside[b2].at[1])};
+  ev.inside.forEach((c,i)=>{const w=Math.max(18,c.size[0]*aw),h=Math.max(14,c.size[1]*ah),ox=A.x+c.at[0]*aw,oy=A.y+c.at[1]*ah;
+    const col=cols[sides[i]],row=col.indexOf(i),rowH=(VH-130)/col.length,colW=A.x-50;
+    const tx=sides[i]<0?A.x/2+10:A.x+aw+(VW-A.x-aw)/2-10,ty=50+rowH*(row+.5)-14,k=Math.max(.3,Math.min(1,(colW-10)/w,(rowH-48)/h));
+    s+=`<g class="bppart" style="--dx:${tx-ox}px;--dy:${ty-oy}px;--k:${k.toFixed(3)};transition-delay:${i*90}ms"><line class="bplead" x1="${ox}" y1="${oy}" x2="${ox}" y2="${oy}" stroke="#7fd4ff" stroke-dasharray="3 5"/>`
+      +`<g class="bpmove"><g transform="translate(${ox},${oy})" fill="rgba(127,212,255,.08)" stroke="#dff4ff" stroke-width="1.6">${bpShape(c,w,h)}</g></g>`
+      +`<g class="bplabel"><text x="${tx}" y="${ty+h*k/2+18}" text-anchor="middle" fill="#ffffff" font-size="15">${esc(c.name)}</text>`  // labels stay full size
+      +(c.note?`<text x="${tx}" y="${ty+h*k/2+33}" text-anchor="middle" fill="#9fc8ee" font-size="11">${esc(c.note)}</text>`:'')+`</g></g>`});
+  s+='</g>';
+  const today=new Date().toLocaleDateString();
+  s+=`<g font-size="12" fill="#dff4ff"><rect x="${VW-300}" y="${VH-86}" width="284" height="70" fill="#0b2748" stroke="#dff4ff"/><line x1="${VW-300}" y1="${VH-60}" x2="${VW-16}" y2="${VH-60}" stroke="#dff4ff"/>`
+    +`<text x="${VW-290}" y="${VH-67}" font-size="14" font-weight="bold">${esc(ev.title.toUpperCase())}</text>`
+    +`<text x="${VW-290}" y="${VH-43}">MATERIAL: ${esc(ev.material||'-')}</text><text x="${VW-290}" y="${VH-25}">NOT TO SCALE · DRAWN BY J.A.R.V.I.S. · ${today}</text></g></svg>`;
+  p.querySelector('.bpbox').innerHTML=s;p.querySelector('.bpnote').textContent=(ev.note?ev.note+' · ':'')+(ev.inside.length?'Say "pull it apart" to see inside.':'');
+  if(BP.pending==='explode')setTimeout(()=>bpExplode(true),1400);BP.pending=''}
+function bpExplode(on){
+  const p=BP.panel;if(!p)return;BP.exploded=on;p.classList.toggle('exploded',on);sfx('panel');
+  p.querySelectorAll('.bppart').forEach(g=>{const l=g.querySelector('.bplead'),dx=parseFloat(g.style.getPropertyValue('--dx')),dy=parseFloat(g.style.getPropertyValue('--dy'));
+    l.setAttribute('x2',+l.getAttribute('x1')+(on?dx:0));l.setAttribute('y2',+l.getAttribute('y1')+(on?dy:0))});
+  p.querySelector('.bpnote').textContent=on?`${BP.ev.inside.length} components. Say "put it back together" to close it up.`:'Say "pull it apart" to see inside.'}
 // ---- Workout spotter: counts reps from your body's joint angles and calls each one out ----
 const SPOT={on:false,ex:null,reps:0,inRep:false,pose:null};
 const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d};
