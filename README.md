@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.43.0** (shown at the bottom right of the HUD)
+**Version 1.44.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.44.0** (7 Nov 2026): the hologram workshop. "Show me the model player" finds a .glb/.gltf/.obj/.stl/.fbx in your
+  projects, Desktop, Documents or Downloads and shows it as a glowing wireframe hologram over a grid, with a scanning
+  plane. Drag to turn, scroll to zoom, double-click to reset; with gesture control on, move your hand to turn it and
+  pinch to zoom. Drop a model file on the panel to load it. "Hologram workshop" opens it empty.
 - **1.43.0** (7 Nov 2026): hand-off to your phone. Walk away from the PC with Jarvis open on your phone and it picks up
   the last few exchanges and the panels from the last 15 minutes ("Picked up from your PC"); opening the phone after
   leaving does the same. While you're away, anything Jarvis would have said (reminders, a finished job) is said on
