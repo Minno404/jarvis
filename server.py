@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.45.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.45.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -2276,6 +2276,38 @@ if __name__ == "__main__":
             mini.send("hide")
             show_pins(False)
 
+        def resize_window(edge):
+            import ctypes
+            from ctypes import wintypes
+            u = ctypes.windll.user32
+            try:
+                hwnd = ctypes.c_void_p(main.native.Handle.ToInt64())
+            except Exception:
+                return
+            try:
+                k = u.GetDpiForWindow(hwnd) / 96 or 1
+            except Exception:
+                k = 1
+            minw, minh = int(420 * k), int(600 * k)  # the HUD's smallest size
+            pt, r = wintypes.POINT(), wintypes.RECT()
+            u.GetCursorPos(ctypes.byref(pt))
+            u.GetWindowRect(hwnd, ctypes.byref(r))
+            x0, y0, (l0, t0, r0, b0) = pt.x, pt.y, (r.left, r.top, r.right, r.bottom)
+            while u.GetAsyncKeyState(0x01) & 0x8000:  # while the left button is held
+                u.GetCursorPos(ctypes.byref(pt))
+                dx, dy = pt.x - x0, pt.y - y0
+                left, top, right, bottom = l0, t0, r0, b0
+                if "w" in edge:
+                    left = min(l0 + dx, r0 - minw)
+                if "e" in edge:
+                    right = max(r0 + dx, l0 + minw)
+                if "n" in edge:
+                    top = min(t0 + dy, b0 - minh)
+                if "s" in edge:
+                    bottom = max(b0 + dy, t0 + minh)
+                u.SetWindowPos(hwnd, None, left, top, right - left, bottom - top, 0x0004 | 0x0010)
+                time.sleep(0.012)
+
         def drag_window():
             import ctypes
             from ctypes import wintypes
@@ -2449,6 +2481,11 @@ if __name__ == "__main__":
             def mini(self, show):
                 mini.send("show" if show else "hide")
                 show_pins(show)
+
+            def resize(self, edge):
+                """One of the HUD's window edges or corners was pressed: resize like a normal window."""
+                if edge in ("n", "s", "e", "w", "ne", "nw", "se", "sw") and not win["max"]:
+                    threading.Thread(target=resize_window, args=(edge,), daemon=True).start()
 
             def drag(self):
                 """The HUD's title strip was pressed: move the window with the mouse, like a normal window. Hit the top

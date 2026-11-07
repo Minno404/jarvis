@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.45.1** (shown at the bottom right of the HUD)
+**Version 1.45.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.45.2** (7 Nov 2026): resize the window from any edge or corner like a normal window: hover an edge and it lights
+  up with a resize arrow, then drag. (Not while maximised, same as Windows.)
 - **1.45.1** (7 Nov 2026): the blueprint in 3D. Enlarge it (or press its 3D button) and the shell and every component
   become 3D shapes: drag empty space to turn it any way, drag a part to move it, right-drag (or Shift-drag) a part
   to spin it any way, scroll to zoom, double-click to reset. "Pull it apart" and "put it back together" work in 3D.
