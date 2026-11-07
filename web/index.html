@@ -92,6 +92,11 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint.exploded .bpmove{transform:translate(var(--dx),var(--dy)) scale(var(--k))}
 .holo-panel.blueprint .bplead{transition:all 1.3s cubic-bezier(.2,.8,.2,1)}
 .holo-panel.blueprint .bplabel{opacity:0;transition:opacity .5s}.holo-panel.blueprint.exploded .bplabel{opacity:1;transition-delay:1s}
+.holo-panel.blueprint .bp3btn{position:absolute;top:8px;right:38px;padding:1px 8px;font-size:calc(10px*var(--s));letter-spacing:.15em}
+.holo-panel.blueprint .bpbox{position:relative}
+.holo-panel.blueprint .bp3{position:absolute;inset:0;background:#0b2748 radial-gradient(ellipse at 50% 60%,#123a66,#0b2748 70%)}
+.holo-panel.blueprint .bp3 canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#bigView>.holo-panel.blueprint .bpbox{height:calc((100vh - 250px)/1.6)}#bigView>.holo-panel.blueprint .bpbox svg{height:100%}
 .holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
@@ -1604,7 +1609,8 @@ function bpShape(s,w,h){  // a component drawn as a simple schematic shape, cent
 function showBlueprint(ev){
   if(BP.panel&&BP.panel.isConnected)closePanel(BP.panel);
   const p=document.createElement('div');p.className='holo-panel blueprint wide';BP.ev=ev;BP.exploded=false;
-  p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><button type="button" class="bp3btn">3D</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
+  p.querySelector('.bp3btn').onclick=()=>{if(BP3.on)bp3dOff();else bp3dOn()};BP3.on=false;
   p.querySelector('h3').textContent='Blueprint · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
   $('holo').prepend(p);sfx('panel');movable(p,'blueprint');if(layout.blueprint)free(p,fromLayout(layout.blueprint));BP.panel=p;
   const VW=1000,VH=640,esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1647,9 +1653,96 @@ function showBlueprint(ev){
   if(BP.pending==='explode')setTimeout(()=>bpExplode(true),1400);BP.pending=''}
 function bpExplode(on){
   const p=BP.panel;if(!p)return;BP.exploded=on;p.classList.toggle('exploded',on);sfx('panel');
+  if(BP3.on)BP3.parts.forEach(m=>{m.userData.manual=false});  // pulled apart (or back): parts you'd moved go with them
   p.querySelectorAll('.bppart').forEach(g=>{const l=g.querySelector('.bplead'),dx=parseFloat(g.style.getPropertyValue('--dx')),dy=parseFloat(g.style.getPropertyValue('--dy'));
     l.setAttribute('x2',+l.getAttribute('x1')+(on?dx:0));l.setAttribute('y2',+l.getAttribute('y1')+(on?dy:0))});
   p.querySelector('.bpnote').textContent=on?`${BP.ev.inside.length} components. Say "put it back together" to close it up.`:'Say "pull it apart" to see inside.'}
+// ---- The blueprint in 3D (when it's enlarged, or its 3D button): the shell and every component as real shapes.
+// Drag empty space to turn it any way; drag a part to move it; right-drag (or Shift-drag) a part to spin it any way;
+// scroll to zoom; double-click a part to put it back, or empty space to reset the view ----
+const BP3={on:false,parts:[]};
+function bpLabel(text,col){const c=document.createElement('canvas'),x=c.getContext('2d');c.width=512;c.height=96;
+  x.font='bold 40px monospace';x.fillStyle=col;x.textAlign='center';x.fillText(text,256,58);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));s.scale.set(1.15,.22,1);return s}
+function bpMesh(c,w,h,d){  // a component as a 3D shape, centred on 0,0,0
+  const T=THREE,g=new T.Group(),mats=[];
+  const solid=geo=>{const m=new T.Mesh(geo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide}));
+    const e=new T.LineSegments(new T.EdgesGeometry(geo,20),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.95}));m.add(e);mats.push(e.material);return m};
+  const r=Math.min(w,h)/2;
+  switch(c.shape){
+    case'circle':{const m=solid(new T.CylinderGeometry(w/2,w/2,d,32));m.rotation.x=Math.PI/2;m.scale.z=h/w;g.add(m);break}
+    case'cylinder':g.add(solid(new T.CylinderGeometry(Math.min(w,d)/2,Math.min(w,d)/2,h,28)));break;
+    case'board':{g.add(solid(new T.BoxGeometry(w,h,d*.18)));for(let i=0;i<4;i++){const ch=solid(new T.BoxGeometry(w*.16,h*.16,d*.18));
+      ch.position.set(-w*.33+w*.22*i,(i%2?.2:-.2)*h,d*.18);g.add(ch)}break}
+    case'coil':case'spring':{const n=Math.max(4,Math.round(w/(d*.6)));
+      class H extends T.Curve{getPoint(t){return new T.Vector3(-w/2+w*t,Math.cos(t*n*Math.PI*2)*h/2,Math.sin(t*n*Math.PI*2)*Math.min(h,d)/2)}}
+      g.add(solid(new T.TubeGeometry(new H(),n*16,Math.max(.008,Math.min(w,h)*.04),6,false)));break}
+    case'battery':{const m=solid(new T.CylinderGeometry(h/2,h/2,w*.9,24));m.rotation.z=Math.PI/2;g.add(m);
+      const t=solid(new T.CylinderGeometry(h/5,h/5,w*.1,16));t.rotation.z=Math.PI/2;t.position.x=w*.5;g.add(t);break}
+    case'screw':{const hd=solid(new T.CylinderGeometry(r,r,r*.5,20));hd.position.y=h/2;g.add(hd);g.add(solid(new T.CylinderGeometry(r*.35,r*.35,h,12)));break}
+    case'lens':{const m=solid(new T.SphereGeometry(.5,24,12));m.scale.set(w,h,Math.min(w,h)*.35);g.add(m);break}
+    case'wire':{const cv=new T.CatmullRomCurve3([new T.Vector3(-w/2,-h/2,0),new T.Vector3(-w/6,h/2,d/2),new T.Vector3(w/6,-h/2,-d/2),new T.Vector3(w/2,h/2,0)]);
+      g.add(solid(new T.TubeGeometry(cv,48,Math.max(.006,Math.min(w,h)*.03),6,false)));break}
+    case'fan':{const m=solid(new T.CylinderGeometry(r,r,d*.2,32));m.rotation.x=Math.PI/2;g.add(m);
+      for(let i=0;i<5;i++){const b=solid(new T.BoxGeometry(r*.85,r*.25,d*.05));b.position.set(Math.cos(i*1.257)*r*.45,Math.sin(i*1.257)*r*.45,0);b.rotation.z=i*1.257+.4;g.add(b)}break}
+    case'rounded':{const s=new T.Shape(),rr=Math.min(w,h)*.2,x0=-w/2,y0=-h/2;
+      s.moveTo(x0+rr,y0);s.lineTo(x0+w-rr,y0);s.quadraticCurveTo(x0+w,y0,x0+w,y0+rr);s.lineTo(x0+w,y0+h-rr);s.quadraticCurveTo(x0+w,y0+h,x0+w-rr,y0+h);
+      s.lineTo(x0+rr,y0+h);s.quadraticCurveTo(x0,y0+h,x0,y0+h-rr);s.lineTo(x0,y0+rr);s.quadraticCurveTo(x0,y0,x0+rr,y0);
+      const m=solid(new T.ExtrudeGeometry(s,{depth:d,bevelEnabled:false,curveSegments:6}));m.position.z=-d/2;g.add(m);break}
+    default:g.add(solid(new T.BoxGeometry(w,h,d)))}
+  g.userData.edges=mats;return g}
+function bp3dOn(){
+  const p=BP.panel,ev=BP.ev;if(!p||!ev||BP3.on||!window.THREE)return;
+  const box=p.querySelector('.bpbox'),host=document.createElement('div');host.className='bp3';box.append(host);p.classList.add('in3d');
+  const T=THREE,cv=document.createElement('canvas');host.append(cv);
+  const r=new T.WebGLRenderer({canvas:cv,alpha:true,antialias:true});r.setPixelRatio(Math.min(2,devicePixelRatio));
+  const scene=new T.Scene(),cam=new T.PerspectiveCamera(40,1,.01,100),world=new T.Group();scene.add(world);
+  const grid=new T.GridHelper(8,32,0x9fd2ff,0x9fd2ff);grid.material.transparent=true;grid.material.opacity=.15;grid.position.y=-1.6;scene.add(grid);
+  // the shell: the object's outline as a see-through box, its depth from the size estimate ("17 x 5 x 2 cm")
+  const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(DESK.lastShot?DESK.lastShot.width/DESK.lastShot.height:4/3);
+  let W=asp>=1?2.4:2.4*asp,H=asp>=1?2.4/asp:2.4;const nums=(ev.size.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,c)=>a-c);
+  const D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
+  const shellGeo=new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
+  const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
+  const shellLabel=bpLabel(ev.title.toUpperCase(),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
+  BP3.parts=ev.inside.map((c,i)=>{const w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.04,Math.min(w,h,D*.7));
+    const g=bpMesh(c,w,h,d),home=new T.Vector3((c.at[0]-.5)*W,(.5-c.at[1])*H,((i%3)-1)*D*.22);
+    let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
+    const out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)));
+    const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,h/2+.14,0);g.add(lab);
+    Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false});g.position.copy(home);world.add(g);return g});
+  let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(-.5);dist=9};reset();
+  const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
+    ray.setFromCamera(ndc,cam);const hit=ray.intersectObjects(BP3.parts,true).find(h=>!h.object.isSprite&&!h.object.isLineSegments);
+    let o=hit&&hit.object;while(o&&!o.userData.part)o=o.parent;return o||null};
+  const spin=(obj,dx,dy)=>{  // turn freely about the screen's own axes, whichever way it's facing
+    const q=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),dx*.01).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),dy*.01));
+    if(obj===world){world.quaternion.premultiply(q);return}
+    const wq=world.getWorldQuaternion(new T.Quaternion()),local=wq.clone().invert().multiply(q).multiply(wq);obj.quaternion.premultiply(local)};
+  let sel=null,mode='',last=null,plane=new T.Plane(),grab=new T.Vector3();
+  const select=o=>{if(sel)sel.userData.edges.forEach(m=>m.color.set(0xdff4ff));sel=o;if(o)o.userData.edges.forEach(m=>m.color.set(0xffd36b))};
+  cv.oncontextmenu=e=>e.preventDefault();
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];const o=pick(e);select(o);
+    if(!o){mode='orbit';return}
+    if(e.button===2||e.shiftKey){mode='turn';return}
+    mode='move';const wp=o.getWorldPosition(new T.Vector3());plane.setFromNormalAndCoplanarPoint(cam.getWorldDirection(new T.Vector3()),wp);
+    ray.ray.intersectPlane(plane,grab);grab.sub(wp)};
+  cv.onpointermove=e=>{if(!mode)return;const dx=e.clientX-last[0],dy=e.clientY-last[1];last=[e.clientX,e.clientY];
+    if(mode==='orbit')spin(world,dx,dy);else if(mode==='turn')spin(sel,dx,dy);
+    else{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);ray.setFromCamera(ndc,cam);
+      const pt=new T.Vector3();if(ray.ray.intersectPlane(plane,pt)){pt.sub(grab);sel.position.copy(world.worldToLocal(pt));sel.userData.manual=true}}};
+  cv.onpointerup=()=>{mode=''};
+  cv.ondblclick=e=>{const o=pick(e);if(o){o.userData.manual=false;o.quaternion.set(0,0,0,1)}else reset()};
+  cv.onwheel=e=>{e.preventDefault();dist=Math.max(2,Math.min(20,dist*(e.deltaY>0?1.1:.9)))};
+  Object.assign(BP3,{on:true,host,r,cam,world});
+  const frame=()=>{if(!BP3.on||!p.isConnected){r.dispose();host.remove();BP3.on=false;p.classList.remove('in3d');return}
+    const w=host.clientWidth,h=host.clientHeight;if(w&&h&&(cv.width!==Math.round(w*r.getPixelRatio())||cv.height!==Math.round(h*r.getPixelRatio()))){r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+    cam.position.set(0,0,dist);cam.lookAt(0,0,0);
+    for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
+    shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
+    r.render(scene,cam);requestAnimationFrame(frame)};
+  frame();p.querySelector('.bpnote').textContent='3D: drag to turn it · drag a part to move it · right-drag a part to spin it · scroll to zoom · double-click to reset'}
+function bp3dOff(){BP3.on=false}
 // ---- Workout spotter: counts reps from your body's joint angles and calls each one out ----
 const SPOT={on:false,ex:null,reps:0,inRep:false,pose:null};
 const ang=(a,b,c)=>{const r=Math.atan2(c.y-b.y,c.x-b.x)-Math.atan2(a.y-b.y,a.x-b.x);let d=Math.abs(r*180/Math.PI);return d>180?360-d:d};
@@ -1711,11 +1804,13 @@ function glideCore(fn){const core=$('coreWrap'),a=core.getBoundingClientRect();f
 function enterBig(p){
   if(PIN)return;if(SV.on)setSpendMode(false);if(BIG.el)exitBig(true);
   Object.assign(BIG,{el:p,parent:p.parentNode,next:p.nextSibling,style:p.getAttribute('style'),hidden:p.hidden,pending:0});
-  p.dataset.reflow=Date.now();p.removeAttribute('style');p.hidden=false;$('bigView').append(p);p.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
+  p.dataset.reflow=Date.now();p.removeAttribute('style');p.hidden=false;$('bigView').append(p);
+  if(p===BP.panel)setTimeout(bp3dOn,400);  // an enlarged blueprint is a 3D model you can handlep.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
   glideCore(()=>{document.documentElement.classList.add('bigmode');$('bigView').hidden=false;$('bigClose').hidden=false})}
 function exitBig(quick){
   const b={...BIG};if(!b.el)return;BIG.el=null;
   b.el.dataset.reflow=Date.now()+1500;  // the size changes now are the shrink, not his choice
+  if(b.el===BP.panel)bp3dOff();
   if(b.el.isConnected&&!b.el.classList.contains('out')){(b.parent.isConnected?b.parent:$('holo')).insertBefore(b.el,b.next&&b.next.parentNode===b.parent?b.next:null);
     if(b.style)b.el.setAttribute('style',b.style);b.el.hidden=b.hidden;b.el.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}))}
   const off=()=>{document.documentElement.classList.remove('bigmode');$('bigView').hidden=true;$('bigClose').hidden=true};
