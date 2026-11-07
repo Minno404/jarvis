@@ -1407,8 +1407,8 @@ async function deskDetect(){
     const v=DESK.video,c=p.querySelector('canvas');
     if(v.readyState>=2&&v.clientWidth&&!SPOT.on){let preds=[];try{preds=await DESK.model.detect(v,6,.5)}catch(e){}
       c.width=v.clientWidth;c.height=v.clientHeight;const x=c.getContext('2d'),k=v.clientWidth/v.videoWidth,col=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim()||'#5ef';
-      x.strokeStyle=col;x.fillStyle=col;x.lineWidth=2;x.font='12px monospace';
-      for(const d of preds){const [bx,by,bw,bh]=d.bbox.map(n=>n*k);x.strokeRect(bx,by,bw,bh);x.fillText(`${d.class} ${Math.round(d.score*100)}%`,bx+4,Math.max(12,by-4))}
+      const fs=Math.max(12,Math.round(v.clientWidth/55));x.strokeStyle=col;x.fillStyle=col;x.lineWidth=Math.max(2,fs/7);x.font=`bold ${fs}px monospace`;  // labels grow with the panel
+      for(const d of preds){const [bx,by,bw,bh]=d.bbox.map(n=>n*k);x.strokeRect(bx,by,bw,bh);x.fillText(`${d.class} ${Math.round(d.score*100)}%`,bx+4,by>fs+4?by-5:by+fs+3)}
       DESK.labels=[...new Set(preds.filter(d=>d.class!=='person').map(d=>d.class))];if(DESK.labels.length)invReport(DESK.labels);
       if(lab())lab().textContent=DESK.labels.length?'I can see: '+DESK.labels.join(', '):'Hold something up and ask "what am I holding?"'}
     setTimeout(tick,350)};
