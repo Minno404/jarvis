@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.45.3** (shown at the bottom right of the HUD)
+**Version 1.45.4** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.45.4** (7 Nov 2026): double-click a blueprint component (in 3D, or in the pulled-apart drawing) for a details
+  card: what it is, quick questions (what it does, what it's made of, how it works, what goes wrong, replacement
+  cost) or ask your own; Jarvis answers in the card and out loud. "Put it back" returns a part you've moved.
 - **1.45.3** (7 Nov 2026): better hearing: short commands Whisper mishears ("swap brand", "DeskV", "holo mod") snap to
   the real command, a command followed by chatter ("shrink. Yeah, you're right") just does the command, and he asks
   "did you say...?" far less often. Blueprints are more accurate: Jarvis looks the object up online (teardowns,

@@ -1,4 +1,4 @@
 {
- "version": "1.45.3",
- "notes": "Better hearing for short commands; blueprints looked up online, in their real shape."
+ "version": "1.45.4",
+ "notes": "Double-click a blueprint part for details and questions."
 }
