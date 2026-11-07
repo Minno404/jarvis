@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.45.4** (shown at the bottom right of the HUD)
+**Version 1.46.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.46.0** (7 Nov 2026): run a simulation. "Simulate saving $50 a week for a year", "compare $50, $100 and $150 a
+  week", "what if I pay $200 more a month off the car loan?": the projection plays out on the HUD like a suit
+  simulation (up to 3 scenarios, a scan line, the numbers ticking up), then the results: totals, when a goal is
+  reached, when a loan is paid off and the interest. The maths is exact (simulate.py); the brain only fills in the
+  numbers, and can use your spending report for real ones.
 - **1.45.4** (7 Nov 2026): double-click a blueprint component (in 3D, or in the pulled-apart drawing) for a details
   card: what it is, quick questions (what it does, what it's made of, how it works, what goes wrong, replacement
   cost) or ask your own; Jarvis answers in the card and out loud. "Put it back" returns a part you've moved.
