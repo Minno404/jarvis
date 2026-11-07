@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.42.0** (shown at the bottom right of the HUD)
+**Version 1.43.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.43.0** (7 Nov 2026): hand-off to your phone. Walk away from the PC with Jarvis open on your phone and it picks up
+  the last few exchanges and the panels from the last 15 minutes ("Picked up from your PC"); opening the phone after
+  leaving does the same. While you're away, anything Jarvis would have said (reminders, a finished job) is said on
+  the phone straight away instead of being held for when you're back.
 - **1.42.0** (7 Nov 2026): Where I left off: Jarvis notes what you have open (every 10 minutes, when you step away,
   and before the PC sleeps). Back after 3+ hours, or the next morning, he shows it and offers "reopen them".
   "Where was I?" any time. Finish this: with a half-written email, form or message on screen, say "finish this":
