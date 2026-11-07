@@ -1,4 +1,4 @@
 {
- "version": "1.40.2",
- "notes": "Readable object labels in a big desk view."
+ "version": "1.40.3",
+ "notes": "Enlarged panels shrink back properly."
 }

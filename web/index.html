@@ -1067,6 +1067,8 @@ function setTheme(hex){
 // each one is remembered on this screen; "Layout: Reset" puts everything back.
 const LAYOUT='jarvis-layout';
 let layout={};try{layout=JSON.parse(localStorage.getItem(LAYOUT)||'{}')}catch(e){}
+for(const [k,b] of Object.entries(layout))if(b&&b.v===2&&b.w*(+getComputedStyle(document.documentElement).getPropertyValue('--s')||1)>=innerWidth*.95
+  &&b.h*(+getComputedStyle(document.documentElement).getPropertyValue('--s')||1)>=innerHeight*.9)delete layout[k];  // a full-window size saved by mistake (an enlarged panel)
 const saveLayout=()=>{try{localStorage.setItem(LAYOUT,JSON.stringify(layout))}catch(e){}};
 let topZ=10;
 // Moved panels are remembered relative to the window (where across and down, and size in HUD scale), so the same
@@ -1095,10 +1097,11 @@ let reflowT;addEventListener('resize',()=>{clearTimeout(reflowT);reflowT=setTime
 function movable(p,id){
   if(PIN)return;  // a pinned panel's window moves as a whole instead
   const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
-  const remember=(mine)=>{if(!id)return;if(!mine&&Date.now()-(+p.dataset.reflow||0)<800)return;  // a window resize, not his change
+  const remember=(mine)=>{if(!id||p.closest('#bigView'))return;  // (enlarged: not where he put it)
+    if(!mine&&Date.now()-(+p.dataset.reflow||0)<800)return;  // a window resize or enlarge/shrink, not his change
     layout[id]=toLayout(p.getBoundingClientRect());saveLayout()};
   h.addEventListener('pointerdown',e=>{
-    if(e.button||innerWidth<1000||e.target.closest('button'))return;
+    if(e.button||innerWidth<1000||e.target.closest('button')||p.closest('#bigView'))return;
     e.preventDefault();if(p.classList.contains('free'))p.style.zIndex=++topZ;else free(p);p.classList.add('lifted');
     const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
     const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-r.width,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-r.height,m.clientY-dy))+'px'};
@@ -1503,10 +1506,11 @@ function glideCore(fn){const core=$('coreWrap'),a=core.getBoundingClientRect();f
 function enterBig(p){
   if(PIN)return;if(SV.on)setSpendMode(false);if(BIG.el)exitBig(true);
   Object.assign(BIG,{el:p,parent:p.parentNode,next:p.nextSibling,style:p.getAttribute('style'),hidden:p.hidden,pending:0});
-  p.removeAttribute('style');p.hidden=false;$('bigView').append(p);p.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
+  p.dataset.reflow=Date.now();p.removeAttribute('style');p.hidden=false;$('bigView').append(p);p.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
   glideCore(()=>{document.documentElement.classList.add('bigmode');$('bigView').hidden=false;$('bigClose').hidden=false})}
 function exitBig(quick){
   const b={...BIG};if(!b.el)return;BIG.el=null;
+  b.el.dataset.reflow=Date.now()+1500;  // the size changes now are the shrink, not his choice
   if(b.el.isConnected&&!b.el.classList.contains('out')){(b.parent.isConnected?b.parent:$('holo')).insertBefore(b.el,b.next&&b.next.parentNode===b.parent?b.next:null);
     if(b.style)b.el.setAttribute('style',b.style);b.el.hidden=b.hidden;b.el.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}))}
   const off=()=>{document.documentElement.classList.remove('bigmode');$('bigView').hidden=true;$('bigClose').hidden=true};
