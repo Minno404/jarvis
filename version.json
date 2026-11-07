@@ -1,4 +1,4 @@
 {
- "version": "1.46.0",
- "notes": "Run a simulation: animated what-if projections."
+ "version": "1.46.1",
+ "notes": "Fixes Claude failing with FileNotFoundError."
 }

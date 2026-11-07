@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.46.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.46.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1402,6 +1402,19 @@ def _chat_claude(text):
     yield from chat_cli(text)
 
 
+def system_prompt_file():
+    """Jarvis's instructions for Claude Code, written to a file (rewritten only when they change)."""
+    text = persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt()
+    f = HERE / "system_prompt.txt"
+    try:
+        if f.read_text(encoding="utf-8") == text:
+            return str(f)
+    except OSError:
+        pass
+    f.write_text(text, encoding="utf-8")
+    return str(f)
+
+
 def chat_cli(text, ds=False):
     """Talk through Claude Code, which runs on the user's Claude plan instead of API credits. ds: on DeepSeek's
     servers instead (deepseek.py)."""
@@ -1411,7 +1424,8 @@ def chat_cli(text, ds=False):
            "--model", os.environ.get("JARVIS_CLI_MODEL", "sonnet"),
            # Fewer tokens per message: Jarvis's own prompt replaces Claude Code's long coding one, only the two
            # tools he uses are loaded, and none of the user's own Claude Code settings or MCP servers.
-           "--system-prompt", persona(" ".join(CLI_PROMPT.split())) + style() + features.memory_prompt() + features.feature_prompt(),
+           # (read from a file: as a command-line argument it outgrew Windows' 32,767-character limit)
+           "--system-prompt-file", system_prompt_file(),
            "--tools", "Bash,Read", "--setting-sources", "project",
            "--allowedTools", "Bash(python server.py tool *)", "--permission-mode", "dontAsk",
            "--strict-mcp-config", "--disable-slash-commands"]
