@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.47.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.47.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1216,6 +1216,8 @@ def screen_photo():
 def chat_stream(text, photo=None):
     """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now).
     photo: the name of a picture he sent (in uploads/), for Jarvis to look at."""
+    if photo:
+        LIVE["last_photo"] = photo
     spoken = LIVE.get("spoken")
     spoken = bool(spoken and spoken[0] == text and time.time() - spoken[1] < 60)
     shot = not photo and SCREEN_Q.search(text or "") and screen_photo()  # "what's this error?": look first
@@ -1945,6 +1947,8 @@ class Handler(SimpleHTTPRequestHandler):
             if not self.local():
                 return self.send_error(403)
             ev = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if ev.get("type") == "blueprint" and not ev.get("photo") and LIVE.get("last_photo"):
+                ev["photo"] = LIVE["last_photo"]  # the photo it was drawn from, so every screen can trace it
             return self.send_json({"shown": push_event(ev)})
         if self.path == "/api/tts":
             try:

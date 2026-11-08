@@ -1021,15 +1021,16 @@ async function ask(q){
   if(bpPull&&BP.panel&&BP.panel.isConnected){add('you',q);bpExplode(true);return}
   if(BP.panel&&/^(?:put it back(?: together)?|reassemble(?: it)?|close it up)$/.test(cmd)){add('you',q);bpExplode(false);return}
   if((bpPull||/^(?:blueprint(?: mode| this| it| that)?|draw (?:this|it|that) as a blueprint|(?:make|show) (?:a |me a )?blueprint(?: of (?:this|it|that))?)$/.test(cmd))&&!busy){
-    if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1200));
-    const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
-    BP.pending=bpPull?'explode':'show';photo=shot;
-    askNote='\n[Blueprint mode: the attached desk-camera photo shows what he is holding up. Work out exactly what it is (brand and model '
+    const uploaded=!!photo;  // a photo he attached (button, paste or drop) is used as it is; otherwise the desk camera
+    if(!uploaded){if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1200));
+      const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");photo=shot}
+    BP.pending=bpPull?'explode':'show';
+    askNote=`\n[Blueprint mode: the attached ${uploaded?'photo he sent':'desk-camera photo'} shows the object. Work out exactly what it is (brand and model `
       +'if you can read them). Then call research_object with that name (it researches teardowns, parts, real dimensions and how it works, '
       +'and shows it on the HUD). Then draw from the dossier with the blueprint tool: bbox of the object in the photo, its visible features '
       +'with positions in the photo, its real size in mm, material, shell, explode, the components inside in their real order (layer) with '
       +'shapes, positions, sizes and mm where known, how it works in a few steps, and the sources. Then say one short line.'
-      +(DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
+      +(!uploaded&&DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:(?:open |show |start )?(?:the )?(?:hologram )?workshop|hologram workshop|holo workshop)$/.test(cmd)){add('you',q);if(openWorkshop())add('j','The workshop, sir. Drop a model in, or name one.');return}
   if(WS.panel&&/^(?:close|exit|leave)(?: the)? (?:hologram )?workshop$/.test(cmd)){add('you',q);closePanel(WS.panel);return}
   if(WS.panel&&/^(?:spin it|start spinning|keep spinning)$/.test(cmd)){add('you',q);WS.spin=true;WS.idle=0;return}
@@ -1645,6 +1646,11 @@ function bpShape(s,w,h){  // a component drawn as a simple schematic shape, cent
     case'fan':return`<circle r="${r}"/><circle r="${r*.2}"/>`+[0,72,144,216,288].map(a=>`<path d="M0 0 Q${r*.6} ${-r*.2} ${r*.85} 0" transform="rotate(${a})"/>`).join('');
     default:return`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}"/>`}}
 function showBlueprint(ev){
+  if(ev.photo&&ev._img===undefined){  // the photo it was drawn from (camera or uploaded), so any screen can trace it
+    const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);ev._img=c;showBlueprint(ev)};
+    im.onerror=()=>{ev._img=null;showBlueprint(ev)};im.src='/api/photo/'+encodeURIComponent(ev.photo);return}
+  BP.src=ev._img||DESK.lastShot||null;
   if(BP.panel&&BP.panel.isConnected)closePanel(BP.panel);
   const p=document.createElement('div');p.className='holo-panel blueprint wide';BP.ev=ev;BP.exploded=false;
   p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><button type="button" class="bp3btn">3D</button><button type="button" class="bpdos" hidden>Dossier</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
@@ -1658,7 +1664,7 @@ function showBlueprint(ev){
   p.querySelector('h3').textContent='Blueprint · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
   $('holo').prepend(p);sfx('panel');movable(p,'blueprint');if(layout.blueprint)free(p,fromLayout(layout.blueprint));BP.panel=p;
   const VW=1000,VH=640,esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const b=ev.bbox,src=DESK.lastShot,sk=src?edgeSketch(src,b):null,asp=sk?sk.W/sk.H:((b[2]-b[0])/(b[3]-b[1]))*(4/3);
+  const b=ev.bbox,src=BP.src,sk=src?edgeSketch(src,b):null,asp=sk?sk.W/sk.H:((b[2]-b[0])/(b[3]-b[1]))*(4/3);
   let aw=480,ah=aw/asp;if(ah>420){ah=420;aw=ah*asp}
   const A={x:(VW-aw)/2,y:(VH-ah)/2-20,w:aw,h:ah},cx=A.x+aw/2,cy=A.y+ah/2;
   const fx=pt=>A.x+((pt[0]-b[0])/(b[2]-b[0]))*aw,fy=pt=>A.y+((pt[1]-b[1])/(b[3]-b[1]))*ah;
@@ -1745,7 +1751,7 @@ function bp3dOn(){
   const scene=new T.Scene(),cam=new T.PerspectiveCamera(40,1,.01,100),world=new T.Group();scene.add(world);
   const grid=new T.GridHelper(8,32,0x9fd2ff,0x9fd2ff);grid.material.transparent=true;grid.material.opacity=.15;grid.position.y=-1.6;scene.add(grid);
   // the shell: the object's outline as a see-through box, its depth from the size estimate ("17 x 5 x 2 cm")
-  const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(DESK.lastShot?DESK.lastShot.width/DESK.lastShot.height:4/3);
+  const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(BP.src?BP.src.width/BP.src.height:4/3);
   let W=asp>=1?2.4:2.4*asp,H=asp>=1?2.4/asp:2.4;const nums=(ev.size.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,c)=>a-c);
   let D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
   const MM=ev.mm?2.4/Math.max(ev.mm[0],ev.mm[1]):0;  // researched real size: everything to scale

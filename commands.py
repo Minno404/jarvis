@@ -19,7 +19,7 @@ COMMANDS = {
                     "*Spot my push-ups", "*Count my curls", "*Count my jumping jacks", "*I'm done",
                     "*Enlarge desk view", "*Close desk view"],
     "Morning radio": ["*Morning radio", "*Jarvis FM"],
-    "Blueprint mode": ["*Blueprint this (hold something up to the camera)", "*Pull it apart",
+    "Blueprint mode": ["*Blueprint this (hold something up to the camera)", "*Attach a photo + blueprint this", "*Pull it apart",
                        "*What's inside it?", "*Put it back together",
                        "*Enlarge blueprint (3D: drag parts, right-drag to spin them)"],
     "Simulations": ["Simulate saving $50 a week for a year", "Compare saving $50, $100 and $150 a week for 2 years",

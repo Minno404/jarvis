@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.47.0** (shown at the bottom right of the HUD)
+**Version 1.47.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.47.1** (8 Nov 2026): blueprints from a photo you send: attach one (Photo button, paste, or drag it onto the
+  window, on the PC or your phone) and say "blueprint this" or "pull it apart"; no camera needed. Every screen traces
+  the same photo, so a blueprint asked for on the phone draws properly on the PC too.
 - **1.47.0** (8 Nov 2026): blueprints from research. After identifying what you're holding (brand and model if he can
   read them), Jarvis researches it before drawing: iFixit teardowns (the real components in the order they come
   out), web pages on its teardown, exploded view, specifications and how it works (with the measurements pulled
