@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.46.2** (shown at the bottom right of the HUD)
+**Version 1.47.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.47.0** (8 Nov 2026): blueprints from research. After identifying what you're holding (brand and model if he can
+  read them), Jarvis researches it before drawing: iFixit teardowns (the real components in the order they come
+  out), web pages on its teardown, exploded view, specifications and how it works (with the measurements pulled
+  out), and reference pictures, shown live in a Research panel. The blueprint is drawn from that: real sizes in mm
+  (the 3D model to scale), the parts in their real order, a Dossier button with how it works and the sources.
 - **1.46.2** (7 Nov 2026): panels you'd moved no longer reopen as a speck in the top-left corner (closing one saved its
   0 x 0 size as its spot); the bad saved spots are cleared, so they open normally again.
 - **1.46.1** (7 Nov 2026): fixes "I can't reach my brain right now, sir. FileNotFoundError": Jarvis's instructions

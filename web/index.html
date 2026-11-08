@@ -93,6 +93,9 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bplead{transition:all 1.3s cubic-bezier(.2,.8,.2,1)}
 .holo-panel.blueprint .bplabel{opacity:0;transition:opacity .5s}.holo-panel.blueprint.exploded .bplabel{opacity:1;transition-delay:1s}
 .holo-panel.blueprint .bp3btn{position:absolute;top:8px;right:38px;padding:1px 8px;font-size:calc(10px*var(--s));letter-spacing:.15em}
+.holo-panel.blueprint .bpdos{position:absolute;top:8px;right:84px;padding:1px 8px;font-size:calc(10px*var(--s));letter-spacing:.15em}
+.holo-panel.blueprint .bphow{padding-left:18px;margin:0 0 8px;line-height:1.5}.holo-panel.blueprint .bpsrc{display:flex;flex-direction:column;gap:3px}
+.holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
 .holo-panel.blueprint .bp3{position:absolute;inset:0;background:#0b2748 radial-gradient(ellipse at 50% 60%,#123a66,#0b2748 70%)}
 .holo-panel.blueprint .bp3 canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
@@ -112,6 +115,13 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.sim .simleg div{display:flex;align-items:center;gap:8px}.holo-panel.sim .simleg i{width:14px;height:3px;display:inline-block}
 .holo-panel.sim .simleg span{margin-left:auto;color:var(--text)}.holo-panel.sim .simleg span,.holo-panel.sim .simins{opacity:0;transition:opacity .6s}
 .holo-panel.sim.done .simleg span,.holo-panel.sim.done .simins{opacity:1}.holo-panel.sim .simins{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
+.holo-panel.research .rsteps{margin:6px 0 0;padding-left:18px;font-size:calc(11.5px*var(--s)*var(--fs));line-height:1.6}
+.holo-panel.research .rsteps li::marker{content:"\2713  ";color:var(--cyan)}.holo-panel.research .rsteps li.now{color:#ffb347}
+.holo-panel.research .rsteps li.now::marker{content:"\25CC  ";color:#ffb347}
+.holo-panel.research .rimgs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:8px}
+.holo-panel.research .rimgs img{width:100%;aspect-ratio:4/3;object-fit:cover;border:1px solid var(--line);opacity:.9}
+.holo-panel.research .rsrc{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:calc(10.5px*var(--s)*var(--fs))}
+.holo-panel.research .rsrc a{color:var(--cyan);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hacts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.hacts button{flex:1;padding:6px 10px}
 .holo-panel.desk .deskbox{position:relative;margin-top:6px}.holo-panel.desk.free .deskbox{flex:1;min-height:0;overflow:hidden}.holo-panel.desk video{width:100%;display:block;border:1px solid var(--line);background:#000}
 .holo-panel.desk canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -1015,10 +1025,10 @@ async function ask(q){
     const shot=await deskShot();if(!shot)return add('j',"I couldn't get a picture from the camera, sir.");
     BP.pending=bpPull?'explode':'show';photo=shot;
     askNote='\n[Blueprint mode: the attached desk-camera photo shows what he is holding up. Work out exactly what it is (brand and model '
-      +'if you can read them). Then look it up online first (web_search its teardown, exploded view or parts diagram, and read_page the best '
-      +'result) so the inside components, their order and their sizes are right. Then call the blueprint tool: bbox of the object in the '
-      +'photo, its visible features with positions in the photo, size, material, shell, explode, and the components inside with shapes, '
-      +'positions, sizes, layer and thickness. Then say one short line.'
+      +'if you can read them). Then call research_object with that name (it researches teardowns, parts, real dimensions and how it works, '
+      +'and shows it on the HUD). Then draw from the dossier with the blueprint tool: bbox of the object in the photo, its visible features '
+      +'with positions in the photo, its real size in mm, material, shell, explode, the components inside in their real order (layer) with '
+      +'shapes, positions, sizes and mm where known, how it works in a few steps, and the sources. Then say one short line.'
       +(DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:(?:open |show |start )?(?:the )?(?:hologram )?workshop|hologram workshop|holo workshop)$/.test(cmd)){add('you',q);if(openWorkshop())add('j','The workshop, sir. Drop a model in, or name one.');return}
   if(WS.panel&&/^(?:close|exit|leave)(?: the)? (?:hologram )?workshop$/.test(cmd)){add('you',q);closePanel(WS.panel);return}
@@ -1213,7 +1223,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -1637,8 +1647,14 @@ function bpShape(s,w,h){  // a component drawn as a simple schematic shape, cent
 function showBlueprint(ev){
   if(BP.panel&&BP.panel.isConnected)closePanel(BP.panel);
   const p=document.createElement('div');p.className='holo-panel blueprint wide';BP.ev=ev;BP.exploded=false;
-  p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><button type="button" class="bp3btn">3D</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><button type="button" class="bp3btn">3D</button><button type="button" class="bpdos" hidden>Dossier</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
   p.querySelector('.bp3btn').onclick=()=>{if(BP3.on)bp3dOff();else bp3dOn()};BP3.on=false;
+  const dos=p.querySelector('.bpdos');dos.hidden=!(ev.how?.length||ev.sources?.length);dos.onclick=()=>{  // how it works, and where it came from
+    let card=p.querySelector('.bpcard');if(!card){card=document.createElement('div');card.className='bpcard';p.querySelector('.bpbox').append(card)}
+    card.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h4>How it works</h4><ol class="bphow"></ol><h4>Sources</h4><div class="bpsrc"></div>';
+    for(const h of ev.how||[]){const li=document.createElement('li');li.textContent=h;card.querySelector('.bphow').append(li)}
+    for(const s of ev.sources||[]){const a=document.createElement('a');a.href=s.url;a.target='_blank';a.rel='noopener';a.textContent=s.title||s.url;card.querySelector('.bpsrc').append(a)}
+    card.querySelector('.holo-x').onclick=()=>card.remove()};
   p.querySelector('h3').textContent='Blueprint · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
   $('holo').prepend(p);sfx('panel');movable(p,'blueprint');if(layout.blueprint)free(p,fromLayout(layout.blueprint));BP.panel=p;
   const VW=1000,VH=640,esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1652,6 +1668,7 @@ function showBlueprint(ev){
     +`<rect width="${VW}" height="${VH}" fill="#0b2748"/><rect width="${VW}" height="${VH}" fill="url(#bpG)"/><rect x="8" y="8" width="${VW-16}" height="${VH-16}" fill="none" stroke="#dff4ff" stroke-width="2"/>`;
   s+=`<g class="bpout">`+(sk?`<image href="${sk.url}" x="${A.x}" y="${A.y}" width="${aw}" height="${ah}"/>`:'')
     +`<rect x="${A.x}" y="${A.y}" width="${aw}" height="${ah}" fill="none" stroke="#dff4ff" stroke-dasharray="6 6" opacity="${sk?.35:.9}"/></g>`;
+  if(!ev.size&&ev.mm)ev.size=ev.mm.filter(Boolean).map(v=>+(+v).toFixed(1)).join(' × ')+' mm';
   if(ev.size){s+=`<g class="bpdim" stroke="#dff4ff" fill="#dff4ff"><line x1="${A.x}" y1="${A.y+ah+28}" x2="${A.x+aw}" y2="${A.y+ah+28}" marker-start="url(#bpa)" marker-end="url(#bpa)"/>`
     +`<line x1="${A.x}" y1="${A.y+ah+8}" x2="${A.x}" y2="${A.y+ah+36}"/><line x1="${A.x+aw}" y1="${A.y+ah+8}" x2="${A.x+aw}" y2="${A.y+ah+36}"/>`
     +`<text x="${cx}" y="${A.y+ah+50}" text-anchor="middle" stroke="none" font-size="16">${esc(ev.size)}</text></g>`}
@@ -1730,7 +1747,9 @@ function bp3dOn(){
   // the shell: the object's outline as a see-through box, its depth from the size estimate ("17 x 5 x 2 cm")
   const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(DESK.lastShot?DESK.lastShot.width/DESK.lastShot.height:4/3);
   let W=asp>=1?2.4:2.4*asp,H=asp>=1?2.4/asp:2.4;const nums=(ev.size.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,c)=>a-c);
-  const D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
+  let D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
+  const MM=ev.mm?2.4/Math.max(ev.mm[0],ev.mm[1]):0;  // researched real size: everything to scale
+  if(MM){W=ev.mm[0]*MM;H=ev.mm[1]*MM;if(ev.mm[2])D=Math.max(.03,ev.mm[2]*MM)}
   const sh=ev.shell||'box',shellGeo=sh==='disc'?new T.CylinderGeometry(W/2,W/2,D,48).rotateX(Math.PI/2).scale(1,H/W,1)
     :sh==='cylinder'?new T.CylinderGeometry(W/2,W/2,H,40):sh==='sphere'?new T.SphereGeometry(.5,32,16).scale(W,H,Math.max(D,Math.min(W,H)))
     :sh==='rounded'?(()=>{const s2=new T.Shape(),rr=Math.min(W,H)*.15,x0=-W/2,y0=-H/2;s2.moveTo(x0+rr,y0);s2.lineTo(x0+W-rr,y0);s2.quadraticCurveTo(x0+W,y0,x0+W,y0+rr);
@@ -1740,7 +1759,8 @@ function bp3dOn(){
   const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
   const shellLabel=bpLabel(ev.title.toUpperCase(),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
   const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
-  BP3.parts=ev.inside.map((c,i)=>{const w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
+  BP3.parts=ev.inside.map((c,i)=>{let w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
+    if(MM&&c.mm){w=Math.max(.02,c.mm[0]*MM);h=Math.max(.02,c.mm[1]*MM);d=Math.max(.01,(c.mm[2]||Math.min(c.mm[0],c.mm[1])*.2)*MM)}
     const g=bpMesh(c,w,h,d),z=c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,home=new T.Vector3((c.at[0]-.5)*W,(.5-c.at[1])*H,z);
     let out;
     if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
@@ -1798,6 +1818,21 @@ function bpDetails(i){
   card.querySelector('.holo-x').onclick=()=>card.remove();
   const back=card.querySelector('.bpcback');if(back)back.onclick=()=>{const g=BP3.parts[i];if(g){g.userData.manual=false;g.quaternion.set(0,0,0,1)}};
   sfx('panel')}
+// ---- Research (research.py): what Jarvis is finding out about the object, as it happens ----
+function showResearch(ev){
+  let p=document.querySelector(`.holo-panel.research[data-t="${CSS.escape(ev.title)}"]`);
+  if(!p){p=document.createElement('div');p.className='holo-panel research';p.dataset.t=ev.title;
+    p.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3></h3><ol class="rsteps"></ol><div class="rimgs"></div><div class="rsrc"></div>';
+    p.querySelector('h3').textContent='Research · '+ev.title;p.querySelector('.holo-x').onclick=()=>closePanel(p);
+    $('holo').prepend(p);[...$('holo').children].slice(3).forEach(closePanel);movable(p,'research');sfx('panel')}
+  const ol=p.querySelector('.rsteps');ol.querySelectorAll('li.now').forEach(li=>li.classList.remove('now'));
+  const li=document.createElement('li');li.textContent=ev.stage;li.className=ev.done?'':'now';ol.append(li);
+  const src=p.querySelector('.rsrc'),have=new Set([...src.querySelectorAll('a')].map(a=>a.href));
+  for(const s of ev.sources||[])if(!have.has(s.url)){const a=document.createElement('a');a.href=s.url;a.target='_blank';a.rel='noopener';
+    a.textContent=(s.title||s.url).slice(0,70);src.append(a)}
+  if(ev.images?.length){const g=p.querySelector('.rimgs');g.innerHTML='';for(const u of ev.images.slice(0,6)){const im=new Image();im.src=u;im.loading='lazy';
+    im.onerror=()=>im.remove();g.append(im)}}
+  if(ev.done)p.classList.add('done')}
 // ---- Run a simulation (simulate.py): the projection plays out like a suit simulation, scenarios side by side ----
 function showSim(ev){
   const p=document.createElement('div');p.className='holo-panel sim wide';

@@ -25,8 +25,16 @@ def _pt(p, default=(0.5, 0.5)):
 SHELLS = ("box", "rounded", "disc", "cylinder", "sphere")
 
 
+def _mm(v):
+    """[w, h, d] in millimetres, or None."""
+    if not isinstance(v, (list, tuple)) or len(v) < 2:
+        return None
+    out = [_f(x, 0, 5000, 0) for x in list(v)[:3]]
+    return out if out[0] > 0 and out[1] > 0 else None
+
+
 def blueprint(title, bbox, features_=None, inside=None, size="", material="", note="", shell="box", explode="radial",
-              source="", **kw):
+              source="", mm=None, how=None, sources=None, **kw):
     """Draw the blueprint on the HUD (see the tool description for the fields)."""
     feats = kw.get("features", features_) or []
     box = [_f(v) for v in (list(bbox) + [0, 0, 1, 1])[:4]] if isinstance(bbox, (list, tuple)) else [0, 0, 1, 1]
@@ -34,13 +42,16 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
         box = [0.1, 0.1, 0.9, 0.9]
     ev = {"type": "blueprint", "title": str(title)[:60], "bbox": box, "size": str(size)[:60],
           "material": str(material)[:80], "note": str(note)[:200], "shell": shell if shell in SHELLS else "box",
-          "explode": "layers" if explode == "layers" else "radial", "source": str(source)[:120],
+          "explode": "layers" if explode == "layers" else "radial", "source": str(source)[:120], "mm": _mm(mm),
+          "how": [str(h)[:200] for h in (how or [])[:8] if str(h).strip()],
+          "sources": [{"title": str(s.get("title", ""))[:80], "url": str(s.get("url", ""))[:300]}
+                      for s in (sources or [])[:8] if isinstance(s, dict) and str(s.get("url", "")).startswith("http")],
           "features": [{"name": str(f.get("name", ""))[:40], "at": _pt(f.get("at")), "note": str(f.get("note", ""))[:80]}
                        for f in feats[:10] if isinstance(f, dict) and f.get("name")],
           "inside": [{"name": str(p.get("name", ""))[:40], "note": str(p.get("note", ""))[:80],
                       "shape": p.get("shape") if p.get("shape") in SHAPES else "rect",
                       "at": _pt(p.get("at")), "size": _pt(p.get("size"), (0.25, 0.2)),
-                      "layer": _f(p.get("layer"), default=0.5), "thick": _f(p.get("thick"), 0.02, 1, 0.3)}
+                      "layer": _f(p.get("layer"), default=0.5), "thick": _f(p.get("thick"), 0.02, 1, 0.3), "mm": _mm(p.get("mm"))}
                      for p in (inside or [])[:12] if isinstance(p, dict) and p.get("name")]}
     features._panel(ev)
     return {"drawn": True, "features": len(ev["features"]), "inside": len(ev["inside"]),
@@ -50,8 +61,11 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
 FUNCS = {"blueprint": blueprint}
 TOOLS = [{"name": "blueprint", "description": (
     "Blueprint mode: after looking at a desk-camera photo of something he's holding, draw it as a blueprint on the "
-    "HUD. Look it up first (web_search for its teardown / parts diagram / how it works) so the components, their "
-    "arrangement and sizes are right for THAT kind of object. bbox: where the object is in the photo [x0, y0, x1, y1] as fractions (0 to 1) of the photo's width and "
+    "HUD. Call research_object first and draw from its dossier, so the components, their order and their real sizes "
+    "are right for THAT object. mm: the object's real size [width, height, depth] in millimetres as seen from the "
+    "front (from the research; estimate if nothing says). Each inside part can have mm [w, h, d] too (real sizes "
+    "make the 3D model to scale). how: 3 to 6 short steps on how it works. sources: [{title, url}] from the research. "
+    "bbox: where the object is in the photo [x0, y0, x1, y1] as fractions (0 to 1) of the photo's width and "
     "height. features: 3 to 8 visible parts, each {name, at: [x, y] fraction of the PHOTO, note}. size: a rough size "
     "estimate ('about 15 x 7 x 1 cm'). material: what it's made of. inside: 4 to 10 components typically inside this "
     "kind of object (an informed guess is fine), each {name, shape (rect, rounded, circle, cylinder, board, coil, "
@@ -63,11 +77,13 @@ TOOLS = [{"name": "blueprint", "description": (
     "else 'radial'. source: where the parts list came from (a site name). note: one line about it."),
     "input_schema": {"type": "object", "required": ["title", "bbox", "inside"], "properties": {
         "title": S, "bbox": {"type": "array", "items": N}, "size": S, "material": S, "note": S, "source": S,
+        "mm": {"type": "array", "items": N}, "how": {"type": "array", "items": S},
+        "sources": {"type": "array", "items": {"type": "object", "properties": {"title": S, "url": S}}},
         "shell": {"type": "string", "enum": list(SHELLS)}, "explode": {"type": "string", "enum": ["layers", "radial"]},
         "features": {"type": "array", "items": {"type": "object", "properties": {"name": S, "at": PT, "note": S}}},
         "inside": {"type": "array", "items": {"type": "object", "properties": {
             "name": S, "shape": {"type": "string", "enum": list(SHAPES)}, "at": PT, "size": PT, "note": S,
-            "layer": N, "thick": N}}}}}}]
+            "layer": N, "thick": N, "mm": {"type": "array", "items": N}}}}}}}]
 
 
 def selftest():
@@ -83,6 +99,7 @@ def selftest():
         assert r["inside"] == 3 and ev["inside"][1]["size"] == [1.0, 0.2] and ev["inside"][2]["shape"] == "rect"
         assert ev["features"][0]["at"] == [0.4, 0.15] and ev["bbox"] == [0.2, 0.1, 0.6, 0.95]
         assert ev["shell"] == "box" and ev["inside"][0]["layer"] == 0.5 and ev["inside"][0]["thick"] == 0.3
+        assert ev["mm"] is None and _mm([42, 42, 12]) == [42.0, 42.0, 12.0] and _mm([0, 5]) is None
         blueprint("x", [0.5, 0.5, 0.51, 0.52], inside=[])
         assert sent[1]["bbox"] == [0.1, 0.1, 0.9, 0.9]
     finally:

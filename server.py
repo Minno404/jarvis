@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.46.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.47.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -608,8 +608,9 @@ import leftoff    # where I left off: what was open, offered back after a break 
 import workshop   # the hologram workshop: 3D models from his projects (see workshop.py)
 import blueprint  # blueprint mode: something held up to the camera, drawn as a blueprint (see blueprint.py)
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
+import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
