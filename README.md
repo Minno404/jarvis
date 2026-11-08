@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.50.1** (shown at the bottom right of the HUD)
+**Version 1.51.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.51.0** (8 Nov 2026): 1:1 scale blueprints. Every part needs its real size in mm, and every part must fit
+  inside the object's walls. If one doesn't (a 40 mm deep battery box in a 32 mm deep Game Boy), the blueprint is sent
+  back once for Jarvis to look up the real sizes and redraw. Labels show the real sizes ("Main board · 80×110×1.6 mm",
+  "1:1 90×148×32 mm"). A part that's still too big is shrunk evenly, keeping its shape.
 - **1.50.1** (8 Nov 2026): a closed-up 3D blueprint shows only the outside (the photo front and the back),
   like the real thing; the insides appear when you pull it apart. Every part is sized and placed to fit inside the
   object, so nothing pokes through the shell.

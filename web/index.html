@@ -1730,12 +1730,12 @@ function bpExplode(on){
 // Drag empty space to turn it any way; drag a part to move it; right-drag (or Shift-drag) a part to spin it any way;
 // scroll to zoom; double-click a part to put it back, or empty space to reset the view ----
 const BP3={on:false,parts:[]};
-function bpLabel(text,col){const c=document.createElement('canvas'),x=c.getContext('2d');c.width=512;c.height=96;
-  let fs=40;x.font='bold 40px monospace';while(fs>18&&x.measureText(text).width>470){fs-=2;x.font=`bold ${fs}px monospace`}const tw=Math.min(500,x.measureText(text).width+36);
-  x.fillStyle='rgba(4,18,34,.78)';x.strokeStyle='rgba(159,210,255,.55)';x.lineWidth=2;x.beginPath();x.roundRect(256-tw/2,14,tw,64,30);x.fill();x.stroke();
-  x.fillStyle=col;x.textAlign='center';x.fillText(text,256,58);
+function bpLabel(text,col){const c=document.createElement('canvas'),x=c.getContext('2d');x.font='bold 40px monospace';
+  const tw=Math.min(1000,x.measureText(text).width+40);c.width=Math.max(128,Math.ceil(tw+8));c.height=96;const C=c.width/2;  // as wide as the text
+  x.font='bold 40px monospace';x.fillStyle='rgba(4,18,34,.78)';x.strokeStyle='rgba(159,210,255,.55)';x.lineWidth=2;x.beginPath();x.roundRect(C-tw/2,14,tw,64,30);x.fill();x.stroke();
+  x.fillStyle=col;x.textAlign='center';x.fillText(text,C,58,tw-30);
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false,sizeAttenuation:false}));
-  s.scale.set(.19,.036,1);s.renderOrder=10;return s}  // the same readable size on screen however far the camera is
+  s.scale.set(.036*c.width/96,.036,1);s.renderOrder=10;return s}  // the same readable size on screen however far the camera is
 function bpMesh(c,w,h,d){  // a component as a 3D shape, centred on 0,0,0
   const T=THREE,g=new T.Group(),mats=[];
   const solid=geo=>{const m=new T.Mesh(geo,new T.MeshPhongMaterial({color:0x4fa8e8,emissive:0x0b2a4c,specular:0xcfeaff,shininess:70,
@@ -1893,7 +1893,7 @@ function bp3dOn(){
       s2.quadraticCurveTo(x0,y0,x0+rr,y0);return new T.ExtrudeGeometry(s2,{depth:D,bevelEnabled:false,curveSegments:8}).translate(0,0,-D/2)})()
     :new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
   const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
-  const shellLabel=bpLabel(ev.title.toUpperCase(),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
+  const shellLabel=bpLabel(ev.title.toUpperCase()+(ev.mm?` · ${ev.scale==='1:1'?'1:1 ':''}${ev.mm.map(v=>+v.toFixed(1)).join('×')} mm`:''),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
   const photo=BP.src?(()=>{const cv2=document.createElement('canvas'),sw=BP.src.width,shh=BP.src.height,cw=Math.max(1,(b[2]-b[0])*sw),ch=Math.max(1,(b[3]-b[1])*shh);
       const th=(ev.tilt||0)*Math.PI/180,co=Math.cos(Math.abs(th)),si=Math.sin(Math.abs(th)),c2=co*co-si*si;  // straighten a tilted photo
       let ow=cw,oh=ch;if(th&&c2>.3){ow=(cw*co-ch*si)/c2;oh=(ch*co-cw*si)/c2;if(ow<cw*.2||oh<ch*.2){ow=cw;oh=ch}}
@@ -1905,14 +1905,14 @@ function bp3dOn(){
   const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
   BP3.parts=ev.inside.map((c,i)=>{let w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
     if(MM&&c.mm){w=Math.max(.02,c.mm[0]*MM);h=Math.max(.02,c.mm[1]*MM);d=Math.max(.01,(c.mm[2]||Math.min(c.mm[0],c.mm[1])*.2)*MM)}
-    w=Math.min(w,W);h=Math.min(h,H);d=Math.min(d,D);  // every part fits inside the object
+    {const f=Math.min(1,W/w,H/h,D/d);w*=f;h*=f;d*=f}  // a part that's too big is shrunk evenly to fit (keeps its shape)
     const cl=(v,room)=>Math.max(-room/2,Math.min(room/2,v));
     const g=bpMesh(c,w,h,d),z=cl(c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,D-d),home=new T.Vector3(cl((c.at[0]-.5)*W,W-w),cl((.5-c.at[1])*H,H-h),z);
     let out;
     if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
     else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
       out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
-    const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
+    const lab=bpLabel(c.name+(c.mm?` · ${c.mm.slice(0,3).map(v=>+v.toFixed(1)).join('×')} mm`:''),'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
     lab.visible=false;g.userData.label=lab;
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false,w,h,d,layer:c.layer??.5});g.position.copy(home);world.add(g);return g});
   const front=photo&&BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6).sort((a,c)=>a.userData.layer-c.userData.layer)[0];

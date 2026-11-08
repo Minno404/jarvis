@@ -36,6 +36,28 @@ def _mm(v):
     return out if out[0] > 0 and out[1] > 0 else None
 
 
+_checked = {}  # title -> time it was sent back to fix the sizes (only once, so it can't loop)
+
+
+def fit_check(mm, parts, wall=1.0):
+    """1:1 check: every part (real mm) must fit inside the object (real mm, less its walls). Returns the problems."""
+    if not mm:
+        return ["the object's real size (mm) is missing: look it up"]
+    room = [max(1.0, v - 2 * wall) for v in (mm + [mm[0] * 0.25])[:3]] if len(mm) < 3 else [max(1.0, v - 2 * wall) for v in mm]
+    bad = []
+    for p in parts:
+        if not p["mm"]:
+            bad.append(f"{p['name']}: no real size (mm)")
+            continue
+        pm = (p["mm"] + [0])[:3]
+        shell = p["layer"] in (0.0, 1.0) and pm[0] >= mm[0] * 0.8  # the front/back covers are the outside itself
+        lim = mm if shell else room
+        over = [f"{'whd'[i]} {pm[i]:g} > {lim[i]:g}" for i in range(3) if pm[i] > lim[i] * 1.02]
+        if over:
+            bad.append(f"{p['name']} ({' x '.join(f'{v:g}' for v in pm)} mm) doesn't fit: " + ", ".join(over))
+    return bad
+
+
 def blueprint(title, bbox, features_=None, inside=None, size="", material="", note="", shell="box", explode="radial",
               source="", mm=None, how=None, sources=None, tilt=0, **kw):
     """Draw the blueprint on the HUD (see the tool description for the fields)."""
@@ -58,6 +80,15 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
                       "detail": {k: int(_f(v, 0, 200, 0)) for k, v in (p.get("detail") or {}).items()
                                  if k in ("teeth", "spokes", "subdials", "count", "holes")} if isinstance(p.get("detail"), dict) else {}}
                      for p in (inside or [])[:12] if isinstance(p, dict) and p.get("name")]}
+    import time
+    bad = fit_check(ev["mm"], ev["inside"]) if ev["inside"] else []
+    if bad and time.time() - _checked.get(ev["title"], 0) > 300:
+        _checked[ev["title"]] = time.time()
+        return {"drawn": False, "not_to_scale": bad, "fix": (
+            "The 3D model is 1:1 scale: every part must be its real size and fit inside the object (inside the walls, "
+            f"about {', '.join(f'{v:g}' for v in (ev['mm'] or []))} mm overall). Look up the real sizes of the parts "
+            "listed (research_parts), then call blueprint again with corrected mm for every part.")}
+    ev["scale"] = "1:1" if not bad else "approx"
     features._panel(ev)
     return {"drawn": True, "features": len(ev["features"]), "inside": len(ev["inside"]),
             "note": "It's on the HUD. He can say 'pull it apart' to see the inside."}
@@ -69,7 +100,7 @@ TOOLS = [{"name": "blueprint", "description": (
     "HUD. Call research_object first and draw from its dossier, so the components, their order and their real sizes "
     "are right for THAT object. mm: the object's real size [width, height, depth] in millimetres as seen from the "
     "front (from the research; estimate if nothing says). Each inside part can have mm [w, h, d] too (real sizes "
-    "make the 3D model to scale). how: 3 to 6 short steps on how it works. sources: [{title, url}] from the research. "
+    "make the 3D model to scale). The 3D model is 1:1: give every part its real mm, and every part must fit inside the object (a part bigger than the object is sent back to fix). how: 3 to 6 short steps on how it works. sources: [{title, url}] from the research. "
     "bbox: where the object is in the photo [x0, y0, x1, y1] as fractions (0 to 1) of the photo's width and "
     "height. tilt: how many degrees the object is turned in the photo (clockwise positive, so the HUD can straighten the photo it puts on the front of the 3D model). features: 3 to 8 visible parts, each {name, at: [x, y] fraction of the PHOTO, note}. size: a rough size "
     "estimate ('about 15 x 7 x 1 cm'). material: what it's made of. inside: 4 to 10 components typically inside this "
@@ -99,6 +130,8 @@ def selftest():
     sent = []
     real = features._panel
     features._panel = sent.append
+    import time
+    _checked.update({"TV remote": time.time(), "x": time.time()})  # these have no real sizes: already sent back once
     try:
         r = blueprint("TV remote", [0.2, 0.1, 0.6, 0.95], features=[{"name": "Power", "at": [0.4, 0.15]}],
                       inside=[{"name": "Circuit board", "shape": "board", "at": [0.5, 0.5], "size": [0.8, 0.9]},
@@ -111,6 +144,13 @@ def selftest():
         assert ev["mm"] is None and _mm([42, 42, 12]) == [42.0, 42.0, 12.0] and _mm([0, 5]) is None
         blueprint("x", [0.5, 0.5, 0.51, 0.52], inside=[])
         assert sent[1]["bbox"] == [0.1, 0.1, 0.9, 0.9]
+        big = blueprint("Game Boy", [0, 0, 1, 1], mm=[90, 148, 32],
+                        inside=[{"name": "Board", "mm": [80, 110, 1.6], "layer": 0.5},
+                                {"name": "Battery box", "mm": [60, 60, 40], "layer": 0.9}])
+        assert big["drawn"] is False and "Battery box" in big["not_to_scale"][0] and len(big["not_to_scale"]) == 1
+        again = blueprint("Game Boy", [0, 0, 1, 1], mm=[90, 148, 32], inside=[{"name": "Battery box", "mm": [60, 60, 40]}])
+        assert again["drawn"] and sent[-1]["scale"] == "approx"  # sent back once only, then drawn
+        assert not fit_check([90, 148, 32], [{"name": "Front shell", "mm": [90, 148, 15], "layer": 0.0}])
     finally:
         features._panel = real
     print("blueprint self-test passed")
