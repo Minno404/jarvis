@@ -37,7 +37,7 @@ def _mm(v):
 
 
 def blueprint(title, bbox, features_=None, inside=None, size="", material="", note="", shell="box", explode="radial",
-              source="", mm=None, how=None, sources=None, **kw):
+              source="", mm=None, how=None, sources=None, tilt=0, **kw):
     """Draw the blueprint on the HUD (see the tool description for the fields)."""
     feats = kw.get("features", features_) or []
     box = [_f(v) for v in (list(bbox) + [0, 0, 1, 1])[:4]] if isinstance(bbox, (list, tuple)) else [0, 0, 1, 1]
@@ -45,7 +45,7 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
         box = [0.1, 0.1, 0.9, 0.9]
     ev = {"type": "blueprint", "title": str(title)[:60], "bbox": box, "size": str(size)[:60],
           "material": str(material)[:80], "note": str(note)[:200], "shell": shell if shell in SHELLS else "box",
-          "explode": "layers" if explode == "layers" else "radial", "source": str(source)[:120], "mm": _mm(mm),
+          "explode": "layers" if explode == "layers" else "radial", "tilt": _f(tilt, -45, 45, 0), "source": str(source)[:120], "mm": _mm(mm),
           "how": [str(h)[:200] for h in (how or [])[:8] if str(h).strip()],
           "sources": [{"title": str(s.get("title", ""))[:80], "url": str(s.get("url", ""))[:300]}
                       for s in (sources or [])[:8] if isinstance(s, dict) and str(s.get("url", "")).startswith("http")],
@@ -71,12 +71,12 @@ TOOLS = [{"name": "blueprint", "description": (
     "front (from the research; estimate if nothing says). Each inside part can have mm [w, h, d] too (real sizes "
     "make the 3D model to scale). how: 3 to 6 short steps on how it works. sources: [{title, url}] from the research. "
     "bbox: where the object is in the photo [x0, y0, x1, y1] as fractions (0 to 1) of the photo's width and "
-    "height. features: 3 to 8 visible parts, each {name, at: [x, y] fraction of the PHOTO, note}. size: a rough size "
+    "height. tilt: how many degrees the object is turned in the photo (clockwise positive, so the HUD can straighten the photo it puts on the front of the 3D model). features: 3 to 8 visible parts, each {name, at: [x, y] fraction of the PHOTO, note}. size: a rough size "
     "estimate ('about 15 x 7 x 1 cm'). material: what it's made of. inside: 4 to 10 components typically inside this "
     "kind of object (an informed guess is fine), each {name, shape, at: [x, y] centre as a fraction of the OBJECT's box, size: [w, h] "
     "fraction of the object's box, layer: 0 front (the side facing the camera) to 1 back, thick: its thickness as a "
     "fraction of the object's depth, detail: {teeth, spokes, subdials, count, holes} where it applies (a gear's teeth "
-    "and spokes, a dial's subdials, how many bracelet links or keys), note: what it does}. Shapes: gear, ring, gasket, "
+    "and spokes, a dial's subdials, how many bracelet links or keys), note: what it does}. Pick shapes for what the part really is (a games console's front shell is 'rounded' or 'plate', not 'case'; 'case' is a watch case). Shapes: gear, ring, gasket, "
     "dial, hands, dome (a domed crystal or lens), coin_cell, quartz (crystal oscillator), motor (stepper/vibration), "
     "case (with lugs), rotor (half-disc weight), balance (wheel with spokes), hairspring, pusher, crown, display, "
     "speaker, links (bracelet/strap), keypad, chip, magnet, plate, board (circuit board), battery, screw, spring, coil, "
@@ -85,7 +85,7 @@ TOOLS = [{"name": "blueprint", "description": (
     "the parts stack front to back (watch, phone, remote, laptop) so the 3D view pulls them apart along that stack, "
     "else 'radial'. source: where the parts list came from (a site name). note: one line about it."),
     "input_schema": {"type": "object", "required": ["title", "bbox", "inside"], "properties": {
-        "title": S, "bbox": {"type": "array", "items": N}, "size": S, "material": S, "note": S, "source": S,
+        "title": S, "bbox": {"type": "array", "items": N}, "tilt": N, "size": S, "material": S, "note": S, "source": S,
         "mm": {"type": "array", "items": N}, "how": {"type": "array", "items": S},
         "sources": {"type": "array", "items": {"type": "object", "properties": {"title": S, "url": S}}},
         "shell": {"type": "string", "enum": list(SHELLS)}, "explode": {"type": "string", "enum": ["layers", "radial"]},

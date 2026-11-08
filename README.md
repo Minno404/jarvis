@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.49.0** (shown at the bottom right of the HUD)
+**Version 1.50.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.50.0** (8 Nov 2026): the 3D blueprint looks like the real thing. The photo you showed (straightened if it
+  was held at an angle) goes on the front of the model. Part names only show when you hover over a part or select it.
+  Click a part to select it, drag to move it, then drag it again to turn it. Non-round objects no longer get watch
+  parts (a bezel and lugs, a 12:00 display).
 - **1.49.0** (8 Nov 2026): 3D blueprint parts you can actually see. Parts are solid and lit (key and rim
   lights) instead of faint wireframe. Dials are printed (minute track, numbers, subdial scales, brand), circuit boards
   have traces, coin cells, chips, keypads and displays have markings. Tapered hands with lume, a bezel, drilled lugs, a

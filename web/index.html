@@ -1731,7 +1731,7 @@ function bpExplode(on){
 // scroll to zoom; double-click a part to put it back, or empty space to reset the view ----
 const BP3={on:false,parts:[]};
 function bpLabel(text,col){const c=document.createElement('canvas'),x=c.getContext('2d');c.width=512;c.height=96;
-  x.font='bold 40px monospace';const tw=Math.min(500,x.measureText(text).width+36);
+  let fs=40;x.font='bold 40px monospace';while(fs>18&&x.measureText(text).width>470){fs-=2;x.font=`bold ${fs}px monospace`}const tw=Math.min(500,x.measureText(text).width+36);
   x.fillStyle='rgba(4,18,34,.78)';x.strokeStyle='rgba(159,210,255,.55)';x.lineWidth=2;x.beginPath();x.roundRect(256-tw/2,14,tw,64,30);x.fill();x.stroke();
   x.fillStyle=col;x.textAlign='center';x.fillText(text,256,58);
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false,sizeAttenuation:false}));
@@ -1785,6 +1785,9 @@ function bpPart(T,c,w,h,d,solid){
   const ext=(shape,depth=d)=>new T.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:24}).translate(0,0,-depth/2);
   const cyl=(r,len,axis='z',seg=32)=>{const g=new T.CylinderGeometry(r,r,len,seg);if(axis==='z')g.rotateX(Math.PI/2);if(axis==='x')g.rotateZ(Math.PI/2);return g};
   const add=(geo,x=0,y=0,z=0)=>{const m=solid(geo);m.position.set(x,y,z);grp.add(m);return m};
+  const rrect=(p,W2,H2,r)=>{const x0=-W2/2,y0=-H2/2;p.moveTo(x0+r,y0);p.lineTo(x0+W2-r,y0);p.quadraticCurveTo(x0+W2,y0,x0+W2,y0+r);p.lineTo(x0+W2,y0+H2-r);
+    p.quadraticCurveTo(x0+W2,y0+H2,x0+W2-r,y0+H2);p.lineTo(x0+r,y0+H2);p.quadraticCurveTo(x0,y0+H2,x0,y0+H2-r);p.lineTo(x0,y0+r);p.quadraticCurveTo(x0,y0,x0+r,y0);return p};
+  const round=Math.abs(w-h)/Math.max(w,h)<.15,watchy=/watch|clock|chrono/i.test(BP.ev?.title||'');
   switch(c.shape){
     case'gear':{const n=Math.max(8,Math.min(120,dt.teeth||Math.round(18+R*40))),r1=R*.86,s=new T.Shape();
       for(let i=0;i<n;i++){const a=i/n*TAU,q=TAU/n;const pts=[[r1,a],[R,a+q*.22],[R,a+q*.5],[r1,a+q*.72]];
@@ -1827,7 +1830,8 @@ function bpPart(T,c,w,h,d,solid){
     case'motor':{const pl=new T.BoxGeometry(w,h*.45,d*.4);add(pl,0,-h*.25,0);add(cyl(h*.18,w*.55,'x'),-w*.12,h*.15,0);
       class Hx extends T.Curve{getPoint(t){const a=t*18*TAU;return new T.Vector3(-w*.38+w*.52*t,h*.15+Math.cos(a)*h*.2,Math.sin(a)*h*.2)}}
       add(new T.TubeGeometry(new Hx(),220,Math.max(.002,h*.015),5,false));add(cyl(h*.16,d*.5),w*.32,h*.1,0);break}
-    case'case':{const s=disc(R);s.holes.push(hole(R*.84));add(ext(s));
+    case'case':if(!round){const s=rrect(new T.Shape(),w,h,Math.min(w,h)*.12);s.holes.push(rrect(new T.Path(),w*.86,h*.86,Math.min(w,h)*.08));add(ext(s));break}
+      {const s=disc(R);s.holes.push(hole(R*.84));add(ext(s));
       const bz=disc(R*1.03);bz.holes.push(hole(R*.86));add(ext(bz,d*.2),0,0,d*.55);  // the bezel
       for(let i=0;i<60;i+=5){const a=i/60*TAU,b=new T.BoxGeometry(R*.02,R*.07,d*.05);b.rotateZ(-a);add(b,Math.sin(a)*R*.95,Math.cos(a)*R*.95,d*.66)}
       for(const [sx,sy] of [[-1,1],[1,1],[-1,-1],[1,-1]]){const b=new T.BoxGeometry(R*.18,R*.42,d*.8);add(b,sx*R*.42,sy*(R*.93+R*.12),0);
@@ -1847,7 +1851,8 @@ function bpPart(T,c,w,h,d,solid){
     case'crown':{add(cyl(R,d,'x',24));add(cyl(R*.35,d*1.6,'x'),-d*1.1,0,0);
       for(let i=0;i<20;i++){const a=i/20*TAU,b=new T.BoxGeometry(d*.95,R*.12,R*.12);add(b,0,Math.cos(a)*R,Math.sin(a)*R)}break}  // knurled grip
     case'display':{add(new T.BoxGeometry(w,h,d*.6));add(new T.BoxGeometry(w*.88,h*.85,d*.2),0,0,d*.35);
-      face(bpTex(512,(x,S)=>{x.fillStyle=ink;x.font=`${S*.22}px monospace`;x.textAlign='center';x.textBaseline='middle';x.fillText('12:00',S/2,S/2)}),w*.8,h*.8,d*.47);break}
+      face(bpTex(512,(x,S)=>{x.fillStyle=ink;x.font=`${S*.22}px monospace`;x.textAlign='center';x.textBaseline='middle';if(watchy)x.fillText('12:00',S/2,S/2);
+        else{x.strokeStyle='rgba(232,246,255,.35)';x.lineWidth=1;for(let i=0;i<=S;i+=S/32){x.beginPath();x.moveTo(i,0);x.lineTo(i,S);x.moveTo(0,i);x.lineTo(S,i);x.stroke()}}}),w*.8,h*.8,d*.47);break}
     case'speaker':{add(cyl(R,d*.5));const cone=new T.ConeGeometry(R*.85,d,32,1,true);cone.rotateX(-Math.PI/2);add(cone,0,0,d*.4);add(cyl(R*.3,d*.6),0,0,-d*.3);break}
     case'links':{const n=Math.max(2,Math.min(40,dt.count||7)),lh=h/n;
       for(let i=0;i<n;i++){const y=-h/2+lh*(i+.5);if(i%2){add(new T.BoxGeometry(w*.34,lh*.92,d),-w*.33,y,0);add(new T.BoxGeometry(w*.34,lh*.92,d),w*.33,y,0)}
@@ -1889,6 +1894,14 @@ function bp3dOn(){
     :new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
   const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
   const shellLabel=bpLabel(ev.title.toUpperCase(),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
+  const photo=BP.src?(()=>{const cv2=document.createElement('canvas'),sw=BP.src.width,shh=BP.src.height,cw=Math.max(1,(b[2]-b[0])*sw),ch=Math.max(1,(b[3]-b[1])*shh);
+      const th=(ev.tilt||0)*Math.PI/180,co=Math.cos(Math.abs(th)),si=Math.sin(Math.abs(th)),c2=co*co-si*si;  // straighten a tilted photo
+      let ow=cw,oh=ch;if(th&&c2>.3){ow=(cw*co-ch*si)/c2;oh=(ch*co-cw*si)/c2;if(ow<cw*.2||oh<ch*.2){ow=cw;oh=ch}}
+      const k=Math.min(1,1024/Math.max(ow,oh));cv2.width=Math.round(ow*k);cv2.height=Math.round(oh*k);const x=cv2.getContext('2d');
+      x.translate(cv2.width/2,cv2.height/2);x.rotate(-th);x.scale(k,k);x.drawImage(BP.src,b[0]*sw,b[1]*shh,cw,ch,-cw/2,-ch/2,cw,ch);x.setTransform(1,0,0,1,0,0);
+      try{const d2=x.getImageData(0,0,cv2.width,cv2.height),px=d2.data;for(let i=0;i<px.length;i+=4)if(Math.max(px[i],px[i+1],px[i+2])<28)px[i+3]=0;x.putImageData(d2,0,0)}catch(e){}
+      const t=new T.CanvasTexture(cv2);t.anisotropy=4;return t})():null;  // the real photo, its dark background cleared
+  const photoPlane=(w,h,z)=>{const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:photo,transparent:true,opacity:.92,depthWrite:false,side:T.DoubleSide}));m.position.z=z;return m};
   const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
   BP3.parts=ev.inside.map((c,i)=>{let w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
     if(MM&&c.mm){w=Math.max(.02,c.mm[0]*MM);h=Math.max(.02,c.mm[1]*MM);d=Math.max(.01,(c.mm[2]||Math.min(c.mm[0],c.mm[1])*.2)*MM)}
@@ -1898,7 +1911,10 @@ function bp3dOn(){
     else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
       out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
     const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
-    Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false});g.position.copy(home);world.add(g);return g});
+    lab.visible=false;g.userData.label=lab;
+    Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false,w,h,d,layer:c.layer??.5});g.position.copy(home);world.add(g);return g});
+  const front=photo&&BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6).sort((a,c)=>a.userData.layer-c.userData.layer)[0];
+  if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(photoPlane(W,H,D/2+.003));  // the front looks like the real thing
   let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
   const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
     ray.setFromCamera(ndc,cam);const hit=ray.intersectObjects(BP3.parts,true).find(h=>!h.object.isSprite&&!h.object.isLineSegments);
@@ -1907,15 +1923,15 @@ function bp3dOn(){
     const q=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),dx*.01).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),dy*.01));
     if(obj===world){world.quaternion.premultiply(q);return}
     const wq=world.getWorldQuaternion(new T.Quaternion()),local=wq.clone().invert().multiply(q).multiply(wq);obj.quaternion.premultiply(local)};
-  let sel=null,mode='',last=null,plane=new T.Plane(),grab=new T.Vector3();
+  let sel=null,hov=null,mode='',last=null,plane=new T.Plane(),grab=new T.Vector3();
   const select=o=>{if(sel)sel.userData.edges.forEach(m=>m.color.set(0xdff4ff));sel=o;if(o)o.userData.edges.forEach(m=>m.color.set(0xffd36b))};
   cv.oncontextmenu=e=>e.preventDefault();
-  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];const o=pick(e);select(o);
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];const o=pick(e),was=sel;select(o);
     if(!o){mode='orbit';return}
-    if(e.button===2||e.shiftKey){mode='turn';return}
+    if(e.button===2||e.shiftKey||o===was){mode='turn';return}  // drag a part that's already selected to turn it
     mode='move';const wp=o.getWorldPosition(new T.Vector3());plane.setFromNormalAndCoplanarPoint(cam.getWorldDirection(new T.Vector3()),wp);
     ray.ray.intersectPlane(plane,grab);grab.sub(wp)};
-  cv.onpointermove=e=>{if(!mode)return;const dx=e.clientX-last[0],dy=e.clientY-last[1];last=[e.clientX,e.clientY];
+  cv.onpointermove=e=>{if(!mode){hov=pick(e);cv.style.cursor=hov?(hov===sel?'grab':'pointer'):'';return}const dx=e.clientX-last[0],dy=e.clientY-last[1];last=[e.clientX,e.clientY];
     if(mode==='orbit')spin(world,dx,dy);else if(mode==='turn')spin(sel,dx,dy);
     else{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);ray.setFromCamera(ndc,cam);
       const pt=new T.Vector3();if(ray.ray.intersectPlane(plane,pt)){pt.sub(grab);sel.position.copy(world.worldToLocal(pt));sel.userData.manual=true}}};
@@ -1926,12 +1942,13 @@ function bp3dOn(){
   const frame=()=>{if(!BP3.on||!p.isConnected){r.dispose();host.remove();BP3.on=false;p.classList.remove('in3d');return}
     const w=host.clientWidth,h=host.clientHeight;if(w&&h&&(cv.width!==Math.round(w*r.getPixelRatio())||cv.height!==Math.round(h*r.getPixelRatio()))){r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
     if(!zoomed){let far=Math.max(W,H)/2;for(const g of BP3.parts){const t=g.userData.manual?g.position:BP.exploded?g.userData.out:g.userData.home;
-        far=Math.max(far,t.length()+.35)}const fit=far/Math.tan(cam.fov*Math.PI/360)/Math.min(1,cam.aspect)*.72;dist+=(fit-dist)*.06}  // fit everything in view
+        far=Math.max(far,t.length()+Math.max(g.userData.w,g.userData.h)/2+.1)}const fit=far/Math.tan(cam.fov*Math.PI/360)/Math.min(1,cam.aspect)*.72;dist+=(fit-dist)*.06}  // fit everything in view
     cam.position.set(0,0,dist);cam.lookAt(0,0,0);
+    for(const g of BP3.parts)g.userData.label.visible=g===sel||g===hov;  // names only on hover or when selected
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
     shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
     r.render(scene,cam);requestAnimationFrame(frame)};
-  frame();p.querySelector('.bpnote').textContent='3D: drag to turn it · drag a part to move it · right-drag a part to spin it · double-click a part for details · scroll to zoom · double-click empty space to reset'}
+  frame();p.querySelector('.bpnote').textContent='3D: hover a part for its name · click to select, drag to move it, drag it again to turn it · double-click a part for details · scroll to zoom · double-click empty space to reset'}
 function bp3dOff(){BP3.on=false}
 // Double-click a component (3D or the pulled-apart drawing): its details, with questions you can ask Jarvis about it
 let askMirror=null;
