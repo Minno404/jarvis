@@ -97,6 +97,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bphow{padding-left:18px;margin:0 0 8px;line-height:1.5}.holo-panel.blueprint .bpsrc{display:flex;flex-direction:column;gap:3px}
 .holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
+.holo-panel > h3{cursor:zoom-in}#bigView .holo-panel > h3{cursor:zoom-out}
 .holo-panel.blueprint .bp3tools{position:absolute;left:10px;bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:2;font:12px monospace;color:#cfeaff}
 .holo-panel.blueprint .bp3tools button{background:#04122299;border:1px solid #9fd2ff88;color:#dff4ff;padding:4px 10px;border-radius:4px;cursor:pointer;font:inherit}
 .holo-panel.blueprint .bp3tools button.on{background:#ffd36b33;border-color:#ffd36b}
@@ -2192,7 +2193,8 @@ function enterBig(p){
   if(PIN)return;if(SV.on)setSpendMode(false);if(BIG.el)exitBig(true);
   Object.assign(BIG,{el:p,parent:p.parentNode,next:p.nextSibling,style:p.getAttribute('style'),hidden:p.hidden,pending:0});
   p.dataset.reflow=Date.now();p.removeAttribute('style');p.hidden=false;$('bigView').append(p);
-  if(p===BP.panel)setTimeout(bp3dOn,400);  // an enlarged blueprint is a 3D model you can handlep.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
+  if(p===BP.panel)setTimeout(bp3dOn,400);  // an enlarged blueprint is a 3D model you can handle
+  p.querySelectorAll('video').forEach(v=>v.play().catch(()=>{}));
   glideCore(()=>{document.documentElement.classList.add('bigmode');$('bigView').hidden=false;$('bigClose').hidden=false})}
 function exitBig(quick){
   const b={...BIG};if(!b.el)return;BIG.el=null;
@@ -2203,6 +2205,13 @@ function exitBig(quick){
   const off=()=>{document.documentElement.classList.remove('bigmode');$('bigView').hidden=true;$('bigClose').hidden=true};
   if(quick)off();else glideCore(off)}
 $('bigClose').onclick=()=>exitBig();
+// Click a panel's title to enlarge it, click it again to shrink it (a drag of the title still moves the panel).
+// The title is the target because clicks elsewhere on a blueprint pick and turn its parts.
+// (pointerup, not click: bringing a panel to the front on pointerdown moves it in the page, which cancels the click)
+window.PANEL_TITLE_ENLARGE=true;{let down=null;
+  document.addEventListener('pointerdown',e=>{const h=e.button===0&&e.target.closest('.holo-panel > h3');down=h?{h,x:e.clientX,y:e.clientY}:null},true);
+  document.addEventListener('pointerup',e=>{const d=down;down=null;if(!d||Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)return;
+    const p=d.h.parentNode;if(BIG.el===p)exitBig();else enterBig(p)},true)}
 addEventListener('keydown',e=>{if(e.key==='Escape'&&BIG.el&&document.activeElement!==$('q'))exitBig()});
 new MutationObserver(()=>{  // a panel Jarvis just opened for an "enlarge" request; or the enlarged panel was closed
   if(BIG.pending&&Date.now()-BIG.pending<180000){const p=$('holo').querySelector('.holo-panel:not(.out)');if(p){BIG.pending=0;enterBig(p)}}

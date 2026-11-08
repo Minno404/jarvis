@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.54.0** (shown at the bottom right of the HUD)
+**Version 1.54.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.54.1** (8 Nov 2026): click any panel's title to enlarge it (the blueprint opens in 3D), click it again to shrink
+  it; dragging the title still moves the panel. Fixed enlarged panels' videos not restarting.
 - **1.54.0** (8 Nov 2026): the 3D blueprint has tools: Measure (click two points, get the real distance in mm), a
   Slice slider that cuts it open from the front, and Save STL / Save GLB ("export it for 3D printing"): real size in
   mm, saved to Documents\Jarvis models, ready for a slicer, Blender or Godot. The local AI hands jobs and photos to

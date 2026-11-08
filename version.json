@@ -1,4 +1,4 @@
 {
- "version": "1.54.0",
- "notes": "Blueprint measure, slice and 3D-print export; local AI hands jobs online; talk over Jarvis to cut in."
+ "version": "1.54.1",
+ "notes": "Click a panel's title to enlarge it, click again to shrink."
 }
