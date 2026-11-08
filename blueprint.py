@@ -7,7 +7,10 @@ import features
 
 S, N = {"type": "string"}, {"type": "number"}
 PT = {"type": "array", "items": N, "description": "[x, y], fractions 0 to 1"}
-SHAPES = ("rect", "rounded", "circle", "cylinder", "board", "coil", "battery", "screw", "lens", "wire", "spring", "fan")
+SHAPES = ("rect", "rounded", "circle", "cylinder", "board", "coil", "battery", "screw", "lens", "wire", "spring", "fan",
+          # proper parts, built in detail in 3D (detail: teeth, spokes, subdials, count, holes)
+          "gear", "ring", "gasket", "dial", "hands", "dome", "coin_cell", "quartz", "motor", "case", "rotor",
+          "balance", "hairspring", "pusher", "crown", "display", "speaker", "links", "keypad", "chip", "magnet", "plate")
 
 
 def _f(v, lo=0.0, hi=1.0, default=0.5):
@@ -51,7 +54,9 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
           "inside": [{"name": str(p.get("name", ""))[:40], "note": str(p.get("note", ""))[:80],
                       "shape": p.get("shape") if p.get("shape") in SHAPES else "rect",
                       "at": _pt(p.get("at")), "size": _pt(p.get("size"), (0.25, 0.2)),
-                      "layer": _f(p.get("layer"), default=0.5), "thick": _f(p.get("thick"), 0.02, 1, 0.3), "mm": _mm(p.get("mm"))}
+                      "layer": _f(p.get("layer"), default=0.5), "thick": _f(p.get("thick"), 0.02, 1, 0.3), "mm": _mm(p.get("mm")),
+                      "detail": {k: int(_f(v, 0, 200, 0)) for k, v in (p.get("detail") or {}).items()
+                                 if k in ("teeth", "spokes", "subdials", "count", "holes")} if isinstance(p.get("detail"), dict) else {}}
                      for p in (inside or [])[:12] if isinstance(p, dict) and p.get("name")]}
     features._panel(ev)
     return {"drawn": True, "features": len(ev["features"]), "inside": len(ev["inside"]),
@@ -68,10 +73,14 @@ TOOLS = [{"name": "blueprint", "description": (
     "bbox: where the object is in the photo [x0, y0, x1, y1] as fractions (0 to 1) of the photo's width and "
     "height. features: 3 to 8 visible parts, each {name, at: [x, y] fraction of the PHOTO, note}. size: a rough size "
     "estimate ('about 15 x 7 x 1 cm'). material: what it's made of. inside: 4 to 10 components typically inside this "
-    "kind of object (an informed guess is fine), each {name, shape (rect, rounded, circle, cylinder, board, coil, "
-    "battery, screw, lens, wire, spring, fan), at: [x, y] centre as a fraction of the OBJECT's box, size: [w, h] "
+    "kind of object (an informed guess is fine), each {name, shape, at: [x, y] centre as a fraction of the OBJECT's box, size: [w, h] "
     "fraction of the object's box, layer: 0 front (the side facing the camera) to 1 back, thick: its thickness as a "
-    "fraction of the object's depth, note: what it does}. shell: the object's overall 3D shape (box, rounded, disc "
+    "fraction of the object's depth, detail: {teeth, spokes, subdials, count, holes} where it applies (a gear's teeth "
+    "and spokes, a dial's subdials, how many bracelet links or keys), note: what it does}. Shapes: gear, ring, gasket, "
+    "dial, hands, dome (a domed crystal or lens), coin_cell, quartz (crystal oscillator), motor (stepper/vibration), "
+    "case (with lugs), rotor (half-disc weight), balance (wheel with spokes), hairspring, pusher, crown, display, "
+    "speaker, links (bracelet/strap), keypad, chip, magnet, plate, board (circuit board), battery, screw, spring, coil, "
+    "lens, wire, fan, rect, rounded, circle, cylinder: pick the one that matches the real part. shell: the object's overall 3D shape (box, rounded, disc "
     "for flat round things like a watch or a puck, cylinder for cans and bottles, sphere). explode: 'layers' when "
     "the parts stack front to back (watch, phone, remote, laptop) so the 3D view pulls them apart along that stack, "
     "else 'radial'. source: where the parts list came from (a site name). note: one line about it."),
@@ -83,7 +92,7 @@ TOOLS = [{"name": "blueprint", "description": (
         "features": {"type": "array", "items": {"type": "object", "properties": {"name": S, "at": PT, "note": S}}},
         "inside": {"type": "array", "items": {"type": "object", "properties": {
             "name": S, "shape": {"type": "string", "enum": list(SHAPES)}, "at": PT, "size": PT, "note": S,
-            "layer": N, "thick": N, "mm": {"type": "array", "items": N}}}}}}}]
+            "layer": N, "thick": N, "mm": {"type": "array", "items": N}, "detail": {"type": "object"}}}}}}}]
 
 
 def selftest():

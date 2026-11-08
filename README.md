@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.47.3** (shown at the bottom right of the HUD)
+**Version 1.48.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,13 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.48.0** (8 Nov 2026): replica-quality blueprints. Jarvis works out the object's category and a well-documented
+  equivalent with the same insides (a tie-in or fashion watch has a stock movement), researches the insides on
+  that, then researches every component one by one for its real size before drawing anything. The 3D view builds
+  proper parts: toothed gears with spoke windows, dials with indices and subdials, hands, domed crystals, coin
+  cells, quartz crystals, stepper motors, cases with lugs, rotors, balance wheels with their hairspring, pushers,
+  crowns, bracelet links, keypads, chips, speakers, displays, plates with screw holes. Research pictures must
+  actually mention the object (no more film stills or crystals for "quartz").
 - **1.47.3** (8 Nov 2026): blueprints no longer get "refused permission". Claude wrapped long tool arguments full of
   apostrophes in $(...) or heredocs, which Jarvis's permission rule refuses; he now always sends them in plain
   single quotes, with apostrophes written as ’ (tested against Claude Code's own permission check). Research

@@ -1,4 +1,4 @@
 {
- "version": "1.47.3",
- "notes": "Fixes blueprints being refused; better research pictures."
+ "version": "1.48.0",
+ "notes": "Replica-quality blueprints: per-part research and detailed 3D parts."
 }

@@ -80,30 +80,50 @@ def dimensions(text, limit=8):
     return out
 
 
-def research_object(name, kind=""):
-    """Research an object (its exact name, brand and model if known) before drawing it. Returns a dossier."""
+STOP = {"the", "and", "with", "for", "watch", "steel", "two", "tone", "mm", "edition", "new", "model", "series", "black",
+        "white", "silver", "gold", "blue", "of", "a", "an", "in"}
+
+
+def _words(text):
+    return {w for w in re.findall(r"[a-z0-9]{3,}", text.lower()) if w not in STOP}
+
+
+def relevant(img, must, also=()):
+    """Keep a picture only if its title or page mentions the thing (image search is too literal: 'quartz' finds
+    crystals, a film tie-in finds film stills)."""
+    blob = (img.get("title", "") + " " + img.get("page", "")).lower() if isinstance(img, dict) else ""
+    if re.search(r"minecraft|redstone|lego|roblox|movie|film|scene|cosplay|wallpaper", blob):
+        return False
+    return any(w in blob for w in must) and (not also or any(w in blob for w in also))
+
+
+def research_object(name, kind="", similar=""):
+    """Research an object before drawing it. name: exactly what it is. kind: its category ('quartz chronograph
+    watch'). similar: a well-documented equivalent with the same insides (e.g. the movement it uses, 'Miyota OS20
+    quartz chronograph movement'), used for the teardown when this exact one has none. Returns a dossier."""
     import hud
     import web
-    name = (name or "").strip()[:80]
+    name, kind, similar = (name or "").strip()[:80], (kind or "").strip()[:60], (similar or "").strip()[:80]
     if not name:
         return {"error": "Give the object's name (brand and model if you can read them)."}
     t0 = time.time()
-    _progress(name, "Identified: " + name)
-    queries = {"teardown": f"{name} teardown", "exploded": f"{name} exploded view parts diagram",
-               "size": f"{name} dimensions mm specifications", "how": f"how does a {kind or name} work"}
-    with cf.ThreadPoolExecutor(8) as ex:
-        fx = ex.submit(ifixit, name)
+    inside = similar or kind or name  # what's inside is researched on the best-documented equivalent
+    _progress(name, "Identified: " + name + (f" (inside: same as {inside})" if inside != name else ""))
+    queries = {"teardown": f"{inside} teardown", "exploded": f"{inside} exploded view parts",
+               "size": f"{name} dimensions mm specifications", "how": f"how does a {kind or inside} work"}
+    with cf.ThreadPoolExecutor(10) as ex:
+        fx = ex.submit(lambda: ifixit(name) or (ifixit(similar) if similar else []) or (ifixit(kind) if kind else []))
         fs = {k: ex.submit(web.web_search, q, 5) for k, q in queries.items()}
-        fimg = ex.submit(hud.bing_images, f"{name}")  # what it looks like (an "exploded view" search finds junk)
-        fdia = ex.submit(hud.bing_images, f"{kind or name} exploded view diagram")  # how its kind is put together
-        _progress(name, "Searching teardowns, exploded views, specifications and how it works")
+        fimg = ex.submit(hud.bing_images, name)
+        fdia = ex.submit(hud.bing_images, f"{inside} exploded diagram parts")
+        _progress(name, f"Searching: {name} specifications, and teardowns of {inside}")
         found = {k: (f.result().get("results") or []) if not f.exception() else [] for k, f in fs.items()}
         guides = fx.result() if not fx.exception() else []
         if guides:
             n_parts = len(guides[0]["parts"])
             _progress(name, f"iFixit: {guides[0]['title']} ({len(guides[0]['steps'])} steps"
-                            + (f", {n_parts} parts)" if n_parts else ")"), sources=[{"title": g["title"], "url": g["url"]} for g in guides])
-        # read the best pages: one each for the teardown, the size and how it works (skipping videos)
+                            + (f", {n_parts} parts)" if n_parts else ")"),
+                      sources=[{"title": g["title"], "url": g["url"]} for g in guides])
         pick = []
         for k in ("teardown", "size", "how", "exploded"):
             for r in found[k]:
@@ -114,41 +134,81 @@ def research_object(name, kind=""):
         _progress(name, f"Reading {len(pick)} pages", sources=[{"title": t, "url": u} for _, u, t in pick])
         pages = {u: ex.submit(web.read_page, u, 12000) for _, u, _ in pick}
         texts = {u: (f.result() or {}).get("text", "") if not f.exception() else "" for u, f in pages.items()}
-        imgs = (fimg.result() if not fimg.exception() else [])[:3] + (fdia.result() if not fdia.exception() else [])[:3]
+        photos = [i for i in (fimg.result() if not fimg.exception() else []) if relevant(i, _words(name))][:3]
+        diagrams = [i for i in (fdia.result() if not fdia.exception() else [])
+                    if relevant(i, _words(inside) | _words(kind), ("exploded", "diagram", "parts", "movement",
+                                                                   "teardown", "inside", "components"))][:3]
     dims = []
     for k, u, _ in pick:
         if k in ("size", "teardown"):
             dims += dimensions(texts.get(u, ""))
     how = next((texts[u][:1500] for k, u, _ in pick if k == "how" and texts.get(u)), "")
-    images = [g for guide in guides for g in guide["images"]][:4]
-    images += [i["src"] if isinstance(i, dict) else i for i in imgs
-               if not re.search(r"minecraft|redstone|lego|roblox", json.dumps(i), re.I)][:6 - len(images)]
+    images = [g for guide in guides for g in guide["images"]][:3] + [i["src"] for i in photos + diagrams]
     sources = [{"title": g["title"], "url": g["url"]} for g in guides] + [{"title": t, "url": u} for _, u, t in pick]
-    _progress(name, f"Research done in {time.time() - t0:.0f} s: {len(sources)} sources. Building the model",
-              sources=sources, images=images, done=True)
-    return {"name": name, "ifixit": [{k: g[k] for k in ("title", "url", "parts", "tools", "steps")} for g in guides],
+    _progress(name, f"Research done in {time.time() - t0:.0f} s: {len(sources)} sources", sources=sources,
+              images=images[:6])
+    return {"name": name, "inside_based_on": inside,
+            "ifixit": [{k: g[k] for k in ("title", "url", "parts", "tools", "steps")} for g in guides],
             "dimensions": dims[:12], "how_it_works": how,
             "snippets": [{"title": r.get("title", ""), "snippet": r.get("snippet", "")} for k in ("exploded", "teardown")
                          for r in found[k][:3]],
             "sources": sources,
-            "note": ("Use this to draw it: the iFixit parts and steps give the real components in the order they come "
-                     "out (front to back); the dimension sentences give real sizes (put them in mm). Pass sources on.")}
+            "note": ("Next: list every component inside (from the teardown steps, front to back) and call research_parts "
+                     "with them, to get each one's real size and look before drawing.")}
 
 
-FUNCS = {"research_object": research_object}
+def research_parts(context, parts):
+    """Each component's real size and what it looks like, researched at once (one search per part), so the 3D
+    replica is right. context: what they're inside ('quartz chronograph watch movement'). parts: their names."""
+    import web
+    parts = [str(p).strip()[:60] for p in (parts or []) if str(p).strip()][:14]
+    if not parts:
+        return {"error": "List the parts."}
+    title = (context or "")[:60]
+    _progress(title, f"Researching {len(parts)} parts one by one")
+    out = {}
+
+    def one(p):
+        res = web.web_search(f"{context} {p} size mm diameter thickness", 4).get("results") or []
+        text = " ".join(r.get("title", "") + ". " + r.get("snippet", "") for r in res)
+        return {"dimensions": dimensions(text, 4), "looks": [r.get("snippet", "")[:200] for r in res[:2]],
+                "source": res[0]["url"] if res else ""}
+    with cf.ThreadPoolExecutor(6) as ex:
+        futs = {p: ex.submit(one, p) for p in parts}
+        for i, (p, f) in enumerate(futs.items(), 1):
+            out[p] = f.result() if not f.exception() else {"dimensions": [], "looks": []}
+            _progress(title, f"Part {i}/{len(parts)}: {p}" + (f": {out[p]['dimensions'][0][:60]}" if out[p]["dimensions"] else ""))
+    _progress(title, "Parts researched. Building the 3D replica", done=True)
+    return {"parts": out, "note": ("Use these real sizes (mm) and descriptions for each part's mm, shape and detail in "
+                                   "the blueprint call. Where nothing was found, use typical sizes for that part.")}
+
+
+FUNCS = {"research_object": research_object, "research_parts": research_parts}
 TOOLS = [{"name": "research_object", "description": (
     "Research an object before drawing its blueprint: iFixit teardowns (real parts in order, tools, steps), web pages "
     "on its teardown, exploded view, dimensions and how it works, and reference pictures, all at once (the HUD shows "
     "the research as it happens). name: what it is, as exactly as you can (brand and model if visible, else e.g. "
-    "'automatic wristwatch'). kind: the general kind of thing ('mechanical watch'), for how-it-works searches."),
-    "input_schema": {"type": "object", "required": ["name"], "properties": {"name": S, "kind": S}}}]
+    "'automatic wristwatch'). kind: its category ('quartz chronograph watch'). similar: if this exact one is a branded "
+    "version of something common (most watches, phones and gadgets share standard insides), name the well-documented "
+    "equivalent to research the insides on, e.g. the movement it uses ('Miyota OS20 quartz chronograph movement') or "
+    "the same-generation model."),
+    "input_schema": {"type": "object", "required": ["name"], "properties": {"name": S, "kind": S, "similar": S}}},
+    {"name": "research_parts", "description": (
+        "After research_object: research every component inside at once (real sizes in mm, what each looks like), so "
+        "the 3D replica is accurate. context: what they're inside (e.g. 'quartz chronograph watch'). parts: the "
+        "component names, front to back."),
+     "input_schema": {"type": "object", "required": ["context", "parts"], "properties": {
+         "context": S, "parts": {"type": "array", "items": S}}}}]
 
 
 def selftest():
     t = "The watch measures 42 mm across and 12.5mm thick. Battery: CR2032, 20 mm x 3.2 mm. Nothing here."
     d = dimensions(t)
     assert any("42 mm" in x for x in d) and any("20 mm" in x for x in d) and len(d) == 2, d
-    assert "error" in research_object("")
+    assert "error" in research_object("") and "error" in research_parts("x", [])
+    assert relevant({"title": "Timex Q chronograph review", "page": "x"}, {"timex"})
+    assert not relevant({"title": "Quartz crystal cluster", "page": "rocks.com"}, {"chronograph", "quartz"}, ("diagram",))
+    assert not relevant({"title": "Harry Potter scene", "page": "film.com"}, {"harry", "potter"})
     print("research self-test passed")
 
 

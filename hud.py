@@ -53,7 +53,7 @@ def bing_images(query):
         except ValueError:
             continue
         if str(d.get("murl", "")).startswith("http"):
-            out.append({"src": d["murl"], "page": d.get("purl", "")})
+            out.append({"src": d["murl"], "page": d.get("purl", ""), "title": H.unescape(d.get("t", ""))})
     return out
 
 
