@@ -106,7 +106,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpcard .bpcnote{margin:0 0 8px;color:#9fc8ee}.holo-panel.blueprint .bpcq{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
 .holo-panel.blueprint .bpcard button{font-size:.85em;padding:3px 7px;letter-spacing:.04em;text-transform:none}.holo-panel.blueprint .bpcf{display:flex;gap:6px}
 .holo-panel.blueprint .bpcf input{flex:1;min-width:0}.holo-panel.blueprint .bpca{margin-top:8px;line-height:1.5;white-space:pre-wrap}.holo-panel.blueprint .bpca:empty{display:none}
-.holo-panel.blueprint .bpcback{margin-top:8px}
+.holo-panel.blueprint .bpcback,.holo-panel.blueprint .bpcopen{margin-top:8px;margin-right:6px}
 .holo-panel.blueprint .bppart{cursor:pointer}
 .holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .holo-panel.sim .simbox{margin-top:6px}.holo-panel.sim canvas{width:100%;display:block}
@@ -1662,12 +1662,42 @@ function bpShape(s,w,h){  // a component drawn as a simple schematic shape, cent
     case'keypad':case'display':case'chip':case'plate':case'quartz':case'motor':case'pusher':case'crown':case'speaker':
       return`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}" rx="${Math.min(hw,hh)*.2}"/><rect x="${-hw*.7}" y="${-hh*.6}" width="${w*.7*2}" height="${h*.6*2}" stroke-dasharray="3 3"/>`;
     default:return`<rect x="${-hw}" y="${-hh}" width="${w}" height="${h}"/>`}}
+function bpCut(src,b,tilt){  // the object's part of a photo: straightened, background cleared, and its outline traced
+  const key=[b,tilt].join();src._cuts=src._cuts||{};if(src._cuts[key])return src._cuts[key];
+  const cv=document.createElement('canvas'),sw=src.width,shh=src.height,cw=Math.max(1,(b[2]-b[0])*sw),ch=Math.max(1,(b[3]-b[1])*shh);
+  const th=(tilt||0)*Math.PI/180,co=Math.cos(Math.abs(th)),si=Math.sin(Math.abs(th)),c2=co*co-si*si;
+  let ow=cw,oh=ch;if(th&&c2>.3){ow=(cw*co-ch*si)/c2;oh=(ch*co-cw*si)/c2;if(ow<cw*.2||oh<ch*.2){ow=cw;oh=ch}}
+  const k=Math.min(1,1024/Math.max(ow,oh));cv.width=Math.max(8,Math.round(ow*k));cv.height=Math.max(8,Math.round(oh*k));const x=cv.getContext('2d');
+  x.translate(cv.width/2,cv.height/2);x.rotate(-th);x.scale(k,k);x.drawImage(src,b[0]*sw,b[1]*shh,cw,ch,-cw/2,-ch/2,cw,ch);x.setTransform(1,0,0,1,0,0);
+  let outline=null;
+  try{const W=cv.width,H=cv.height,d=x.getImageData(0,0,W,H),px=d.data,edge=[];
+    const at=(i,j)=>(j*W+i)*4;for(let i=0;i<W;i+=2){edge.push(at(i,0),at(i,H-1))}for(let j=0;j<H;j+=2){edge.push(at(0,j),at(W-1,j))}
+    const med=ch2=>{const v=edge.map(p=>px[p+ch2]).sort((a,c)=>a-c);return v[v.length>>1]},bg=[med(0),med(1),med(2)];  // the background: the border's usual colour
+    const mask=new Uint8Array(W*H);let n=0;
+    for(let p=0,q=0;q<W*H;p+=4,q++){const dist=Math.abs(px[p]-bg[0])+Math.abs(px[p+1]-bg[1])+Math.abs(px[p+2]-bg[2]);
+      if(dist>60){mask[q]=1;n++}}
+    const share=n/(W*H);
+    if(share>.12&&share<.97){let sx=0,sy=0;for(let q=0;q<W*H;q++)if(mask[q]){sx+=q%W;sy+=(q/W)|0}const cx=sx/n,cy=sy/n,R=Math.hypot(W,H)/2,gap=Math.max(3,R*.03);
+      const rays=[];for(let r=0;r<360;r++){const a=r/360*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a);let last=0,miss=0;  // the outermost edge along each ray, skipping specks
+        for(let t=0;t<R;t+=1){const i=Math.round(cx+dx*t),j=Math.round(cy+dy*t);if(i<0||j<0||i>=W||j>=H)break;
+          if(mask[j*W+i]){last=t;miss=0}else if(++miss>gap&&last>0)break}rays.push(last)}
+      const sm=rays.map((_,r)=>{const v=[-2,-1,0,1,2].map(o=>rays[(r+o+360)%360]).sort((a,c)=>a-c);return v[2]});
+      outline=sm.map((t,r)=>{const a=r/360*Math.PI*2;return[Math.min(1,Math.max(0,(cx+Math.cos(a)*t)/W)),Math.min(1,Math.max(0,(cy+Math.sin(a)*t)/H))]});
+      for(let q=0,p=0;q<W*H;q++,p+=4)if(!mask[q])px[p+3]=0;x.putImageData(d,0,0)}}catch(e){}  // only the object stays visible
+  return src._cuts[key]={canvas:cv,outline}}
 function showBlueprint(ev){
+  if(ev.update&&BP.panel&&BP.panel.isConnected&&BP.ev&&BP.ev.title===ev.title){  // a part refined: rebuild in place, keep the view
+    Object.assign(ev,{_img:BP.ev._img,_back:BP.ev._back,update:false});BP.ev=ev;
+    if(BP3.on){const q=BP3.world&&BP3.world.quaternion.clone();bp3dOff();setTimeout(()=>{bp3dOn();if(q&&BP3.world)BP3.world.quaternion.copy(q)},80)}
+    return}
+  if(ev.back_photo&&ev._back===undefined){const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
+      c.getContext('2d').drawImage(im,0,0);ev._back=c;showBlueprint(ev)};im.onerror=()=>{ev._back=null;showBlueprint(ev)};
+    im.src='/api/photo/'+encodeURIComponent(ev.back_photo);return}
   if(ev.photo&&ev._img===undefined){  // the photo it was drawn from (camera or uploaded), so any screen can trace it
     const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;
       c.getContext('2d').drawImage(im,0,0);ev._img=c;showBlueprint(ev)};
     im.onerror=()=>{ev._img=null;showBlueprint(ev)};im.src='/api/photo/'+encodeURIComponent(ev.photo);return}
-  BP.src=ev._img||DESK.lastShot||null;
+  BP.src=ev._img||DESK.lastShot||null;BP.back=ev._back||null;
   if(BP.panel&&BP.panel.isConnected)closePanel(BP.panel);
   const p=document.createElement('div');p.className='holo-panel blueprint wide';BP.ev=ev;BP.exploded=false;
   p.innerHTML='<button type="button" class="holo-x" aria-label="Close the blueprint">&times;</button><button type="button" class="bp3btn">3D</button><button type="button" class="bpdos" hidden>Dossier</button><h3></h3><div class="bpbox"></div><div class="bpnote"></div>';
@@ -1869,6 +1899,24 @@ function bpPart(T,c,w,h,d,solid){
     case'plate':{const s=new T.Shape(),rr=Math.min(w,h)*.12,x0=-w/2,y0=-h/2;s.moveTo(x0+rr,y0);s.lineTo(x0+w-rr,y0);s.quadraticCurveTo(x0+w,y0,x0+w,y0+rr);
       s.lineTo(x0+w,y0+h-rr);s.quadraticCurveTo(x0+w,y0+h,x0+w-rr,y0+h);s.lineTo(x0+rr,y0+h);s.quadraticCurveTo(x0,y0+h,x0,y0+h-rr);s.lineTo(x0,y0+rr);s.quadraticCurveTo(x0,y0,x0+rr,y0);
       const n=dt.holes??4;for(let i=0;i<n;i++){const a=i/n*TAU+.4;s.holes.push(hole(R*.07,Math.cos(a)*w*.32,Math.sin(a)*h*.32))}add(ext(s));break}
+    case'custom':{const P=(c.pieces||[]).slice(0,80);if(!P.length)return null;  // any part, built from blocks, tubes and balls (sizes in mm)
+      const lo=[1e9,1e9,1e9],hi=[-1e9,-1e9,-1e9];for(const q of P)for(let a=0;a<3;a++){lo[a]=Math.min(lo[a],q.at[a]-q.size[a]/2);hi[a]=Math.max(hi[a],q.at[a]+q.size[a]/2)}
+      const k=Math.min(w/Math.max(.01,hi[0]-lo[0]),h/Math.max(.01,hi[1]-lo[1]),d/Math.max(.01,hi[2]-lo[2])),mid=[0,1,2].map(a=>(lo[a]+hi[a])/2);
+      for(const q of P){const [sx,sy,sz]=q.size.map(v=>Math.max(.001,v*k));let geo;
+        switch(q.type){
+          case'cylinder':geo=new T.CylinderGeometry(.5,.5,1,40).scale(sx,sy,sz);break;
+          case'cone':geo=new T.CylinderGeometry(0,.5,1,40).scale(sx,sy,sz);break;
+          case'sphere':geo=new T.SphereGeometry(.5,32,20).scale(sx,sy,sz);break;
+          case'torus':geo=new T.TorusGeometry(.5-.5*Math.min(.45,sz/Math.max(sx,.001)),Math.min(.45,sz/Math.max(sx,.001))*.5,16,48).scale(sx,sy,sx);break;
+          case'tube':{const r0=Math.min(.49,(q.hole||q.size[0]*.7)/q.size[0]/2),s=disc(.5);s.holes.push(hole(r0));
+            geo=new T.ExtrudeGeometry(s,{depth:1,bevelEnabled:false,curveSegments:32}).translate(0,0,-.5).rotateX(Math.PI/2).scale(sx,sy,sz);break}
+          case'rounded':geo=new T.ExtrudeGeometry(rrect(new T.Shape(),1,1,.2),{depth:1,bevelEnabled:false,curveSegments:8}).translate(0,0,-.5).scale(sx,sy,sz);break;
+          case'wedge':{const s=new T.Shape();s.moveTo(-.5,-.5);s.lineTo(.5,-.5);s.lineTo(-.5,.5);s.lineTo(-.5,-.5);
+            geo=new T.ExtrudeGeometry(s,{depth:1,bevelEnabled:false}).translate(0,0,-.5).scale(sx,sy,sz);break}
+          default:geo=new T.BoxGeometry(sx,sy,sz)}
+        const r=(q.rot||[0,0,0]).map(v=>v*Math.PI/180),m=solid(geo);m.rotation.set(r[0],r[1],r[2]);
+        m.position.set((q.at[0]-mid[0])*k,(q.at[1]-mid[1])*k,(q.at[2]-mid[2])*k);grp.add(m)}
+      break}
     default:return null}
   return grp}
 function bp3dOn(){
@@ -1886,7 +1934,10 @@ function bp3dOn(){
   let D=nums.length>=3?Math.max(.12,Math.min(1.2,nums[0]/nums[2]*Math.max(W,H))):Math.max(W,H)*.22;
   const MM=ev.mm?2.4/Math.max(ev.mm[0],ev.mm[1]):0;  // researched real size: everything to scale
   if(MM){W=ev.mm[0]*MM;H=ev.mm[1]*MM;if(ev.mm[2])D=Math.max(.03,ev.mm[2]*MM)}
-  const sh=ev.shell||'box',shellGeo=sh==='disc'?new T.CylinderGeometry(W/2,W/2,D,48).rotateX(Math.PI/2).scale(1,H/W,1)
+  const traced=BP.src&&['box','rounded','outline'].includes(ev.shell||'box')&&bpCut(BP.src,b,ev.tilt).outline;  // the real outline, from the photo
+  const sh=ev.shell||'box',shellGeo=traced?(()=>{const s2=new T.Shape();traced.forEach(([u,v],k)=>k?s2.lineTo((u-.5)*W,(.5-v)*H):s2.moveTo((u-.5)*W,(.5-v)*H));
+      const bt=D*.12;return new T.ExtrudeGeometry(s2,{depth:Math.max(.01,D-bt*2),bevelEnabled:true,bevelThickness:bt,bevelSize:Math.min(W,H)*.015,bevelSegments:3}).translate(0,0,-(D-bt*2)/2)})()
+    :sh==='disc'?new T.CylinderGeometry(W/2,W/2,D,48).rotateX(Math.PI/2).scale(1,H/W,1)
     :sh==='cylinder'?new T.CylinderGeometry(W/2,W/2,H,40):sh==='sphere'?new T.SphereGeometry(.5,32,16).scale(W,H,Math.max(D,Math.min(W,H)))
     :sh==='rounded'?(()=>{const s2=new T.Shape(),rr=Math.min(W,H)*.15,x0=-W/2,y0=-H/2;s2.moveTo(x0+rr,y0);s2.lineTo(x0+W-rr,y0);s2.quadraticCurveTo(x0+W,y0,x0+W,y0+rr);
       s2.lineTo(x0+W,y0+H-rr);s2.quadraticCurveTo(x0+W,y0+H,x0+W-rr,y0+H);s2.lineTo(x0+rr,y0+H);s2.quadraticCurveTo(x0,y0+H,x0,y0+H-rr);s2.lineTo(x0,y0+rr);
@@ -1894,14 +1945,15 @@ function bp3dOn(){
     :new T.BoxGeometry(W,H,D),shell=new T.Mesh(shellGeo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.05,depthWrite:false}));
   const shellEdges=new T.LineSegments(new T.EdgesGeometry(shellGeo),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.6}));shell.add(shellEdges);world.add(shell);
   const shellLabel=bpLabel(ev.title.toUpperCase()+(ev.mm?` · ${ev.scale==='1:1'?'1:1 ':''}${ev.mm.map(v=>+v.toFixed(1)).join('×')} mm`:''),'#ffd36b');shellLabel.position.set(0,H/2+.25,0);world.add(shellLabel);
-  const photo=BP.src?(()=>{const cv2=document.createElement('canvas'),sw=BP.src.width,shh=BP.src.height,cw=Math.max(1,(b[2]-b[0])*sw),ch=Math.max(1,(b[3]-b[1])*shh);
-      const th=(ev.tilt||0)*Math.PI/180,co=Math.cos(Math.abs(th)),si=Math.sin(Math.abs(th)),c2=co*co-si*si;  // straighten a tilted photo
-      let ow=cw,oh=ch;if(th&&c2>.3){ow=(cw*co-ch*si)/c2;oh=(ch*co-cw*si)/c2;if(ow<cw*.2||oh<ch*.2){ow=cw;oh=ch}}
-      const k=Math.min(1,1024/Math.max(ow,oh));cv2.width=Math.round(ow*k);cv2.height=Math.round(oh*k);const x=cv2.getContext('2d');
-      x.translate(cv2.width/2,cv2.height/2);x.rotate(-th);x.scale(k,k);x.drawImage(BP.src,b[0]*sw,b[1]*shh,cw,ch,-cw/2,-ch/2,cw,ch);x.setTransform(1,0,0,1,0,0);
-      try{const d2=x.getImageData(0,0,cv2.width,cv2.height),px=d2.data;for(let i=0;i<px.length;i+=4)if(Math.max(px[i],px[i+1],px[i+2])<28)px[i+3]=0;x.putImageData(d2,0,0)}catch(e){}
-      const t=new T.CanvasTexture(cv2);t.anisotropy=4;return t})():null;  // the real photo, its dark background cleared
-  const photoPlane=(w,h,z)=>{const m=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:photo,transparent:true,opacity:.92,depthWrite:false,side:T.DoubleSide}));m.position.z=z;return m};
+  const cut=BP.src?bpCut(BP.src,b,ev.tilt):null,back=BP.back?bpCut(BP.back,ev.back_bbox||[0,0,1,1],ev.back_tilt):null;
+  const tex=c=>{const t=new T.CanvasTexture(c.canvas);t.anisotropy=8;return t},photo=cut&&tex(cut),photoB=back&&tex(back);
+  const outlineShape=(pts,w,h)=>{const s2=new T.Shape();pts.forEach(([u,v],k)=>k?s2.lineTo((u-.5)*w,(.5-v)*h):s2.moveTo((u-.5)*w,(.5-v)*h));return s2};
+  const photoPlane=(w,h,z,isBack)=>{const c=isBack?back:cut,map=isBack?photoB:photo;
+    let geo=new T.PlaneGeometry(w,h);
+    if(c&&c.outline){geo=new T.ShapeGeometry(outlineShape(c.outline,w,h));const pa=geo.attributes.position,uv=geo.attributes.uv;  // the photo cut to the object's outline
+      for(let k=0;k<pa.count;k++)uv.setXY(k,pa.getX(k)/w+.5,pa.getY(k)/h+.5)}
+    const m=new T.Mesh(geo,new T.MeshBasicMaterial({map,transparent:true,opacity:.96,depthWrite:false,side:T.DoubleSide}));m.position.z=z;
+    if(isBack)m.rotation.y=Math.PI;return m};
   const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
   BP3.parts=ev.inside.map((c,i)=>{let w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
     if(MM&&c.mm){w=Math.max(.02,c.mm[0]*MM);h=Math.max(.02,c.mm[1]*MM);d=Math.max(.01,(c.mm[2]||Math.min(c.mm[0],c.mm[1])*.2)*MM)}
@@ -1909,7 +1961,7 @@ function bp3dOn(){
     const cl=(v,room)=>Math.max(-room/2,Math.min(room/2,v));
     const g=bpMesh(c,w,h,d),z=cl(c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,D-d),home=new T.Vector3(cl((c.at[0]-.5)*W,W-w),cl((.5-c.at[1])*H,H-h),z);
     let out;
-    if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
+    if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*Math.min(14,ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
     else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
       out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
     const lab=bpLabel(c.name+(c.mm?` · ${c.mm.slice(0,3).map(v=>+v.toFixed(1)).join('×')} mm`:''),'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
@@ -1917,7 +1969,9 @@ function bp3dOn(){
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false,w,h,d,layer:c.layer??.5});g.position.copy(home);world.add(g);return g});
   const front=photo&&BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6).sort((a,c)=>a.userData.layer-c.userData.layer)[0];
   for(const g of BP3.parts)g.userData.outer=g===front||(g.userData.w>=W*.85&&g.userData.h>=H*.85&&g.userData.layer>=.9);  // the front and back covers
-  if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(photoPlane(W,H,D/2+.003));  // the front looks like the real thing
+  let skin=null;if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(skin=photoPlane(W,H,D/2+.003));
+  if(photoB){const rear=BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6&&g!==front).sort((a,c)=>c.userData.layer-a.userData.layer)[0];
+    rear?(rear.userData.outer=true,rear.add(photoPlane(rear.userData.w,rear.userData.h,-rear.userData.d/2-.003,true))):shell.add(photoPlane(W,H,-D/2-.003,true))}  // the front looks like the real thing
   let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
   const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
     ray.setFromCamera(ndc,cam);const hit=ray.intersectObjects(BP3.parts,true).find(h=>!h.object.isSprite&&!h.object.isLineSegments);
@@ -1950,7 +2004,8 @@ function bp3dOn(){
     for(const g of BP3.parts){g.userData.label.visible=g===sel||g===hov;  // names only on hover or when selected
       g.visible=!front||g.userData.outer||BP.exploded||g.userData.manual||g.position.distanceTo(g.userData.home)>.04}  // closed up, the insides are hidden like the real thing  // names only on hover or when selected
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
-    shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
+    shell.material.opacity=BP.exploded?.02:.05;if(skin)skin.material.opacity+=((BP.exploded?.18:.96)-skin.material.opacity)*.1;  // see inside once it's apart
+    shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
     r.render(scene,cam);requestAnimationFrame(frame)};
   frame();p.querySelector('.bpnote').textContent='3D: hover a part for its name · click to select, drag to move it, drag it again to turn it · double-click a part for details · scroll to zoom · double-click empty space to reset'}
 function bp3dOff(){BP3.on=false}
@@ -1961,7 +2016,8 @@ function bpDetails(i){
   let card=p.querySelector('.bpcard');if(!card){card=document.createElement('div');card.className='bpcard';p.querySelector('.bpbox').append(card)}
   card.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h4></h4><p class="bpcnote"></p><div class="bpcq"></div>'
     +'<div class="bpcf"><input placeholder="Ask about it…" aria-label="Ask about this part"><button type="button">Ask</button></div><div class="bpca"></div>'
-    +(BP3.on?'<button type="button" class="bpcback">Put it back</button>':'');
+    +'<button type="button" class="bpcopen">Open it up</button>'+(BP3.on?'<button type="button" class="bpcback">Put it back</button>':'');
+  card.querySelector('.bpcopen').onclick=()=>ask(`Pull the ${c.name} apart: research it and draw a new 1:1 blueprint of just the ${c.name} (from the ${BP.ev.title}) with everything inside it.`);
   card.querySelector('h4').textContent=c.name;card.querySelector('.bpcnote').textContent=c.note||'';
   const go=question=>{const a=card.querySelector('.bpca');a.textContent='…';askMirror=a;
     ask(`About the ${c.name} inside the ${BP.ev.title} on the blueprint: ${question} (Answer in 2 to 4 sentences; look it up if you're not sure.)`)};

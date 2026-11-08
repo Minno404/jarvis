@@ -1,4 +1,4 @@
 {
- "version": "1.51.0",
- "notes": "1:1 scale blueprints: parts checked against the object's real size, sizes on labels."
+ "version": "1.52.0",
+ "notes": "Blueprints for anything: traced outlines, parts built from pieces, sections, back photos."
 }

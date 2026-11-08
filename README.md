@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.51.0** (shown at the bottom right of the HUD)
+**Version 1.52.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,13 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.52.0** (8 Nov 2026): blueprints for anything. The model's outer shape is traced from your photo (a guitar, a
+  shoe, a drill), with the photo cut to that outline and its background removed. Any part can be built from pieces
+  (blocks, rounded blocks, cylinders, tubes, cones, balls, rings and wedges, up to 80 per part, sizes in mm), and
+  Jarvis refines the parts one by one after the first drawing (blueprint_detail), so the HUD fills in detail as he
+  goes. Up to 40 parts per blueprint. Big things are drawn as sections: double-click one and press "Open it up"
+  (or say "pull the engine apart") for a new 1:1 blueprint of just that section. Send a second photo of the back and
+  the back looks real too. Things with nothing online are drawn from how that kind of thing is usually built.
 - **1.51.0** (8 Nov 2026): 1:1 scale blueprints. Every part needs its real size in mm, and every part must fit
   inside the object's walls. If one doesn't (a 40 mm deep battery box in a 32 mm deep Game Boy), the blueprint is sent
   back once for Jarvis to look up the real sizes and redraw. Labels show the real sizes ("Main board · 80×110×1.6 mm",

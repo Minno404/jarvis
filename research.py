@@ -161,7 +161,7 @@ def research_parts(context, parts):
     """Each component's real size and what it looks like, researched at once (one search per part), so the 3D
     replica is right. context: what they're inside ('quartz chronograph watch movement'). parts: their names."""
     import web
-    parts = [str(p).strip()[:60] for p in (parts or []) if str(p).strip()][:14]
+    parts = [str(p).strip()[:60] for p in (parts or []) if str(p).strip()][:30]
     if not parts:
         return {"error": "List the parts."}
     title = (context or "")[:60]
@@ -173,14 +173,15 @@ def research_parts(context, parts):
         text = " ".join(r.get("title", "") + ". " + r.get("snippet", "") for r in res)
         return {"dimensions": dimensions(text, 4), "looks": [r.get("snippet", "")[:200] for r in res[:2]],
                 "source": res[0]["url"] if res else ""}
-    with cf.ThreadPoolExecutor(6) as ex:
+    with cf.ThreadPoolExecutor(8) as ex:
         futs = {p: ex.submit(one, p) for p in parts}
         for i, (p, f) in enumerate(futs.items(), 1):
             out[p] = f.result() if not f.exception() else {"dimensions": [], "looks": []}
             _progress(title, f"Part {i}/{len(parts)}: {p}" + (f": {out[p]['dimensions'][0][:60]}" if out[p]["dimensions"] else ""))
     _progress(title, "Parts researched. Building the 3D replica", done=True)
     return {"parts": out, "note": ("Use these real sizes (mm) and descriptions for each part's mm, shape and detail in "
-                                   "the blueprint call. Where nothing was found, use typical sizes for that part.")}
+                                   "the blueprint call (a custom shape built from pieces for anything the shapes don't match, "
+                                   "with its fine details). Where nothing was found, use typical sizes for that part.")}
 
 
 FUNCS = {"research_object": research_object, "research_parts": research_parts}
