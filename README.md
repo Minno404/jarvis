@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.48.0** (shown at the bottom right of the HUD)
+**Version 1.49.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.49.0** (8 Nov 2026): 3D blueprint parts you can actually see. Parts are solid and lit (key and rim
+  lights) instead of faint wireframe. Dials are printed (minute track, numbers, subdial scales, brand), circuit boards
+  have traces, coin cells, chips, keypads and displays have markings. Tapered hands with lume, a bezel, drilled lugs, a
+  knurled crown, gear hubs, balance rim screws, bracelet pins and screw slots and threads. The camera fits the parts,
+  and labels are dark pills that stay readable at any zoom.
 - **1.48.0** (8 Nov 2026): replica-quality blueprints. Jarvis works out the object's category and a well-documented
   equivalent with the same insides (a tie-in or fashion watch has a stock movement), researches the insides on
   that, then researches every component one by one for its real size before drawing anything. The 3D view builds

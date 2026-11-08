@@ -1731,24 +1731,35 @@ function bpExplode(on){
 // scroll to zoom; double-click a part to put it back, or empty space to reset the view ----
 const BP3={on:false,parts:[]};
 function bpLabel(text,col){const c=document.createElement('canvas'),x=c.getContext('2d');c.width=512;c.height=96;
-  x.font='bold 40px monospace';x.fillStyle=col;x.textAlign='center';x.fillText(text,256,58);
-  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));s.scale.set(1.15,.22,1);return s}
+  x.font='bold 40px monospace';const tw=Math.min(500,x.measureText(text).width+36);
+  x.fillStyle='rgba(4,18,34,.78)';x.strokeStyle='rgba(159,210,255,.55)';x.lineWidth=2;x.beginPath();x.roundRect(256-tw/2,14,tw,64,30);x.fill();x.stroke();
+  x.fillStyle=col;x.textAlign='center';x.fillText(text,256,58);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false,sizeAttenuation:false}));
+  s.scale.set(.19,.036,1);s.renderOrder=10;return s}  // the same readable size on screen however far the camera is
 function bpMesh(c,w,h,d){  // a component as a 3D shape, centred on 0,0,0
   const T=THREE,g=new T.Group(),mats=[];
-  const solid=geo=>{const m=new T.Mesh(geo,new T.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.14,depthWrite:false,side:T.DoubleSide}));
-    const e=new T.LineSegments(new T.EdgesGeometry(geo,20),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.95}));m.add(e);mats.push(e.material);return m};
+  const solid=geo=>{const m=new T.Mesh(geo,new T.MeshPhongMaterial({color:0x4fa8e8,emissive:0x0b2a4c,specular:0xcfeaff,shininess:70,
+      transparent:true,opacity:.62,side:T.DoubleSide}));  // lit and semi-solid, so each part reads as a real object
+    const e=new T.LineSegments(new T.EdgesGeometry(geo,20),new T.LineBasicMaterial({color:0xdff4ff,transparent:true,opacity:.9}));m.add(e);mats.push(e.material);return m};
   const r=Math.min(w,h)/2;
   switch(c.shape){
     case'circle':{const m=solid(new T.CylinderGeometry(w/2,w/2,d,32));m.rotation.x=Math.PI/2;m.scale.z=h/w;g.add(m);break}
     case'cylinder':g.add(solid(new T.CylinderGeometry(Math.min(w,d)/2,Math.min(w,d)/2,h,28)));break;
     case'board':{g.add(solid(new T.BoxGeometry(w,h,d*.18)));for(let i=0;i<4;i++){const ch=solid(new T.BoxGeometry(w*.16,h*.16,d*.18));
-      ch.position.set(-w*.33+w*.22*i,(i%2?.2:-.2)*h,d*.18);g.add(ch)}break}
+      ch.position.set(-w*.33+w*.22*i,(i%2?.2:-.2)*h,d*.18);g.add(ch)}
+      const tex=bpTex(1024,(x,S)=>{x.strokeStyle='rgba(232,246,255,.85)';x.lineWidth=3;let seed=7;const rnd=()=>(seed=(seed*9301+49297)%233280)/233280;  // copper traces and pads
+        for(let i=0;i<46;i++){let px=rnd()*S,py=rnd()*S;x.beginPath();x.moveTo(px,py);for(let k=0;k<3;k++){rnd()<.5?px+=(rnd()-.5)*S*.4:py+=(rnd()-.5)*S*.4;x.lineTo(px,py)}x.stroke();
+          x.beginPath();x.arc(px,py,7,0,7);x.stroke()}});
+      const fm=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}));fm.position.z=d*.1;g.add(fm);break}
     case'coil':case'spring':{const n=Math.max(4,Math.round(w/(d*.6)));
       class H extends T.Curve{getPoint(t){return new T.Vector3(-w/2+w*t,Math.cos(t*n*Math.PI*2)*h/2,Math.sin(t*n*Math.PI*2)*Math.min(h,d)/2)}}
       g.add(solid(new T.TubeGeometry(new H(),n*16,Math.max(.008,Math.min(w,h)*.04),6,false)));break}
     case'battery':{const m=solid(new T.CylinderGeometry(h/2,h/2,w*.9,24));m.rotation.z=Math.PI/2;g.add(m);
       const t=solid(new T.CylinderGeometry(h/5,h/5,w*.1,16));t.rotation.z=Math.PI/2;t.position.x=w*.5;g.add(t);break}
-    case'screw':{const hd=solid(new T.CylinderGeometry(r,r,r*.5,20));hd.position.y=h/2;g.add(hd);g.add(solid(new T.CylinderGeometry(r*.35,r*.35,h,12)));break}
+    case'screw':{const hd=solid(new T.CylinderGeometry(r,r,r*.5,20));hd.position.y=h/2;g.add(hd);g.add(solid(new T.CylinderGeometry(r*.35,r*.35,h,12)));
+      const sl=solid(new T.BoxGeometry(r*1.5,r*.2,r*.25));sl.position.y=h/2+r*.2;g.add(sl);  // the slot
+      class Th extends T.Curve{getPoint(t){const a=t*10*Math.PI*2;return new T.Vector3(Math.cos(a)*r*.37,h/2-t*h,Math.sin(a)*r*.37)}}
+      g.add(solid(new T.TubeGeometry(new Th(),160,Math.max(.001,r*.04),4,false)));break}
     case'lens':{const m=solid(new T.SphereGeometry(.5,24,12));m.scale.set(w,h,Math.min(w,h)*.35);g.add(m);break}
     case'wire':{const cv=new T.CatmullRomCurve3([new T.Vector3(-w/2,-h/2,0),new T.Vector3(-w/6,h/2,d/2),new T.Vector3(w/6,-h/2,-d/2),new T.Vector3(w/2,h/2,0)]);
       g.add(solid(new T.TubeGeometry(cv,48,Math.max(.006,Math.min(w,h)*.03),6,false)));break}
@@ -1762,8 +1773,13 @@ function bpMesh(c,w,h,d){  // a component as a 3D shape, centred on 0,0,0
   g.userData.edges=mats;return g}
 // The detailed parts: gears with real teeth and spoke windows, dials with indices and subdials, balance wheels with
 // their hairspring, cases with lugs and a crown, bracelet links... all facing the front (z), thickness d
+function bpTex(px,draw){const cv=document.createElement('canvas');cv.width=cv.height=px;const x=cv.getContext('2d');draw(x,px);
+  const t=new THREE.CanvasTexture(cv);t.anisotropy=4;return t}
 function bpPart(T,c,w,h,d,solid){
-  const R=Math.min(w,h)/2,dt=c.detail||{},grp=new T.Group(),TAU=Math.PI*2;
+  const R=Math.min(w,h)/2,dt=c.detail||{},grp=new T.Group(),TAU=Math.PI*2,ink='#e8f6ff';
+  const face=(tex,fw,fh,z,round)=>{const m=new T.Mesh(round?new T.CircleGeometry(fw/2,64):new T.PlaneGeometry(fw,fh),
+    new T.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:T.DoubleSide}));m.position.z=z;grp.add(m);return m};
+  const brand=(BP.ev?.title||'').split(/\s+/).find(wd=>/^[A-Z]/.test(wd)&&!/^(The|A|An|Harry|Potter|X)$/.test(wd))||'';
   const disc=(r,seg=48)=>{const s=new T.Shape();s.absarc(0,0,r,0,TAU,false);return s};
   const hole=(r,x=0,y=0)=>{const p=new T.Path();p.absarc(x,y,r,0,TAU,true);return p};
   const ext=(shape,depth=d)=>new T.ExtrudeGeometry(shape,{depth,bevelEnabled:false,curveSegments:24}).translate(0,0,-depth/2);
@@ -1776,46 +1792,73 @@ function bpPart(T,c,w,h,d,solid){
       s.holes.push(hole(R*.1));const sp=dt.spokes??(R>.18?5:0);
       if(sp){const ro=r1*.78,ri=R*.28,gap=.35/sp*TAU/2;for(let k=0;k<sp;k++){const a0=k/sp*TAU+gap,a1=(k+1)/sp*TAU-gap,p=new T.Path();
         p.absarc(0,0,ro,a0,a1,false);p.absarc(0,0,ri,a1,a0,true);s.holes.push(p)}}
-      add(ext(s));break}
+      add(ext(s));add(cyl(R*.2,d*1.8));add(cyl(R*.05,d*5));break}  // hub and arbor
     case'ring':{const s=disc(R);s.holes.push(hole(R*.82));add(ext(s));break}
     case'gasket':add(new T.TorusGeometry(R*.94,Math.max(.004,R*.045),8,64));break;
     case'dial':{add(ext(disc(R),Math.max(.004,d*.4)));
       for(let i=0;i<12;i++){const a=i/12*TAU,len=R*(i%3?.08:.14),b=new T.BoxGeometry(R*.035,len,d*.3);b.rotateZ(-a);add(b,Math.sin(a)*R*.82,Math.cos(a)*R*.82,d*.3)}
       const sd=dt.subdials??0,pos=[[0,-.45],[-.45,0],[.45,0],[0,.45]];for(let k=0;k<Math.min(4,sd);k++){const s=disc(R*.2);s.holes.push(hole(R*.17));add(ext(s,d*.2),pos[k][0]*R,pos[k][1]*R,d*.3)}
-      add(cyl(R*.05,d*.6),0,0,d*.3);break}
-    case'hands':{[[.55,.06,-1],[.85,.04,1.2],[.92,.015,2.6]].forEach(([l,t,a],k)=>{const b=new T.BoxGeometry(R*t*2,R*l,d*.2);b.translate(0,R*l/2,0);b.rotateZ(a);add(b,0,0,k*d*.25)});
+      add(cyl(R*.05,d*.6),0,0,d*.3);
+      face(bpTex(1024,(x,S)=>{const C=S/2,rr=S*.48;x.strokeStyle=x.fillStyle=ink;x.lineCap='round';  // the printed dial
+        for(let i=0;i<60;i++){const a=i/60*TAU,l=i%5?S*.018:S*.04;x.lineWidth=i%5?2:5;x.beginPath();
+          x.moveTo(C+Math.sin(a)*rr,C-Math.cos(a)*rr);x.lineTo(C+Math.sin(a)*(rr-l),C-Math.cos(a)*(rr-l));x.stroke()}
+        x.font=`bold ${S*.07}px sans-serif`;x.textAlign='center';x.textBaseline='middle';const sdn=Math.min(4,sd);
+        [[12,0,-1],[3,1,0],[6,0,1],[9,-1,0]].forEach(([n,sx,sy],k)=>{const blocked=[[0,-1],[-1,0],[1,0],[0,1]].slice(0,sdn).some(([bx,by])=>bx===sx&&by===sy);
+          if(!blocked)x.fillText(String(n),C+sx*rr*.78,C+sy*rr*.78)});
+        if(brand){x.font=`bold ${S*.045}px sans-serif`;x.fillText(brand.toUpperCase(),C,C-rr*.38)}
+        for(let k=0;k<sdn;k++){const [px,py]=pos[k],cx=C+px*rr*.9,cy=C-py*rr*.9;for(let i=0;i<30;i++){const a=i/30*TAU,r2=rr*.2;x.lineWidth=i%5?1.5:3;
+          x.beginPath();x.moveTo(cx+Math.sin(a)*r2,cy-Math.cos(a)*r2);x.lineTo(cx+Math.sin(a)*r2*(i%5?.88:.8),cy-Math.cos(a)*r2*(i%5?.88:.8));x.stroke()}}}),
+        R*2,R*2,d*.32,true);break}
+    case'hands':{[[.55,.09,-1],[.85,.065,1.2]].forEach(([l,t,a],k)=>{const s=new T.Shape(),W=R*t;  // tapered hands with a lume strip
+        s.moveTo(-W,-R*.08);s.lineTo(W,-R*.08);s.lineTo(W*.75,R*l*.85);s.lineTo(0,R*l);s.lineTo(-W*.75,R*l*.85);s.lineTo(-W,-R*.08);
+        const lume=new T.Path();lume.moveTo(-W*.35,R*l*.25);lume.lineTo(W*.35,R*l*.25);lume.lineTo(W*.25,R*l*.75);lume.lineTo(-W*.25,R*l*.75);lume.lineTo(-W*.35,R*l*.25);
+        s.holes.push(lume);const g=ext(s,d*.18);g.rotateZ(a);add(g,0,0,k*d*.25)});
+      const sec=new T.Shape(),sw=R*.012;sec.moveTo(-sw,-R*.3);sec.lineTo(sw,-R*.3);sec.lineTo(sw*.6,R*.95);sec.lineTo(-sw*.6,R*.95);sec.lineTo(-sw,-R*.3);
+      const sg=ext(sec,d*.1);sg.rotateZ(2.6);add(sg,0,0,d*.5);const cw=ext(disc(R*.06),d*.1);cw.translate(0,-R*.26,0);cw.rotateZ(2.6);add(cw,0,0,d*.5);
       add(cyl(R*.07,d),0,0,d*.25);break}
     case'dome':{const th=Math.asin(1/1.6),g=new T.SphereGeometry(R*1.6,48,10,0,TAU,0,th);g.rotateX(Math.PI/2);g.translate(0,0,-R*1.6*Math.cos(th));
       g.scale(1,1,Math.max(.2,d/(R*1.6*(1-Math.cos(th))||1)));add(g);add(new T.TorusGeometry(R,Math.max(.003,R*.02),6,64));break}
-    case'coin_cell':{add(cyl(R,d));const s=disc(R*.8);s.holes.push(hole(R*.76));add(ext(s,d*.1),0,0,d*.55);break}
+    case'coin_cell':{add(cyl(R,d));const s=disc(R*.8);s.holes.push(hole(R*.76));add(ext(s,d*.1),0,0,d*.55);
+      const code=(c.name.match(/\b[A-Z]{1,3}\d{3,4}[A-Z]?\b/)||[''])[0];
+      face(bpTex(512,(x,S)=>{x.fillStyle=ink;x.textAlign='center';x.textBaseline='middle';x.font=`bold ${S*.3}px sans-serif`;x.fillText('+',S/2,S*.38);
+        if(code){x.font=`bold ${S*.13}px sans-serif`;x.fillText(code,S/2,S*.66)}}),R*1.6,R*1.6,d*.62,true);break}
     case'quartz':{add(cyl(Math.min(h,d)/2,w*.75,'x'),-w*.1,0,0);add(cyl(Math.min(h,d)/2*.8,w*.05,'x'),w*.29,0,0);
       [-.25,.25].forEach(o=>add(cyl(Math.max(.002,h*.04),w*.3,'x'),w*.45,o*h,0));break}
     case'motor':{const pl=new T.BoxGeometry(w,h*.45,d*.4);add(pl,0,-h*.25,0);add(cyl(h*.18,w*.55,'x'),-w*.12,h*.15,0);
       class Hx extends T.Curve{getPoint(t){const a=t*18*TAU;return new T.Vector3(-w*.38+w*.52*t,h*.15+Math.cos(a)*h*.2,Math.sin(a)*h*.2)}}
       add(new T.TubeGeometry(new Hx(),220,Math.max(.002,h*.015),5,false));add(cyl(h*.16,d*.5),w*.32,h*.1,0);break}
     case'case':{const s=disc(R);s.holes.push(hole(R*.84));add(ext(s));
-      for(const [sx,sy] of [[-1,1],[1,1],[-1,-1],[1,-1]]){const b=new T.BoxGeometry(R*.18,R*.42,d*.8);add(b,sx*R*.42,sy*(R*.93+R*.12),0)}
-      add(cyl(R*.1,R*.18,'x'),R*1.06,0,0);break}
+      const bz=disc(R*1.03);bz.holes.push(hole(R*.86));add(ext(bz,d*.2),0,0,d*.55);  // the bezel
+      for(let i=0;i<60;i+=5){const a=i/60*TAU,b=new T.BoxGeometry(R*.02,R*.07,d*.05);b.rotateZ(-a);add(b,Math.sin(a)*R*.95,Math.cos(a)*R*.95,d*.66)}
+      for(const [sx,sy] of [[-1,1],[1,1],[-1,-1],[1,-1]]){const b=new T.BoxGeometry(R*.18,R*.42,d*.8);add(b,sx*R*.42,sy*(R*.93+R*.12),0);
+        add(cyl(R*.035,R*.2,'x'),sx*R*.42,sy*(R*1.2),0)}  // lugs, drilled for the spring bars
+      add(cyl(R*.07,R*.12,'x'),R*1.02,0,0);break}
     case'rotor':{const s=new T.Shape();s.absarc(0,0,R,0,Math.PI,false);s.lineTo(R*.15,0);s.absarc(0,0,R*.15,Math.PI,0,true);s.lineTo(R,0);add(ext(s));
       const r2=new T.Shape();r2.absarc(0,0,R,0,Math.PI,false);r2.lineTo(-R*.85,0);r2.absarc(0,0,R*.85,Math.PI,0,true);r2.lineTo(R,0);add(ext(r2,d*1.6));break}
     case'balance':{const s=disc(R);s.holes.push(hole(R*.84));add(ext(s));const sp=dt.spokes||3;
       for(let k=0;k<sp;k++){const b=new T.BoxGeometry(R*.08,R*.84,d*.6);b.translate(0,R*.42,0);b.rotateZ(k/sp*TAU);add(b)}
-      add(cyl(R*.12,d*1.6));const turns=dt.count||9;
+      add(cyl(R*.12,d*1.6));for(let i=0;i<8;i++){const a=i/8*TAU;add(cyl(R*.05,d*1.2),Math.cos(a)*R*.97,Math.sin(a)*R*.97,0)}  // rim screws
+      const turns=dt.count||9;
       class Sp extends T.Curve{getPoint(t){const a=t*turns*TAU,r=R*(.14+.6*t);return new T.Vector3(Math.cos(a)*r,Math.sin(a)*r,d)}}
       add(new T.TubeGeometry(new Sp(),turns*40,Math.max(.0015,R*.008),4,false));break}
     case'hairspring':{const turns=dt.count||10;class Sp extends T.Curve{getPoint(t){const a=t*turns*TAU,r=R*(.12+.88*t);return new T.Vector3(Math.cos(a)*r,Math.sin(a)*r,0)}}
       add(new T.TubeGeometry(new Sp(),turns*40,Math.max(.0015,R*.01),4,false));break}
     case'pusher':{add(cyl(R*.5,w*.7,'x'),-w*.15,0,0);add(cyl(R*.65,w*.3,'x'),w*.35,0,0);break}
-    case'crown':{add(cyl(R,d,'x',24));add(cyl(R*.35,d*1.6,'x'),-d*1.1,0,0);break}
-    case'display':{add(new T.BoxGeometry(w,h,d*.6));add(new T.BoxGeometry(w*.88,h*.85,d*.2),0,0,d*.35);break}
+    case'crown':{add(cyl(R,d,'x',24));add(cyl(R*.35,d*1.6,'x'),-d*1.1,0,0);
+      for(let i=0;i<20;i++){const a=i/20*TAU,b=new T.BoxGeometry(d*.95,R*.12,R*.12);add(b,0,Math.cos(a)*R,Math.sin(a)*R)}break}  // knurled grip
+    case'display':{add(new T.BoxGeometry(w,h,d*.6));add(new T.BoxGeometry(w*.88,h*.85,d*.2),0,0,d*.35);
+      face(bpTex(512,(x,S)=>{x.fillStyle=ink;x.font=`${S*.22}px monospace`;x.textAlign='center';x.textBaseline='middle';x.fillText('12:00',S/2,S/2)}),w*.8,h*.8,d*.47);break}
     case'speaker':{add(cyl(R,d*.5));const cone=new T.ConeGeometry(R*.85,d,32,1,true);cone.rotateX(-Math.PI/2);add(cone,0,0,d*.4);add(cyl(R*.3,d*.6),0,0,-d*.3);break}
     case'links':{const n=Math.max(2,Math.min(40,dt.count||7)),lh=h/n;
       for(let i=0;i<n;i++){const y=-h/2+lh*(i+.5);if(i%2){add(new T.BoxGeometry(w*.34,lh*.92,d),-w*.33,y,0);add(new T.BoxGeometry(w*.34,lh*.92,d),w*.33,y,0)}
-        else add(new T.BoxGeometry(w*.6,lh*.92,d*.9),0,y,0)}break}
+        else add(new T.BoxGeometry(w*.6,lh*.92,d*.9),0,y,0);add(cyl(d*.12,w*.98,'x'),0,y+lh*.46,0)}break}  // links and their pins
     case'keypad':{add(new T.BoxGeometry(w,h,d*.4));const n=Math.max(1,Math.min(60,dt.count||12)),cols=n>6?3:2,rows=Math.ceil(n/cols);
       for(let i=0;i<n;i++){const cx=-w*.3+(i%cols)*(w*.6/Math.max(1,cols-1)),cy=h*.38-Math.floor(i/cols)*(h*.76/Math.max(1,rows-1));
-        add(cyl(Math.min(w/cols,h/rows)*.32,d*.5),cx,cy,d*.35)}break}
-    case'chip':{add(new T.BoxGeometry(w*.8,h*.8,d));const n=Math.max(2,dt.count||6);
+        add(cyl(Math.min(w/cols,h/rows)*.32,d*.5),cx,cy,d*.35)}
+      face(bpTex(512,(x,S)=>{x.fillStyle=ink;x.textAlign='center';x.textBaseline='middle';x.font=`bold ${S*.07}px sans-serif`;
+        for(let i=0;i<n;i++){x.fillText(String((i+1)%10),S/2+(-0.3+(i%cols)*(.6/Math.max(1,cols-1)))*S,S/2-(.38-Math.floor(i/cols)*(.76/Math.max(1,rows-1)))*S)}}),w,h,d*.62);break}
+    case'chip':{add(new T.BoxGeometry(w*.8,h*.8,d));face(bpTex(256,(x,S)=>{x.fillStyle=ink;x.beginPath();x.arc(S*.25,S*.25,S*.05,0,7);x.fill();
+        x.font=`bold ${S*.16}px monospace`;x.textAlign='center';x.fillText('IC',S/2,S*.6)}),w*.8,h*.8,d*.52);const n=Math.max(2,dt.count||6);
       for(let i=0;i<n;i++){const t=-.35+.7*i/Math.max(1,n-1);add(new T.BoxGeometry(w*.04,h*.14,d*.2),t*w,h*.46,-d*.4);add(new T.BoxGeometry(w*.04,h*.14,d*.2),t*w,-h*.46,-d*.4)}break}
     case'magnet':add(cyl(R,d));break;
     case'plate':{const s=new T.Shape(),rr=Math.min(w,h)*.12,x0=-w/2,y0=-h/2;s.moveTo(x0+rr,y0);s.lineTo(x0+w-rr,y0);s.quadraticCurveTo(x0+w,y0,x0+w,y0+rr);
@@ -1829,6 +1872,8 @@ function bp3dOn(){
   const T=THREE,cv=document.createElement('canvas');host.append(cv);
   const r=new T.WebGLRenderer({canvas:cv,alpha:true,antialias:true});r.setPixelRatio(Math.min(2,devicePixelRatio));
   const scene=new T.Scene(),cam=new T.PerspectiveCamera(40,1,.01,100),world=new T.Group();scene.add(world);
+  scene.add(new T.AmbientLight(0x9fd2ff,.55));const key=new T.DirectionalLight(0xffffff,.9);key.position.set(2,3,5);scene.add(key);
+  const rim=new T.DirectionalLight(0x5fe3ff,.7);rim.position.set(-3,-1,-4);scene.add(rim);  // a key light and a cyan rim light
   const grid=new T.GridHelper(8,32,0x9fd2ff,0x9fd2ff);grid.material.transparent=true;grid.material.opacity=.15;grid.position.y=-1.6;scene.add(grid);
   // the shell: the object's outline as a see-through box, its depth from the size estimate ("17 x 5 x 2 cm")
   const b=ev.bbox,asp=((b[2]-b[0])/(b[3]-b[1]))*(BP.src?BP.src.width/BP.src.height:4/3);
@@ -1852,7 +1897,7 @@ function bp3dOn(){
     if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
     else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
       out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
-    const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,h/2+.14,0);g.add(lab);
+    const lab=bpLabel(c.name,'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false});g.position.copy(home);world.add(g);return g});
   let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
   const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
@@ -1876,10 +1921,12 @@ function bp3dOn(){
       const pt=new T.Vector3();if(ray.ray.intersectPlane(plane,pt)){pt.sub(grab);sel.position.copy(world.worldToLocal(pt));sel.userData.manual=true}}};
   cv.onpointerup=()=>{mode=''};
   cv.ondblclick=e=>{const o=pick(e);if(o){select(o);bpDetails(BP3.parts.indexOf(o))}else reset()};
-  cv.onwheel=e=>{e.preventDefault();dist=Math.max(2,Math.min(20,dist*(e.deltaY>0?1.1:.9)))};
+  let zoomed=false;cv.onwheel=e=>{e.preventDefault();zoomed=true;dist=Math.max(.6,Math.min(20,dist*(e.deltaY>0?1.1:.9)))};
   Object.assign(BP3,{on:true,host,r,cam,world});
   const frame=()=>{if(!BP3.on||!p.isConnected){r.dispose();host.remove();BP3.on=false;p.classList.remove('in3d');return}
     const w=host.clientWidth,h=host.clientHeight;if(w&&h&&(cv.width!==Math.round(w*r.getPixelRatio())||cv.height!==Math.round(h*r.getPixelRatio()))){r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+    if(!zoomed){let far=Math.max(W,H)/2;for(const g of BP3.parts){const t=g.userData.manual?g.position:BP.exploded?g.userData.out:g.userData.home;
+        far=Math.max(far,t.length()+.35)}const fit=far/Math.tan(cam.fov*Math.PI/360)/Math.min(1,cam.aspect)*.72;dist+=(fit-dist)*.06}  // fit everything in view
     cam.position.set(0,0,dist);cam.lookAt(0,0,0);
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
     shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;

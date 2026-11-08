@@ -1,4 +1,4 @@
 {
- "version": "1.48.0",
- "notes": "Replica-quality blueprints: per-part research and detailed 3D parts."
+ "version": "1.49.0",
+ "notes": "3D blueprint parts: solid, lit, printed dials and boards, finer detail, readable labels."
 }
