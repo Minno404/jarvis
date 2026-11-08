@@ -94,7 +94,8 @@ def research_object(name, kind=""):
     with cf.ThreadPoolExecutor(8) as ex:
         fx = ex.submit(ifixit, name)
         fs = {k: ex.submit(web.web_search, q, 5) for k, q in queries.items()}
-        fimg = ex.submit(hud.bing_images, f"{name} exploded view")
+        fimg = ex.submit(hud.bing_images, f"{name}")  # what it looks like (an "exploded view" search finds junk)
+        fdia = ex.submit(hud.bing_images, f"{kind or name} exploded view diagram")  # how its kind is put together
         _progress(name, "Searching teardowns, exploded views, specifications and how it works")
         found = {k: (f.result().get("results") or []) if not f.exception() else [] for k, f in fs.items()}
         guides = fx.result() if not fx.exception() else []
@@ -113,14 +114,15 @@ def research_object(name, kind=""):
         _progress(name, f"Reading {len(pick)} pages", sources=[{"title": t, "url": u} for _, u, t in pick])
         pages = {u: ex.submit(web.read_page, u, 12000) for _, u, _ in pick}
         texts = {u: (f.result() or {}).get("text", "") if not f.exception() else "" for u, f in pages.items()}
-        imgs = fimg.result() if not fimg.exception() else []
+        imgs = (fimg.result() if not fimg.exception() else [])[:3] + (fdia.result() if not fdia.exception() else [])[:3]
     dims = []
     for k, u, _ in pick:
         if k in ("size", "teardown"):
             dims += dimensions(texts.get(u, ""))
     how = next((texts[u][:1500] for k, u, _ in pick if k == "how" and texts.get(u)), "")
     images = [g for guide in guides for g in guide["images"]][:4]
-    images += [i["src"] if isinstance(i, dict) else i for i in (imgs or [])][:8 - len(images)]
+    images += [i["src"] if isinstance(i, dict) else i for i in imgs
+               if not re.search(r"minecraft|redstone|lego|roblox", json.dumps(i), re.I)][:6 - len(images)]
     sources = [{"title": g["title"], "url": g["url"]} for g in guides] + [{"title": t, "url": u} for _, u, t in pick]
     _progress(name, f"Research done in {time.time() - t0:.0f} s: {len(sources)} sources. Building the model",
               sources=sources, images=images, done=True)

@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.47.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.47.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -785,6 +785,11 @@ def _args(tool):
 CLI_PROMPT = SYSTEM + """
 Your tools are commands. Run one with the Bash tool exactly like this, JSON arguments in single quotes:
   python server.py tool <name> '{"arg": "value"}'
+For long arguments (like blueprint or simulate) or any text with an apostrophe, send the JSON on stdin with a
+heredoc instead, exactly like this (never $(...), pipes, echo or cat: those are refused):
+  python server.py tool <name> - <<'JSON'
+  {"arg": "it's fine here"}
+  JSON
 It prints JSON. Do not run any other commands and do not edit files. You may use the Read tool to read files
 when it helps you answer: your own docs and code here (README.md, CUSTOM.md, *.py, custom/...), the screenshot
 image after the screenshot tool, or a photo he sends you (uploads/...). To change or add to anything, including
