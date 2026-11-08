@@ -1905,7 +1905,9 @@ function bp3dOn(){
   const layered=ev.explode==='layers',order=ev.inside.map((c,i)=>i).sort((a,c)=>(ev.inside[a].layer??.5)-(ev.inside[c].layer??.5));
   BP3.parts=ev.inside.map((c,i)=>{let w=Math.max(.06,c.size[0]*W),h=Math.max(.05,c.size[1]*H),d=Math.max(.02,Math.min(w,h,(c.thick??.3)*D));
     if(MM&&c.mm){w=Math.max(.02,c.mm[0]*MM);h=Math.max(.02,c.mm[1]*MM);d=Math.max(.01,(c.mm[2]||Math.min(c.mm[0],c.mm[1])*.2)*MM)}
-    const g=bpMesh(c,w,h,d),z=c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,home=new T.Vector3((c.at[0]-.5)*W,(.5-c.at[1])*H,z);
+    w=Math.min(w,W);h=Math.min(h,H);d=Math.min(d,D);  // every part fits inside the object
+    const cl=(v,room)=>Math.max(-room/2,Math.min(room/2,v));
+    const g=bpMesh(c,w,h,d),z=cl(c.layer!=null?(.5-c.layer)*D*.9:((i%3)-1)*D*.22,D-d),home=new T.Vector3(cl((c.at[0]-.5)*W,W-w),cl((.5-c.at[1])*H,H-h),z);
     let out;
     if(layered){const k=order.indexOf(i),n=Math.max(1,ev.inside.length-1);out=home.clone();out.z=(.5-k/n)*(ev.inside.length*.55+.6)}  // a stack, pulled apart front to back
     else{let dir=new T.Vector3(home.x,home.y,0);if(dir.length()<.15)dir.set(Math.cos(i*2.4),Math.sin(i*2.4),0);dir.normalize();
@@ -1914,6 +1916,7 @@ function bp3dOn(){
     lab.visible=false;g.userData.label=lab;
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false,w,h,d,layer:c.layer??.5});g.position.copy(home);world.add(g);return g});
   const front=photo&&BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6).sort((a,c)=>a.userData.layer-c.userData.layer)[0];
+  for(const g of BP3.parts)g.userData.outer=g===front||(g.userData.w>=W*.85&&g.userData.h>=H*.85&&g.userData.layer>=.9);  // the front and back covers
   if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(photoPlane(W,H,D/2+.003));  // the front looks like the real thing
   let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
   const ray=new T.Raycaster(),ndc=new T.Vector2(),pick=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
@@ -1944,7 +1947,8 @@ function bp3dOn(){
     if(!zoomed){let far=Math.max(W,H)/2;for(const g of BP3.parts){const t=g.userData.manual?g.position:BP.exploded?g.userData.out:g.userData.home;
         far=Math.max(far,t.length()+Math.max(g.userData.w,g.userData.h)/2+.1)}const fit=far/Math.tan(cam.fov*Math.PI/360)/Math.min(1,cam.aspect)*.72;dist+=(fit-dist)*.06}  // fit everything in view
     cam.position.set(0,0,dist);cam.lookAt(0,0,0);
-    for(const g of BP3.parts)g.userData.label.visible=g===sel||g===hov;  // names only on hover or when selected
+    for(const g of BP3.parts){g.userData.label.visible=g===sel||g===hov;  // names only on hover or when selected
+      g.visible=!front||g.userData.outer||BP.exploded||g.userData.manual||g.position.distanceTo(g.userData.home)>.04}  // closed up, the insides are hidden like the real thing  // names only on hover or when selected
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
     shell.material.opacity=BP.exploded?.02:.05;shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;
     r.render(scene,cam);requestAnimationFrame(frame)};

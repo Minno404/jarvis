@@ -1,4 +1,4 @@
 {
- "version": "1.50.0",
- "notes": "3D blueprint: the real photo on the front, names on hover, turn a selected part."
+ "version": "1.50.1",
+ "notes": "3D blueprint: insides hidden until pulled apart, parts fit inside the object."
 }

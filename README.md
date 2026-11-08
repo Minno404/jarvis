@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.50.0** (shown at the bottom right of the HUD)
+**Version 1.50.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.50.1** (8 Nov 2026): a closed-up 3D blueprint shows only the outside (the photo front and the back),
+  like the real thing; the insides appear when you pull it apart. Every part is sized and placed to fit inside the
+  object, so nothing pokes through the shell.
 - **1.50.0** (8 Nov 2026): the 3D blueprint looks like the real thing. The photo you showed (straightened if it
   was held at an angle) goes on the front of the model. Part names only show when you hover over a part or select it.
   Click a part to select it, drag to move it, then drag it again to turn it. Non-round objects no longer get watch
