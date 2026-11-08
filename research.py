@@ -168,17 +168,35 @@ def research_parts(context, parts):
     _progress(title, f"Researching {len(parts)} parts one by one")
     out = {}
 
+    import hud
+
+    def picture(p):
+        """A real photo of the part, saved locally (it goes on the part in 3D)."""
+        try:
+            found = hud.bing_images(f"{context} {p}")
+        except Exception:
+            return None
+        must = _words(p) - _words(context) or _words(p)
+        for img in found[:8]:
+            if relevant(img, must):
+                name = hud.download(img["src"], img.get("page"))
+                if name:
+                    return name
+        return None
+
     def one(p):
         res = web.web_search(f"{context} {p} size mm diameter thickness", 4).get("results") or []
         text = " ".join(r.get("title", "") + ". " + r.get("snippet", "") for r in res)
         return {"dimensions": dimensions(text, 4), "looks": [r.get("snippet", "")[:200] for r in res[:2]],
-                "source": res[0]["url"] if res else ""}
+                "source": res[0]["url"] if res else "", "image": picture(p)}
     with cf.ThreadPoolExecutor(8) as ex:
         futs = {p: ex.submit(one, p) for p in parts}
         for i, (p, f) in enumerate(futs.items(), 1):
             out[p] = f.result() if not f.exception() else {"dimensions": [], "looks": []}
             _progress(title, f"Part {i}/{len(parts)}: {p}" + (f": {out[p]['dimensions'][0][:60]}" if out[p]["dimensions"] else ""))
     _progress(title, "Parts researched. Building the 3D replica", done=True)
+    import blueprint
+    blueprint.remember_images({p: v["image"] for p, v in out.items() if v.get("image")})
     return {"parts": out, "note": ("Use these real sizes (mm) and descriptions for each part's mm, shape and detail in "
                                    "the blueprint call (a custom shape built from pieces for anything the shapes don't match, "
                                    "with its fine details). Where nothing was found, use typical sizes for that part.")}

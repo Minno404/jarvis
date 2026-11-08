@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.52.0** (shown at the bottom right of the HUD)
+**Version 1.53.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.53.0** (8 Nov 2026): every part wears a real photo. While researching the parts, Jarvis finds a photo of
+  each one (the real board, screen, speaker...), cuts it out from its background and puts it on that part in 3D,
+  sized to the part; the details card shows it too. After drawing, Jarvis is told the blueprint isn't finished until
+  every part has been built in detail, and each detail step names the next part to do.
 - **1.52.0** (8 Nov 2026): blueprints for anything. The model's outer shape is traced from your photo (a guitar, a
   shoe, a drill), with the photo cut to that outline and its background removed. Any part can be built from pieces
   (blocks, rounded blocks, cylinders, tubes, cones, balls, rings and wedges, up to 80 per part, sizes in mm), and

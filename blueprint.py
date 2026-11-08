@@ -62,6 +62,24 @@ def _save(st):
         pass
 
 
+def remember_images(images):
+    """research_parts found a real photo of each part: kept so blueprint() puts it on the matching part."""
+    st = _load()
+    _save({**st, "images": {**(st.get("images") or {}), **{k.lower(): v for k, v in images.items()}}})
+
+
+def _image_for(name, images):
+    n = name.lower()
+    if n in images:
+        return images[n]
+    words = set(re.findall(r"[a-z0-9]{3,}", n))
+    for k, v in images.items():  # one name's words all in the other ('main board' and 'main circuit board', not 'rear shell')
+        kw = set(re.findall(r"[a-z0-9]{3,}", k))
+        if kw and words and (kw <= words or words <= kw):
+            return v
+    return ""
+
+
 def fit_check(mm, parts, wall=1.0):
     """1:1 check: every part (real mm) must fit inside the object (real mm, less its walls). Returns the problems."""
     if not mm:
@@ -141,11 +159,19 @@ def blueprint(title, bbox, features_=None, inside=None, size="", material="", no
             f"about {', '.join(f'{v:g}' for v in (ev['mm'] or []))} mm overall). Look up the real sizes of the parts "
             "listed (research_parts), then call blueprint again with corrected mm for every part.")}
     ev["scale"] = "1:1" if not bad else "approx"
+    images = st.get("images") or {}
+    for p in ev["inside"]:  # each part's real photo, from the research
+        img = _image_for(p["name"], images)
+        if img and re.fullmatch(r"[0-9a-f]{16}\.(?:jpg|png|webp|gif)", img):
+            p["image"] = img
     features._panel(ev)
     _save({**st, "checked": checked, "last": ev})
     return {"drawn": True, "features": len(ev["features"]), "inside": len(ev["inside"]),
-            "note": ("It's on the HUD. Now refine it: call blueprint_detail for each part that isn't a plain shape, to build it "
-                     "from pieces with its fine details (one part per call). He can say 'pull it apart' to see the inside.")}
+            "pictures": sum(1 for p in ev["inside"] if p.get("image")),
+            "next": ("It's on the HUD, but it isn't finished: now call blueprint_detail for EVERY part that isn't a plain "
+                     "shape, one per call, building it from pieces with all its fine details (ports, buttons, ribs, screw "
+                     "posts, clips, connectors, chips, vents), real mm throughout. Don't stop until each part is done. "
+                     f"Parts: {', '.join(p['name'] for p in ev['inside'])}.")}
 
 
 def blueprint_detail(part, pieces, mm=None, note=""):
@@ -172,8 +198,9 @@ def blueprint_detail(part, pieces, mm=None, note=""):
     bad = fit_check(ev["mm"], [p]) if ev.get("mm") else []
     features._panel({**ev, "update": True})
     _save({**st, "last": ev})
-    return {"updated": p["name"], "pieces": len(pc), **({"too_big": bad} if bad else {}),
-            "left": [n for n in names if not any(q["name"] == n and q.get("pieces") for q in ev["inside"])]}
+    left = [n for n in names if not any(q["name"] == n and q.get("pieces") for q in ev["inside"])]
+    return {"updated": p["name"], "pieces": len(pc), **({"too_big": bad} if bad else {}), "left": left,
+            "next": f"Now blueprint_detail '{left[0]}'." if left else "Every part is detailed. Tell him it's done."}
 
 
 FUNCS = {"blueprint": blueprint, "blueprint_detail": blueprint_detail}
@@ -260,6 +287,11 @@ def selftest():
         r = blueprint_detail("hub", [{"type": "cylinder", "size": [10, 4, 10]}])
         assert r["updated"] == "Hub" and sent[-1]["update"] and sent[-1]["inside"][0]["pieces"][0]["type"] == "cylinder"
         assert "error" in blueprint_detail("wheel", [{"type": "box"}]) and "error" in blueprint_detail("hub", [])
+        remember_images({"Main board": "0123456789abcdef.jpg"})
+        blueprint("Toy", [0, 0, 1, 1], mm=[100, 100, 30], inside=[{"name": "Main circuit board", "mm": [80, 80, 2]},
+                                                                   {"name": "Lid", "mm": [90, 90, 3]}])
+        assert sent[-1]["inside"][0]["image"] == "0123456789abcdef.jpg" and "image" not in sent[-1]["inside"][1]
+        assert _image_for("Front shell", {"rear shell": "a"}) == "" and _image_for("Speaker", {"speaker": "b"}) == "b"
         assert not fit_check([90, 148, 32], [{"name": "Front shell", "mm": [90, 148, 15], "layer": 0.0}])
     finally:
         features._panel = real

@@ -107,6 +107,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpcard button{font-size:.85em;padding:3px 7px;letter-spacing:.04em;text-transform:none}.holo-panel.blueprint .bpcf{display:flex;gap:6px}
 .holo-panel.blueprint .bpcf input{flex:1;min-width:0}.holo-panel.blueprint .bpca{margin-top:8px;line-height:1.5;white-space:pre-wrap}.holo-panel.blueprint .bpca:empty{display:none}
 .holo-panel.blueprint .bpcback,.holo-panel.blueprint .bpcopen{margin-top:8px;margin-right:6px}
+.holo-panel.blueprint .bpcimg{display:block;max-width:100%;max-height:140px;margin:6px 0;border-radius:6px;object-fit:contain;background:#0006}
 .holo-panel.blueprint .bppart{cursor:pointer}
 .holo-panel.blueprint .bpnote{margin-top:6px;color:var(--mute);font-size:calc(11px*var(--s)*var(--fs))}
 .holo-panel.sim .simbox{margin-top:6px}.holo-panel.sim canvas{width:100%;display:block}
@@ -1948,7 +1949,8 @@ function bp3dOn(){
   const cut=BP.src?bpCut(BP.src,b,ev.tilt):null,back=BP.back?bpCut(BP.back,ev.back_bbox||[0,0,1,1],ev.back_tilt):null;
   const tex=c=>{const t=new T.CanvasTexture(c.canvas);t.anisotropy=8;return t},photo=cut&&tex(cut),photoB=back&&tex(back);
   const outlineShape=(pts,w,h)=>{const s2=new T.Shape();pts.forEach(([u,v],k)=>k?s2.lineTo((u-.5)*w,(.5-v)*h):s2.moveTo((u-.5)*w,(.5-v)*h));return s2};
-  const photoPlane=(w,h,z,isBack)=>{const c=isBack?back:cut,map=isBack?photoB:photo;
+  const photoPlane=(w,h,z,isBack)=>facePlane(isBack?back:cut,isBack?photoB:photo,w,h,z,isBack);
+  const facePlane=(c,map,w,h,z,isBack)=>{
     let geo=new T.PlaneGeometry(w,h);
     if(c&&c.outline){geo=new T.ShapeGeometry(outlineShape(c.outline,w,h));const pa=geo.attributes.position,uv=geo.attributes.uv;  // the photo cut to the object's outline
       for(let k=0;k<pa.count;k++)uv.setXY(k,pa.getX(k)/w+.5,pa.getY(k)/h+.5)}
@@ -1966,10 +1968,13 @@ function bp3dOn(){
       out=home.clone().add(dir.multiplyScalar(1.15+(i%3)*.3)).add(new T.Vector3(0,0,((i%2)?1:-1)*(.35+D)))}
     const lab=bpLabel(c.name+(c.mm?` · ${c.mm.slice(0,3).map(v=>+v.toFixed(1)).join('×')} mm`:''),'#ffffff');lab.position.set(0,(i%2?-1:1)*(h/2+.14),0);/* alternate above and below so neighbours' labels don't overlap */g.add(lab);
     lab.visible=false;g.userData.label=lab;
+    if(c.image){const im=new Image();im.onload=()=>{if(g.userData.photo||!BP3.on)return;const pc=bpCut(im,[0,0,1,1],0),a=pc.canvas.width/pc.canvas.height;  // the real part's photo, on its face
+        let pw=w,ph=w/a;if(ph>h){ph=h;pw=h*a}const t=new T.CanvasTexture(pc.canvas);t.anisotropy=8;g.add(facePlane(pc,t,pw,ph,d/2+.002))};
+      im.src='/api/img/'+encodeURIComponent(c.image)}
     Object.assign(g.userData,{part:true,name:c.name,home,out,manual:false,w,h,d,layer:c.layer??.5});g.position.copy(home);world.add(g);return g});
   const front=photo&&BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6).sort((a,c)=>a.userData.layer-c.userData.layer)[0];
   for(const g of BP3.parts)g.userData.outer=g===front||(g.userData.w>=W*.85&&g.userData.h>=H*.85&&g.userData.layer>=.9);  // the front and back covers
-  let skin=null;if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(skin=photoPlane(W,H,D/2+.003));
+  let skin=null;if(front)front.userData.photo=true;if(photo)front?front.add(photoPlane(front.userData.w,front.userData.h,front.userData.d/2+.003)):shell.add(skin=photoPlane(W,H,D/2+.003));
   if(photoB){const rear=BP3.parts.filter(g=>g.userData.w>=W*.6&&g.userData.h>=H*.6&&g!==front).sort((a,c)=>c.userData.layer-a.userData.layer)[0];
     rear?(rear.userData.outer=true,rear.add(photoPlane(rear.userData.w,rear.userData.h,-rear.userData.d/2-.003,true))):shell.add(photoPlane(W,H,-D/2-.003,true))}  // the front looks like the real thing
   let dist=9;const reset=()=>{world.quaternion.set(0,0,0,1);world.rotateX(.25);world.rotateY(layered?-1.05:-.5);dist=layered?8:9};reset();  // a stack is best seen from the side
@@ -2018,6 +2023,7 @@ function bpDetails(i){
     +'<div class="bpcf"><input placeholder="Ask about it…" aria-label="Ask about this part"><button type="button">Ask</button></div><div class="bpca"></div>'
     +'<button type="button" class="bpcopen">Open it up</button>'+(BP3.on?'<button type="button" class="bpcback">Put it back</button>':'');
   card.querySelector('.bpcopen').onclick=()=>ask(`Pull the ${c.name} apart: research it and draw a new 1:1 blueprint of just the ${c.name} (from the ${BP.ev.title}) with everything inside it.`);
+  if(c.image){const im=document.createElement('img');im.className='bpcimg';im.src='/api/img/'+encodeURIComponent(c.image);im.alt=c.name;card.querySelector('h4').after(im)}
   card.querySelector('h4').textContent=c.name;card.querySelector('.bpcnote').textContent=c.note||'';
   const go=question=>{const a=card.querySelector('.bpca');a.textContent='…';askMirror=a;
     ask(`About the ${c.name} inside the ${BP.ev.title} on the blueprint: ${question} (Answer in 2 to 4 sentences; look it up if you're not sure.)`)};

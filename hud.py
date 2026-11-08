@@ -102,7 +102,7 @@ def download(src, referer=None):
     d.mkdir(exist_ok=True)
     name = hashlib.sha1(src.encode()).hexdigest()[:16] + EXT[kind]
     (d / name).write_bytes(data)
-    for old in sorted(d.iterdir(), key=lambda f: f.stat().st_mtime)[:-30]:  # keep the last 30
+    for old in sorted(d.iterdir(), key=lambda f: f.stat().st_mtime)[:-150]:  # keep the last 150 (a blueprint has a picture per part)
         old.unlink(missing_ok=True)
     return name
 
