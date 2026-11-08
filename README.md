@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.53.0** (shown at the bottom right of the HUD)
+**Version 1.54.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.54.0** (8 Nov 2026): the 3D blueprint has tools: Measure (click two points, get the real distance in mm), a
+  Slice slider that cuts it open from the front, and Save STL / Save GLB ("export it for 3D printing"): real size in
+  mm, saved to Documents\Jarvis models, ready for a slicer, Blender or Godot. The local AI hands jobs and photos to
+  an online brain (it keeps the chat), and falls back to itself when offline. Talk over Jarvis to cut in, no name
+  needed: he tells your voice from his own echo by loudness and by the words. Old personal values were scrubbed from
+  the project's history.
 - **1.53.0** (8 Nov 2026): every part wears a real photo. While researching the parts, Jarvis finds a photo of
   each one (the real board, screen, speaker...), cuts it out from its background and puts it on that part in 3D,
   sized to the part; the details card shows it too. After drawing, Jarvis is told the blueprint isn't finished until

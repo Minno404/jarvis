@@ -68,6 +68,8 @@ def vocab():
         pass
     return ", ".join(dict.fromkeys(words)) + "."
 
+saying = [""]  # what Jarvis is saying now (the server fills it in), so talking over him isn't taken for his own echo
+TALK_OVER = os.environ.get("JARVIS_TALK_OVER", "1") != "0"  # talk over him to cut in, without saying his name
 INTERRUPT_THRESHOLD = 0.6   # a bit stricter while he's talking, so his own voice can't set it off
 FOLLOW_UP_S = 8             # after he answers you by voice, keep listening this long for a reply
 # After "Hey Jarvis": how long to wait for you to start talking, and how long a pause ends what you're saying.
@@ -277,9 +279,23 @@ def _drain(stream):
         stream.read(FRAME)
 
 
+def _words(text):
+    import re
+    return [w for w in re.findall(r"[a-z']{2,}", (text or "").lower())]
+
+
+def talked_over(heard, said):
+    """Was that him talking over Jarvis (new words), or Jarvis's own voice coming back through the mic?"""
+    h, s = _words(heard), set(_words(said))
+    if len(h) < 2:
+        return False
+    return sum(w in s for w in h) / len(h) < 0.4
+
+
 def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_hold_cmd, name_stt=None):
     recent, pre, last2s = [], [], []  # room loudness over ~10 s, the last few frames, the last 2 seconds
     following, checked_until = False, 0.0
+    echo, loud = [], 0  # how loud his own voice is through the mic while he talks; frames well above it
     while True:
         frame = stream.read(FRAME)[0][:, 0]
         level = float(np.sqrt(np.mean(frame.astype(np.float32) ** 2)))
@@ -307,6 +323,16 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
         else:
             score = max(wake.predict(frame).values())
             woke = score >= (INTERRUPT_THRESHOLD if speaking.is_set() else WAKE_THRESHOLD)
+            if speaking.is_set() and TALK_OVER and not woke:  # talking over him (louder than his own echo, other words)
+                echo = (echo + [level])[-60:]
+                base = float(np.median(echo)) if len(echo) > 10 else 1e9
+                loud = loud + 1 if level > max(noise * 4, base * 2.2) else 0
+                if loud >= 6 and time.time() >= checked_until:
+                    checked_until = time.time() + 1.5
+                    if talked_over(_transcribe(name_stt or stt, last2s[-15:]), saying[0]):
+                        woke, loud = True, 0
+            elif not speaking.is_set():
+                echo, loud = [], 0
             if (not woke and not speaking.is_set() and score >= LOOSE_THRESHOLD
                     and time.time() >= checked_until):  # maybe just "Jarvis"
                 checked_until = time.time() + 1.5  # one check per utterance, not one per frame
@@ -358,6 +384,8 @@ def _listen(stream, wake, stt, on_heard, on_text, on_interrupt, on_follow, on_ho
 if __name__ == "__main__":  # quick check of the end-of-speech rule
     q, loud = 50.0, 2000.0
     fs = FRAME / RATE
+    assert talked_over("hang on stop that", "The weather today is sunny and warm, sir.")
+    assert not talked_over("weather today is sunny", "The weather today is sunny and warm, sir.") and not talked_over("um", "")
     assert end_of_speech([q] * int(6 / fs), q) == "wait"  # 6 s to think before speaking is fine
     assert end_of_speech([q] * int(8.1 / fs), q) == "nothing"
     assert end_of_speech([q] * 3 + [loud] * 10 + [q] * int(1.2 / fs), q) == "wait"  # a 1.2 s pause mid-thought

@@ -97,6 +97,12 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bphow{padding-left:18px;margin:0 0 8px;line-height:1.5}.holo-panel.blueprint .bpsrc{display:flex;flex-direction:column;gap:3px}
 .holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
+.holo-panel.blueprint .bp3tools{position:absolute;left:10px;bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:2;font:12px monospace;color:#cfeaff}
+.holo-panel.blueprint .bp3tools button{background:#04122299;border:1px solid #9fd2ff88;color:#dff4ff;padding:4px 10px;border-radius:4px;cursor:pointer;font:inherit}
+.holo-panel.blueprint .bp3tools button.on{background:#ffd36b33;border-color:#ffd36b}
+.holo-panel.blueprint .bp3tools input{vertical-align:middle;width:110px}
+.holo-panel.blueprint .bp3tools .bp3msg{background:#041222aa;padding:3px 8px;border-radius:4px;max-width:420px}
+.holo-panel.blueprint .bp3tools .bp3msg:empty{display:none}
 .holo-panel.blueprint .bp3{position:absolute;inset:0;background:#0b2748 radial-gradient(ellipse at 50% 60%,#123a66,#0b2748 70%)}
 .holo-panel.blueprint .bp3 canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
 #bigView>.holo-panel.blueprint .bpbox{height:calc((100vh - 250px)/1.6)}#bigView>.holo-panel.blueprint .bpbox svg{height:100%}
@@ -1021,6 +1027,8 @@ async function ask(q){
   const bpPull=/^(?:(?:pull|take|break|tear|split) (?:it|this|that) (?:apart|open)|dissect (?:it|this|that)|explode (?:it|this|that)|(?:what'?s|what is|show me what'?s) inside(?: (?:it|this|that))?)$/.test(cmd);
   if(bpPull&&BP.panel&&BP.panel.isConnected){add('you',q);bpExplode(true);return}
   if(BP.panel&&/^(?:put it back(?: together)?|reassemble(?: it)?|close it up)$/.test(cmd)){add('you',q);bpExplode(false);return}
+  const bpSave=cmd.match(/^(?:export|save) (?:it|this|that|the (?:blueprint|model|3d model))(?: as (?:an? )?(stl|glb))?(?: for (?:3d )?printing)?$/);
+  if(bpSave&&BP.panel&&BP.panel.isConnected){add('you',q);if(!BP3.on)bp3dOn();setTimeout(async()=>add('j',await BP3.save(bpSave[1]||'stl')),400);return}
   if((bpPull||/^(?:blueprint(?: mode| this| it| that)?|draw (?:this|it|that) as a blueprint|(?:make|show) (?:a |me a )?blueprint(?: of (?:this|it|that))?)$/.test(cmd))&&!busy){
     const uploaded=!!photo;  // a photo he attached (button, paste or drop) is used as it is; otherwise the desk camera
     if(!uploaded){if(!DESK.stream&&!(await openDesk()))return;await new Promise(r=>setTimeout(r,1200));
@@ -1032,7 +1040,9 @@ async function ask(q){
       +'well-documented equivalent to research the insides on. 2) From the teardown, list every component front to back and call '
       +'research_parts with them. 3) Only then call blueprint: bbox in the photo, visible features, real size in mm, material, shell, explode, '
       +'every component in its real order (layer) with the shape that matches it (gear, dial, hands, balance, rotor, coin_cell, case, links...), '
-      +'its real mm, detail (teeth, spokes, subdials, count), how it works, and the sources. Then say one short line.'
+      +'its real mm, detail (teeth, spokes, subdials, count), how it works, and the sources; tilt if it\'s held at an angle, and shell outline '
+      +'for anything that isn\'t a plain box, disc or tube. 4) Call blueprint_detail for every part that isn\'t a plain shape, one at a time, '
+      +'with all its fine details. Then say one short line.'
       +(!uploaded&&DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:(?:open |show |start )?(?:the )?(?:hologram )?workshop|hologram workshop|holo workshop)$/.test(cmd)){add('you',q);if(openWorkshop())add('j','The workshop, sir. Drop a model in, or name one.');return}
   if(WS.panel&&/^(?:close|exit|leave)(?: the)? (?:hologram )?workshop$/.test(cmd)){add('you',q);closePanel(WS.panel);return}
@@ -1988,7 +1998,7 @@ function bp3dOn(){
   let sel=null,hov=null,mode='',last=null,plane=new T.Plane(),grab=new T.Vector3();
   const select=o=>{if(sel)sel.userData.edges.forEach(m=>m.color.set(0xdff4ff));sel=o;if(o)o.userData.edges.forEach(m=>m.color.set(0xffd36b))};
   cv.oncontextmenu=e=>e.preventDefault();
-  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];const o=pick(e),was=sel;select(o);
+  cv.onpointerdown=e=>{if(measuring&&e.button===0){measure(e);return}cv.setPointerCapture(e.pointerId);last=[e.clientX,e.clientY];const o=pick(e),was=sel;select(o);
     if(!o){mode='orbit';return}
     if(e.button===2||e.shiftKey||o===was){mode='turn';return}  // drag a part that's already selected to turn it
     mode='move';const wp=o.getWorldPosition(new T.Vector3());plane.setFromNormalAndCoplanarPoint(cam.getWorldDirection(new T.Vector3()),wp);
@@ -2000,14 +2010,52 @@ function bp3dOn(){
   cv.onpointerup=()=>{mode=''};
   cv.ondblclick=e=>{const o=pick(e);if(o){select(o);bpDetails(BP3.parts.indexOf(o))}else reset()};
   let zoomed=false;cv.onwheel=e=>{e.preventDefault();zoomed=true;dist=Math.max(.6,Math.min(20,dist*(e.deltaY>0?1.1:.9)))};
+  // tools: measure between two points (real mm), slice it open from the front, save it for 3D printing or Blender
+  const tools=document.createElement('div');tools.className='bp3tools';
+  tools.innerHTML='<button type="button" data-t="measure">Measure</button><label>Slice <input type="range" min="0" max="100" value="0" aria-label="Slice it open"></label>'
+    +'<button type="button" data-t="stl">Save STL</button><button type="button" data-t="glb">Save GLB</button><span class="bp3msg" aria-live="polite"></span>';
+  host.append(tools);const msg=t=>tools.querySelector('.bp3msg').textContent=t,toMM=MM?1/MM:100/Math.max(W,H);
+  let measuring=false,mPts=[];const marks=new T.Group();world.add(marks);
+  tools.querySelector('[data-t=measure]').onclick=e=>{measuring=!measuring;mPts=[];e.target.classList.toggle('on',measuring);
+    msg(measuring?'Click two points on the model.':'');if(!measuring)marks.clear()};
+  const slice=new T.Plane(new T.Vector3(0,0,-1),1e3),sl=tools.querySelector('input');
+  sl.oninput=()=>{r.clippingPlanes=+sl.value?[slice]:[];msg(+sl.value?'Slicing from the front.':'')};
+  const measure=e=>{const rc=cv.getBoundingClientRect();ndc.set((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);ray.setFromCamera(ndc,cam);
+    const hit=ray.intersectObjects([shell,...BP3.parts],true).find(h=>!h.object.isSprite&&!h.object.isLineSegments);if(!hit)return;
+    const pt=world.worldToLocal(hit.point.clone());mPts.push(pt);
+    const dot=new T.Mesh(new T.SphereGeometry(.02,12,8),new T.MeshBasicMaterial({color:0xffd36b,depthTest:false}));dot.position.copy(pt);dot.renderOrder=11;marks.add(dot);
+    if(mPts.length===2){const [a,c]=mPts,mm=a.distanceTo(c)*toMM;mPts=[];
+      const line=new T.Line(new T.BufferGeometry().setFromPoints([a,c]),new T.LineBasicMaterial({color:0xffd36b,depthTest:false}));line.renderOrder=11;marks.add(line);
+      const lab=bpLabel(`${mm<10?mm.toFixed(1):Math.round(mm)} mm${MM?'':' (approx.)'}`,'#ffd36b');lab.position.copy(a.clone().add(c).multiplyScalar(.5));marks.add(lab);
+      msg(`${mm.toFixed(1)} mm. Click two more points, or Measure to stop.`)}};
+  const exportGroup=(meters)=>{world.updateMatrixWorld(true);const inv=world.matrixWorld.clone().invert(),out=new T.Group(),k=toMM/(meters?1000:1);
+    world.traverse(o=>{if(!o.isMesh||o===shell&&BP3.parts.length||marks.children.includes(o))return;let vis=true;for(let p=o;p;p=p.parent)if(!p.visible)vis=false;if(!vis)return;
+      if(!meters&&o.material.map)return;  // a print has no pictures on it
+      const m=new T.Mesh(o.geometry,meters?o.material:new T.MeshBasicMaterial());m.matrixAutoUpdate=false;
+      m.matrix.copy(new T.Matrix4().makeScale(k,k,k).multiply(inv).multiply(o.matrixWorld));out.add(m)});
+    out.updateMatrixWorld(true);return out};
+  const save=async fmt=>{try{const g=exportGroup(fmt==='glb');let blob;
+      if(fmt==='glb'){if(!THREE.GLTFExporter)await loadScript(TJS+'exporters/GLTFExporter.js');
+        blob=await new Promise(res=>new THREE.GLTFExporter().parse(g,b=>res(new Blob([b],{type:'model/gltf-binary'})),{binary:true}))}
+      else{if(!THREE.STLExporter)await loadScript(TJS+'exporters/STLExporter.js');blob=new Blob([new THREE.STLExporter().parse(g,{binary:true})],{type:'model/stl'})}
+      const name=`${ev.title.replace(/[^\w .()-]/g,'').trim()||'blueprint'}${BP.exploded?' (apart)':''}.${fmt}`;
+      const res=await fetch('/api/save_model',{method:'POST',headers:{'X-Name':name},body:blob}).then(x=>x.json());
+      const t=res.saved?`Saved ${MM?'at real size, in mm':'(no real size known, so 100 mm across)'}: ${res.saved}`:`Couldn't save it: ${res.error}`;msg(t);return t}
+    catch(e){const t="Couldn't export it: "+e.message;msg(t);return t}};
+  tools.querySelector('[data-t=stl]').onclick=()=>save('stl');tools.querySelector('[data-t=glb]').onclick=()=>save('glb');
+  BP3.save=save;
   Object.assign(BP3,{on:true,host,r,cam,world});
   const frame=()=>{if(!BP3.on||!p.isConnected){r.dispose();host.remove();BP3.on=false;p.classList.remove('in3d');return}
     const w=host.clientWidth,h=host.clientHeight;if(w&&h&&(cv.width!==Math.round(w*r.getPixelRatio())||cv.height!==Math.round(h*r.getPixelRatio()))){r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
-    if(!zoomed){let far=Math.max(W,H)/2;for(const g of BP3.parts){const t=g.userData.manual?g.position:BP.exploded?g.userData.out:g.userData.home;
-        far=Math.max(far,t.length()+Math.max(g.userData.w,g.userData.h)/2+.1)}const fit=far/Math.tan(cam.fov*Math.PI/360)/Math.min(1,cam.aspect)*.72;dist+=(fit-dist)*.06}  // fit everything in view
+    if(!zoomed){let fx=W/2,fy=H/2,fz=D/2;for(const g of BP3.parts){if(!g.visible)continue;const t=g.userData.manual?g.position:BP.exploded?g.userData.out:g.userData.home,u=g.userData;
+        fx=Math.max(fx,Math.abs(t.x)+u.w/2);fy=Math.max(fy,Math.abs(t.y)+u.h/2);fz=Math.max(fz,Math.abs(t.z)+u.d/2)}
+      const tn=Math.tan(cam.fov*Math.PI/360),fit=Math.max(fy/tn,Math.hypot(fx,fz*.8)/(tn*cam.aspect))*1.25+fz*.5;dist+=(fit-dist)*.06}  // fit everything in view
     cam.position.set(0,0,dist);cam.lookAt(0,0,0);
+    if(+sl.value){let z0=D/2,z1=-D/2;for(const g of BP3.parts){z0=Math.max(z0,g.position.z+g.userData.d/2);z1=Math.min(z1,g.position.z-g.userData.d/2)}
+      const zc=z0+.01-(z0-z1+.02)*sl.value/100;world.updateMatrixWorld();
+      slice.setFromNormalAndCoplanarPoint(new T.Vector3(0,0,-1).applyQuaternion(world.quaternion),world.localToWorld(new T.Vector3(0,0,zc)))}
     for(const g of BP3.parts){g.userData.label.visible=g===sel||g===hov;  // names only on hover or when selected
-      g.visible=!front||g.userData.outer||BP.exploded||g.userData.manual||g.position.distanceTo(g.userData.home)>.04}  // closed up, the insides are hidden like the real thing  // names only on hover or when selected
+      g.visible=!front||g.userData.outer||BP.exploded||g.userData.manual||+sl.value>0||g.position.distanceTo(g.userData.home)>.04}  // closed up, the insides are hidden like the real thing  // names only on hover or when selected
     for(const g of BP3.parts)if(!g.userData.manual)g.position.lerp(BP.exploded?g.userData.out:g.userData.home,.08);  // glide apart / together
     shell.material.opacity=BP.exploded?.02:.05;if(skin)skin.material.opacity+=((BP.exploded?.18:.96)-skin.material.opacity)*.1;  // see inside once it's apart
     shellEdges.material.opacity+=((BP.exploded?.18:.6)-shellEdges.material.opacity)*.1;

@@ -1,4 +1,4 @@
 {
- "version": "1.53.0",
- "notes": "Blueprints: a real photo on every part, and Jarvis details every part before he stops."
+ "version": "1.54.0",
+ "notes": "Blueprint measure, slice and 3D-print export; local AI hands jobs online; talk over Jarvis to cut in."
 }

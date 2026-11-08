@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.53.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.54.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1215,6 +1215,12 @@ def screen_photo():
         return None
 
 
+NEEDS_ONLINE = re.compile(  # jobs that need tools or real thinking, which the tiny local AI does badly
+    r"\b(open|launch|close|play|search|look up|find|set|timer|remind|alarm|turn (?:on|off)|blueprint|show|draw|"
+    r"simulate|research|send|download|install|screenshot|screen|weather|news|price|code|fix|build|run|create|make|"
+    r"write|delete|move|copy|rename|camera|desk view|model|file|folder|email|calendar|translate|summari[sz]e)\b", re.I)
+
+
 def chat_stream(text, photo=None):
     """Yield the reply in pieces as it is written. None marks the end of a block of text (speak it now).
     photo: the name of a picture he sent (in uploads/), for Jarvis to look at."""
@@ -1249,12 +1255,27 @@ def chat_stream(text, photo=None):
         session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
     brain = features.settings().get("brain", "auto")
     using = brain_status()["using"]
+    handed = None
+    if using == "Local" and (photo or shot or NEEDS_ONLINE.search(text or "")) and features.settings().get("local_hands_off", True):
+        handed = next((n for n in ("Claude", "ChatGPT", "DeepSeek") if time.time() >= OUT[n]["until"] and
+                       {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt_brain.available(),
+                        "DeepSeek": deepseek.available()}[n]), None)  # the small local AI chats; jobs and pictures go online
+        if handed:
+            using = handed
     said = False
     try:
+        vm = LIVE.get("voice")
+        if vm:
+            vm.saying[0] = ""  # what he's saying, so talking over him isn't mistaken for his own voice
         for p in brain_reply(using, text, photo):
             said = said or bool(p)
+            if p and vm:
+                vm.saying[0] = (vm.saying[0] + " " + p)[-600:]
             yield p
     except Exception as e:
+        if handed and not said:  # offline after all: the local AI does its best
+            yield from brain_reply("Local", text, photo)
+            return
         if said or brain != "auto" or not LIMIT_HIT.search(str(e)):
             raise
         OUT[using]["until"] = time.time() + 3600  # try it again in an hour
@@ -2027,6 +2048,20 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
+        if self.path == "/api/save_model":  # a blueprint exported as .stl/.glb: saved in Documents\Jarvis models
+            try:
+                n = int(self.headers["Content-Length"])
+                if n > 200_000_000:
+                    raise ValueError("That model is over 200 MB")
+                name = re.sub(r"[^\w .()-]", "", self.headers.get("X-Name", "model.stl"))[:80].strip() or "model.stl"
+                if not name.lower().endswith((".stl", ".glb")):
+                    raise ValueError("Only .stl and .glb")
+                folder = Path.home() / "Documents" / "Jarvis models"
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / name).write_bytes(self.rfile.read(n))
+                return self.send_json({"saved": str(folder / name)})
+            except Exception as e:
+                return self.send_json({"error": str(e)}, 400)
         if self.path == "/api/upload":  # a photo for Jarvis: raw image bytes in, {"name": ...} out
             try:
                 n = int(self.headers["Content-Length"])
