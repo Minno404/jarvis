@@ -75,10 +75,12 @@ def dev_status(id=None):
     return [j for j in jobs if j["id"] == id] if id else jobs[-5:]
 
 
+OUTCOME = (" If you couldn't do it (something was denied or blocked, or a tool or access was missing), begin your "
+           "summary with BLOCKED: and say exactly what stopped you. Never say it's done when it isn't.")
 DEV_PROMPT = ("You are helping {USER} with his project in this folder. Do what he asks, keeping changes small and "
               "in the style of the existing code. You can read and edit files here but can't run commands, so "
               "don't claim anything was tested. Finish with 2-3 plain sentences (no markdown or backticks) he can hear read aloud: what you "
-              "changed (file names) or found, and anything he should check.\n\nHis request: ")
+              "changed (file names) or found, and anything he should check." + OUTCOME + "\n\nHis request: ")
 
 
 def next_job():
@@ -116,7 +118,7 @@ PC_PROMPT = ("You are Jarvis's hands on {USER}'s Windows PC. He asked for the jo
              "Bin are fine to clear when that's the job), and "
              "if a step needs Administrator rights and you don't have them, say exactly what to run. You can use "
              "the shell, files and the web. Finish with 2-4 plain sentences (no markdown or backticks) he can hear read aloud: what you did "
-             "or found, and anything left for him to do.\n\nThe job: ")
+             "or found, and anything left for him to do." + OUTCOME + "\n\nThe job: ")
 
 
 SELF_RULE = ("\n\nIMPORTANT: Jarvis's own program lives in {HERE}. Its core files (*.py, web/index.html, updater, "
@@ -169,10 +171,12 @@ def run_job(job, claude, brain="claude"):
             text, status = text or "No AI is set up for jobs on this PC (Claude, ChatGPT or the local AI).", "error"
         else:
             try:
-                text, ok = gpt_brain.run_task(prompt, job["path"], local=local)
+                text, ok = gpt_brain.run_task(prompt, job["path"], local=local, pc=job.get("kind") == "pc")
                 status = "done" if ok else "error"
             except Exception as e:
                 text, status = f"It didn't work: {type(e).__name__}.", "error"
+    if status == "done" and re.match(r"\W*BLOCKED\b", text, re.I):  # it said it couldn't: not done, whatever it returned
+        status, text = "error", re.sub(r"^\W*BLOCKED\W*", "", text, flags=re.I)
     finish_job(job, status, text)
     what = "that job" if job.get("kind") == "pc" else f"the {job['project']} job"
     return f"Sir, {what} is {'done' if status == 'done' else 'stuck'}. {text}"

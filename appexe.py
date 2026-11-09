@@ -19,17 +19,39 @@ HERE = Path(__file__).resolve().parent
 EXE, ICO, STAMP = HERE / "Jarvis.exe", HERE / "jarvis.ico", HERE / "jarvis_exe.json"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 SOURCE = r"""
-using System; using System.Reflection; using System.Runtime.InteropServices;
+using System; using System.IO; using System.Reflection; using System.Runtime.InteropServices;
+using System.Text.RegularExpressions; using System.Windows.Forms;
 [assembly: AssemblyTitle("Jarvis")] [assembly: AssemblyProduct("Jarvis")]
 class Jarvis {
   [DllImport("kernel32", CharSet=CharSet.Unicode)] static extern bool SetDllDirectory(string d);
   [DllImport("kernel32", CharSet=CharSet.Unicode)] static extern IntPtr LoadLibrary(string f);
   [DllImport("PYDLL", CharSet=CharSet.Unicode, CallingConvention=CallingConvention.Cdecl)]
   static extern int Py_Main(int argc, [MarshalAs(UnmanagedType.LPArray, ArraySubType=UnmanagedType.LPWStr)] string[] argv);
+  static string Field(string json, string key) {
+    var m = Regex.Match(json, "\"" + key + "\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+    return m.Success ? Regex.Unescape(m.Groups[1].Value) : null;
+  }
   [STAThread] static int Main(string[] args) {
     var home = Environment.GetEnvironmentVariable("PYTHONHOME");
+    if (String.IsNullOrWhiteSpace(home)) {
+      // Opened directly (not through Jarvis.bat): use the Python settings saved when this file was built
+      var dir = AppDomain.CurrentDomain.BaseDirectory;
+      try {
+        var json = File.ReadAllText(Path.Combine(dir, "jarvis_exe.json"));
+        home = Field(json, "PYTHONHOME");
+        var path = Field(json, "PYTHONPATH");
+        if (!String.IsNullOrWhiteSpace(home)) Environment.SetEnvironmentVariable("PYTHONHOME", home);
+        if (!String.IsNullOrWhiteSpace(path)) Environment.SetEnvironmentVariable("PYTHONPATH", path);
+      } catch (Exception) { }
+      if (String.IsNullOrWhiteSpace(home) || !Directory.Exists(home)) {
+        MessageBox.Show("Start Jarvis with Jarvis.bat (or the desktop shortcut) so his Python is set up first.", "Jarvis");
+        return 2;
+      }
+      Environment.CurrentDirectory = dir;
+      if (args.Length == 0) args = new[] { Path.Combine(dir, "server.py") };
+    }
     SetDllDirectory(home);
-    LoadLibrary(System.IO.Path.Combine(home, "PYDLL"));
+    LoadLibrary(Path.Combine(home, "PYDLL"));
     var argv = new string[args.Length + 1];
     argv[0] = Assembly.GetEntryAssembly().Location; args.CopyTo(argv, 1);
     return Py_Main(argv.Length, argv);
@@ -86,6 +108,7 @@ def build():
     src.write_text(SOURCE.replace("PYDLL", dll), encoding="utf-8")
     try:
         subprocess.run([str(compiler), "/nologo", "/target:winexe", "/platform:x64", f"/win32icon:{ICO}",
+                        "/reference:System.Windows.Forms.dll",
                         f"/out:{EXE}", str(src)], check=True, timeout=60, creationflags=NO_WINDOW, capture_output=True)
     finally:
         src.unlink(missing_ok=True)

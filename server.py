@@ -1262,6 +1262,8 @@ def chat_stream(text, photo=None):
                         "DeepSeek": deepseek.available()}[n]), None)  # the small local AI chats; jobs and pictures go online
         if handed:
             using = handed
+    if brain not in ("auto", "local") and time.time() < OUT[using]["until"]:  # his pick is out of allowance: skip it
+        using = next_brain(using) or using
     said = False
     try:
         vm = LIVE.get("voice")
@@ -1276,15 +1278,63 @@ def chat_stream(text, photo=None):
         if handed and not said:  # offline after all: the local AI does its best
             yield from brain_reply("Local", text, photo)
             return
-        if said or brain != "auto" or not LIMIT_HIT.search(str(e)):
+        if said or not LIMIT_HIT.search(str(e)):
             raise
-        OUT[using]["until"] = time.time() + 3600  # try it again in an hour
-        nxt = brain_status()["using"]
-        if nxt == using:
+        OUT[using]["until"] = reset_time(str(e)) or time.time() + 3600  # when it says it resets, else in an hour
+        nxt = brain_status()["using"] if brain == "auto" else next_brain(using)
+        if not nxt or nxt == using:
             raise
         print(datetime.datetime.now(), f"{using} limit reached, switching to {nxt}:", str(e)[:200])
         push_event({"type": "brain", "name": nxt})
+        if brain != "auto":  # he picked this brain: say why another one is answering
+            yield f"{using}'s allowance is used up for now, so {nxt} is answering, {features.settings().get('title', 'sir')}. "
         yield from brain_reply(nxt, text, photo)
+
+
+def brain_error(e):
+    """What to tell him when every brain failed: the real reason in a line, not just the error's type."""
+    msg = " ".join(str(e).split())
+    when = reset_time(msg)
+    title = features.settings().get("title", "sir")
+    if LIMIT_HIT.search(msg):
+        at = datetime.datetime.fromtimestamp(when).strftime("%a %d %b, %I:%M %p").replace(" 0", " ") if when else ""
+        return (f"That brain's allowance is used up, {title}" + (f"; it resets {at}" if at else "") +
+                ". Pick another brain in Settings, or set it to Auto so I switch by myself.")
+X
+    return f"I can't reach my brain right now, {title}. {type(e).__name__}: {msg[:160] or 'no details'}"
+
+
+def next_brain(skip):
+    """The first other brain that's set up and not out of allowance (Local last)."""
+    have = {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt_brain.available(),
+            "DeepSeek": deepseek.available(), "Local": local_brain.ready()}
+    return next((n for n in ("Claude", "ChatGPT", "DeepSeek", "Local")
+                 if n != skip and have[n] and time.time() >= OUT[n]["until"]), None)
+
+
+RESETS = re.compile(r"resets\s+(?:(?:on\s+)?([A-Z][a-z]{2})[a-z]*\s+(\d{1,2}),?\s+)?(?:at\s+)?(\d{1,2})(?::(\d\d))?\s*([ap]m)", re.I)
+
+
+def reset_time(msg, now=None):
+    """'...your weekly limit resets Nov 10, 12:30pm' -> that moment (a timestamp), or None."""
+    m = RESETS.search(msg or "")
+    if not m:
+        return None
+    now = now or datetime.datetime.now()
+    mon, day, hour, minute, ap = m.groups()
+    hour = hour and int(hour) % 12 + (12 if ap.lower() == "pm" else 0)
+    try:
+        when = now.replace(hour=hour, minute=int(minute or 0), second=0, microsecond=0)
+        if mon:
+            month = datetime.datetime.strptime(mon.title(), "%b").month
+            when = when.replace(month=month, day=int(day))
+            if when < now - datetime.timedelta(days=2):
+                when = when.replace(year=when.year + 1)
+        elif when <= now:
+            when += datetime.timedelta(days=1)
+    except ValueError:
+        return None
+    return when.timestamp() if when > now else None
 
 
 def brain_reply(using, text, photo=None):
@@ -1767,7 +1817,7 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # The HUD page always comes fresh (the app window keeps its data between launches, which would
         # otherwise let it show an old copy after an update)
-        if not self.path.startswith(("/api/", "/custom/")):
+        if not getattr(self, "path", "").startswith(("/api/", "/custom/")):  # (no path: a malformed request)
             self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
@@ -1988,7 +2038,10 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(audio)))
             self.end_headers()
-            return self.wfile.write(audio)
+            try:
+                return self.wfile.write(audio)
+            except ConnectionError:  # the HUD stopped the speech (he cut in) before it all arrived
+                return None
         if self.path == "/api/show":  # a second launch: bring this window to the front
             if not self.local():
                 return self.send_error(403)
@@ -2161,15 +2214,18 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             except Exception as e:
                 print(datetime.datetime.now(), "chat error:", repr(e))
-                import re
-                limit = re.search(r"limit.*?resets ([0-9:apm]+)", str(e), re.I)
-                send({"t": f" I've used up your Claude plan's allowance for now, sir. It resets at {limit.group(1)}."
-                      if limit else f" I can't reach my brain right now, sir. {type(e).__name__}."})
+                try:
+                    send({"t": " " + brain_error(e)})
+                except ConnectionError:
+                    return None
             finally:
                 pieces.close()  # stops Claude Code if the window closed mid-reply
                 if reply and not text.startswith("[Automatic"):
                     learn.log_exchange(text, "".join(reply).strip())
-            return send({"done": True})
+            try:
+                return send({"done": True})
+            except ConnectionError:  # the HUD closed the reply first
+                return None
         if self.path != "/api/chat":
             return self.send_error(404)
         try:
@@ -2177,16 +2233,25 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"reply": chat(text)})
         except Exception as e:
             print(datetime.datetime.now(), "chat error:", repr(e))
-            self.send_json({"reply": f"I can't reach my brain right now, sir. {type(e).__name__}."}, 500)
+            self.send_json({"reply": brain_error(e)}, 500)
 
     def log_message(self, *a):
         pass  # keep the console quiet
+
+
+def _test_reset_time():
+    now = datetime.datetime(2026, 11, 8, 17, 5)
+    t = reset_time("You've hit your monthly spend limit · your weekly limit resets Nov 10, 12:30pm (Australia/Adelaide)", now)
+    assert datetime.datetime.fromtimestamp(t) == datetime.datetime(2026, 11, 10, 12, 30), t
+    assert datetime.datetime.fromtimestamp(reset_time("limit reached, resets 3am", now)) == datetime.datetime(2026, 11, 9, 3, 0)
+    assert reset_time("no time here", now) is None
 
 
 def selftest():
     global JOURNAL
     JOURNAL = HERE / "journal.test.json"
     JOURNAL.unlink(missing_ok=True)
+    _test_reset_time()
     add_trade("xauusd", "long", 2.1, "London breakout")
     add_trade("eurusd", "short", -1)
     t = add_trade("xauusd", "long", 0.5)

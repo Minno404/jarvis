@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import subprocess
+import re
 import threading
 import time
 from pathlib import Path
@@ -117,7 +118,11 @@ def parse(lines):
     return tid, texts, err
 
 
-def chat(system_prompt, message, images=(), local=False):
+BUSY = set()  # conversations Codex is answering right now: a second message can't resume one (it's locked)
+CONFLICT = re.compile(r"active writer|thread-store conflict|thread/resume", re.I)
+
+
+def chat(system_prompt, message, images=(), local=False, _retry=True):
     """Yield Jarvis's reply from ChatGPT, or from the local AI (each message whole; None marks the end of one).
     Raises on failure."""
     thread = local_thread if local else globals()["thread"]
@@ -125,8 +130,12 @@ def chat(system_prompt, message, images=(), local=False):
         thread.update(id=None, turns=0)
     thread["last"], thread["turns"] = time.time(), thread["turns"] + 1
     how = HOW_TO_USE_TOOLS + (LOCAL_NOTE if local else "")
-    text = message if thread["id"] else f"{system_prompt}\n{how}\n{recent_context()}{message}"
-    proc = subprocess.Popen(command(thread["id"], images, local), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    resume = thread["id"] if thread["id"] not in BUSY else None  # still busy with the last message: start a new one
+    text = message if resume else f"{system_prompt}\n{how}\n{recent_context()}{message}"
+    mine = resume
+    if mine:
+        BUSY.add(mine)
+    proc = subprocess.Popen(command(resume, images, local), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", cwd=HERE, creationflags=NO_WINDOW)
     seen = {"at": time.time()}
 
@@ -146,6 +155,7 @@ def chat(system_prompt, message, images=(), local=False):
 
     threading.Thread(target=feed, daemon=True).start()
     threading.Thread(target=watchdog, daemon=True).start()
+    said = False
     try:
         out = []
         for line in proc.stdout:
@@ -153,26 +163,35 @@ def chat(system_prompt, message, images=(), local=False):
             out.append(line)
             tid, texts, err = parse([line])
             if tid:
-                thread["id"] = tid
+                thread["id"] = mine = tid
+                BUSY.add(tid)
             for t in texts:
                 if t.strip():
+                    said = True
                     yield t
                     yield None
         proc.wait(timeout=30)
         _, texts, err = parse(out)
         if err or not texts:
             thread["id"] = None
+            detail = err or "".join(out)[-300:]
+            if _retry and not said and CONFLICT.search(detail):  # that conversation was locked: once more, fresh
+                BUSY.discard(mine)
+                yield from chat(system_prompt, message, images, local, _retry=False)
+                return
             raise RuntimeError(err or ("The local AI" if local else "ChatGPT") + " gave no answer: " + "".join(out)[-300:])
     finally:
+        BUSY.discard(mine)
         if proc.poll() is None:
             proc.kill()
 
 
-def run_task(prompt, cwd, timeout=1800, local=False):
+def run_task(prompt, cwd, timeout=1800, local=False, pc=True):
     """A background job (coding or PC work) done by ChatGPT, or the local AI, through Codex.
-    Returns (spoken summary, ok)."""
-    prompt = ("You have full access to this PC through the shell (PowerShell or cmd): you are not sandboxed and "
-              "may run commands and change files to do this job.\n\n" + prompt)
+    Returns (spoken summary, ok). pc: a PC job (shell and files anywhere); else a project job (that folder only)."""
+    prompt = (("You have full access to this PC through the shell (PowerShell or cmd): you are not sandboxed and "
+               "may run commands and change files to do this job.\n\n") if pc else
+              "Work only inside this project folder, reading and editing its files.\n\n") + prompt
     r = subprocess.run(command(None, (), local, cwd), input=prompt, capture_output=True, text=True, encoding="utf-8", cwd=cwd,
                        timeout=timeout, creationflags=NO_WINDOW)
     _, texts, err = parse(r.stdout.splitlines())
