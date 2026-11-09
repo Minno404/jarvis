@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.56.0** (shown at the bottom right of the HUD)
+**Version 1.56.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.56.1** (9 Nov 2026): ChatGPT coding jobs work. ChatGPT (Codex) reads and edits files by running shell
+  commands, so the "you can't run commands" rule written for Claude's coding jobs stopped it reading anything ("No
+  file-reading tool is available"). ChatGPT project jobs are now told to use the shell inside the project folder (read,
+  search, edit, run the project's own tests), still nothing outside it.
 - **1.56.0** (9 Nov 2026): the disk doctor ("disk doctor", "what's filling my drive?", "free up space"). In about
   half a minute Jarvis measures every drive, the biggest folders and files, and what can be cleared safely: temp files,
   crash dumps, browser, graphics shader and developer caches, Windows Update downloads, old installers in Downloads

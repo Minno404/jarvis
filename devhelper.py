@@ -78,9 +78,13 @@ def dev_status(id=None):
 
 OUTCOME = (" If you couldn't do it (something was denied or blocked, or a tool or access was missing), begin your "
            "summary with BLOCKED: and say exactly what stopped you. Never say it's done when it isn't.")
+NO_COMMANDS = "You can read and edit files here but can't run commands, so don't claim anything was tested."
+# ChatGPT (Codex) reads and edits files BY running shell commands, so it gets this instead of NO_COMMANDS
+CODEX_DEV = ("You work through the shell in this project folder: use it to read, search and edit files, and to run "
+             "the project's own checks or tests if it has them. Stay inside this folder, don't install software or "
+             "change system settings, and only say something was tested if you ran it.")
 DEV_PROMPT = ("You are helping {USER} with his project in this folder. Do what he asks, keeping changes small and "
-              "in the style of the existing code. You can read and edit files here but can't run commands, so "
-              "don't claim anything was tested. Finish with 2-3 plain sentences (no markdown or backticks) he can hear read aloud: what you "
+              "in the style of the existing code. " + NO_COMMANDS + " Finish with 2-3 plain sentences (no markdown or backticks) he can hear read aloud: what you "
               "changed (file names) or found, and anything he should check." + OUTCOME + "\n\nHis request: ")
 
 
@@ -172,7 +176,8 @@ def run_job(job, claude, brain="claude"):
             text, status = text or "No AI is set up for jobs on this PC (Claude, ChatGPT or the local AI).", "error"
         else:
             try:
-                text, ok = gpt_brain.run_task(prompt, job["path"], local=local, pc=job.get("kind") == "pc")
+                text, ok = gpt_brain.run_task(prompt.replace(NO_COMMANDS, CODEX_DEV), job["path"], local=local,
+                                              pc=job.get("kind") == "pc")
                 status = "done" if ok else "error"
             except Exception as e:
                 text, status = f"It didn't work: {type(e).__name__}.", "error"

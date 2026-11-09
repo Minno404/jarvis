@@ -191,7 +191,8 @@ def run_task(prompt, cwd, timeout=1800, local=False, pc=True):
     Returns (spoken summary, ok). pc: a PC job (shell and files anywhere); else a project job (that folder only)."""
     prompt = (("You have full access to this PC through the shell (PowerShell or cmd): you are not sandboxed and "
                "may run commands and change files to do this job.\n\n") if pc else
-              "Work only inside this project folder, reading and editing its files.\n\n") + prompt
+              "Work only inside this project folder. You read and edit its files with shell commands (that's allowed "
+              "and expected here).\n\n") + prompt
     r = subprocess.run(command(None, (), local, cwd), input=prompt, capture_output=True, text=True, encoding="utf-8", cwd=cwd,
                        timeout=timeout, creationflags=NO_WINDOW)
     _, texts, err = parse(r.stdout.splitlines())
