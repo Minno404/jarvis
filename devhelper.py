@@ -14,6 +14,7 @@ import re
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import features
@@ -182,6 +183,48 @@ def run_job(job, claude, brain="claude"):
     return f"Sir, {what} is {'done' if status == 'done' else 'stuck'}. {text}"
 
 
+_ORIGINAL_RUN_JOB = run_job
+
+
+def check_coding(brain="chatgpt"):
+    """Can ChatGPT (or the local AI) really do coding jobs on this PC? Finds what's in the way and runs a real test:
+    in a scratch folder it must create a file and run a command."""
+    import tempfile
+    import gpt_brain
+    found = []
+    current = globals()["run_job"]
+    if current is not _ORIGINAL_RUN_JOB:  # an add-on in custom/ replaced how jobs run
+        mod = sys.modules.get(getattr(current, "__module__", ""), None)
+        where = getattr(mod, "__file__", None) or getattr(current, "__module__", "an add-on")
+        found.append(f"An add-on replaces how background jobs run: {where}. Jobs go through it, not Jarvis's own "
+                     "runner, so its limits (sandbox, blocked tools, gates) apply. Move it out of custom/ (or fix it) "
+                     "and restart Jarvis to use the built-in runner.")
+    if gpt_brain.SANDBOX != "danger-full-access":
+        found.append(f"JARVIS_CODEX_SANDBOX is set to {gpt_brain.SANDBOX}. On Windows, Codex's sandbox blocks commands "
+                     "and file access outside it (the 'blocked by Windows' and 'Access denied' errors). Remove that "
+                     "setting so jobs run like Claude's.")
+    local = brain == "local"
+    if not local and not gpt_brain.available():
+        found.append("Codex (ChatGPT) isn't installed or signed in: run 'codex login' in a terminal.")
+        return {"ok": False, "problems": found}
+    with tempfile.TemporaryDirectory(prefix="jarvis-check-") as tmp:
+        try:
+            text, ok = gpt_brain.run_task("Create a file named jarvis_check.txt in this folder containing exactly OK. "
+                                          "Then run the command: python --version. Reply with the command's output.",
+                                          tmp, timeout=300, local=local, pc=True)
+        except Exception as e:
+            text, ok = f"{type(e).__name__}: {e}", False
+        made = (Path(tmp) / "jarvis_check.txt").exists()
+        ran = bool(re.search(r"Python \d", text or ""))
+    if not made:
+        found.append("The test couldn't create a file: " + (text or "no answer")[:300])
+    if not ran:
+        found.append("The test couldn't run a command: " + (text or "no answer")[:300])
+    return {"ok": made and ran and not found, "created_file": made, "ran_command": ran, "problems": found,
+            "note": "All good: ChatGPT can do coding jobs here." if made and ran and not found else
+                    "Tell him what's in the way (problems), in plain words, and what to do."}
+
+
 # ---------- Errors on the PC ----------
 EVENTS_PS = r"""[Console]::OutputEncoding=[Text.Encoding]::UTF8
 Get-WinEvent -FilterHashtable @{LogName='System','Application'; Level=1,2; StartTime=(Get-Date).AddHours(-HOURS)} `
@@ -224,9 +267,14 @@ def pc_errors(hours=24):
             "jarvis_log_errors": jarvis}
 
 
-FUNCS = {f.__name__: f for f in (screenshot, list_projects, add_project, dev_task, dev_status, pc_task, pc_errors)}
+FUNCS = {f.__name__: f for f in (screenshot, list_projects, add_project, dev_task, dev_status, pc_task, pc_errors,
+                                  check_coding)}
 S = {"type": "string"}
 TOOLS = [
+    {"name": "check_coding", "description": "Test whether ChatGPT (or the local AI: brain 'local') can really do coding "
+     "and PC jobs on this PC ('why can't ChatGPT code?', 'test ChatGPT coding'): finds add-ons or settings in the way "
+     "and runs a real test (create a file, run a command) in a scratch folder. Takes up to a few minutes.",
+     "input_schema": {"type": "object", "properties": {"brain": {"type": "string", "enum": ["chatgpt", "local"]}}}},
     {"name": "screenshot", "description": "Capture his screen (main monitor, or all_screens) to an image file, then "
      "Read that file to see it. Use for 'what's on my screen', 'read this', 'what does this error mean'.",
      "input_schema": {"type": "object", "properties": {"all_screens": {"type": "boolean"}}}},

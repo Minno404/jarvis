@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.55.0** (shown at the bottom right of the HUD)
+**Version 1.55.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.55.1** (9 Nov 2026): "Test ChatGPT coding": Jarvis checks whether ChatGPT can really do coding and PC jobs on
+  this PC. He looks for an add-on in custom/ that replaces how jobs run, or a sandbox setting (on Windows, Codex's
+  sandbox is what says "blocked" or "Access denied"), then has ChatGPT create a file and run a command in a scratch
+  folder, and tells you exactly what's in the way.
 - **1.55.0** (9 Nov 2026): fixes from a mate's maintenance notes and Jarvis's own log. When the brain you picked
   runs out of allowance (Claude's monthly spend limit), Jarvis says so and another brain answers, and he knows when
   it resets ("resets Nov 10, 12:30pm") instead of retrying it every message. Errors say what went wrong, not just

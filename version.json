@@ -1,4 +1,4 @@
 {
- "version": "1.55.0",
- "notes": "Brain limit fallback with reset times, readable errors, ChatGPT overlap fix, honest job status, Jarvis.exe direct-start fix."
+ "version": "1.55.1",
+ "notes": "Test ChatGPT coding: finds what's blocking ChatGPT jobs."
 }
