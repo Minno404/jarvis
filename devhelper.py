@@ -214,9 +214,10 @@ def check_coding(brain="chatgpt"):
         return {"ok": False, "problems": found}
     with tempfile.TemporaryDirectory(prefix="jarvis-check-") as tmp:
         try:
-            text, ok = gpt_brain.run_task("Create a file named jarvis_check.txt in this folder containing exactly OK. "
-                                          "Then run the command: python --version. Reply with the command's output.",
-                                          tmp, timeout=300, local=local, pc=True)
+            text, ok = gpt_brain.run_task(  # the same instructions a real project job gets
+                features.personal(DEV_PROMPT).replace(NO_COMMANDS, CODEX_DEV) + "Create a file named jarvis_check.txt "
+                "in this folder containing exactly OK. Then run the command: python --version, and include its output.",
+                tmp, timeout=300, local=local, pc=False)
         except Exception as e:
             text, ok = f"{type(e).__name__}: {e}", False
         made = (Path(tmp) / "jarvis_check.txt").exists()
