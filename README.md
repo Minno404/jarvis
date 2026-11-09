@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.54.1** (shown at the bottom right of the HUD)
+**Version 1.55.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,14 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.55.0** (9 Nov 2026): fixes from a mate's maintenance notes and Jarvis's own log. When the brain you picked
+  runs out of allowance (Claude's monthly spend limit), Jarvis says so and another brain answers, and he knows when
+  it resets ("resets Nov 10, 12:30pm") instead of retrying it every message. Errors say what went wrong, not just
+  "RuntimeError". ChatGPT no longer fails with "thread-store conflict" when two messages overlap (it starts a fresh
+  conversation instead of fighting over the busy one). Background jobs that couldn't do their work (blocked,
+  denied, missing access) are marked stuck instead of done, and ChatGPT project jobs are no longer told they can
+  run commands while being told they can't. Jarvis.exe opened directly no longer crashes: it finds its Python by
+  itself and starts Jarvis. Quieter log: no tracebacks when the HUD stops a reply or a voice clip early.
 - **1.54.1** (8 Nov 2026): click any panel's title to enlarge it (the blueprint opens in 3D), click it again to shrink
   it; dragging the title still moves the panel. Fixed enlarged panels' videos not restarting.
 - **1.54.0** (8 Nov 2026): the 3D blueprint has tools: Measure (click two points, get the real distance in mm), a

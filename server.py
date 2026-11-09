@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.54.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.55.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1300,7 +1300,7 @@ def brain_error(e):
         at = datetime.datetime.fromtimestamp(when).strftime("%a %d %b, %I:%M %p").replace(" 0", " ") if when else ""
         return (f"That brain's allowance is used up, {title}" + (f"; it resets {at}" if at else "") +
                 ". Pick another brain in Settings, or set it to Auto so I switch by myself.")
-X
+    msg = re.sub(r"\S*\d{2}T[\d:.]+Z\s+ERROR\s+\S+\s*", "", msg)  # Codex's log prefix
     return f"I can't reach my brain right now, {title}. {type(e).__name__}: {msg[:160] or 'no details'}"
 
 

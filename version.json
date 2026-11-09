@@ -1,4 +1,4 @@
 {
- "version": "1.54.1",
- "notes": "Click a panel's title to enlarge it, click again to shrink."
+ "version": "1.55.0",
+ "notes": "Brain limit fallback with reset times, readable errors, ChatGPT overlap fix, honest job status, Jarvis.exe direct-start fix."
 }
