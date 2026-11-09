@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.55.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.56.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -609,8 +609,9 @@ import workshop   # the hologram workshop: 3D models from his projects (see work
 import blueprint  # blueprint mode: something held up to the camera, drawn as a blueprint (see blueprint.py)
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
 import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
+import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -2101,6 +2102,12 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
+        if self.path in ("/api/disk_clean", "/api/disk_scan"):  # the disk doctor panel's buttons, from this PC only
+            if not self.local():
+                return self.send_error(403)
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n)) if n else {}
+            return self.send_json(disk.clean(body.get("ids") or []) if self.path == "/api/disk_clean" else disk.scan())
         if self.path == "/api/save_model":  # a blueprint exported as .stl/.glb: saved in Documents\Jarvis models
             try:
                 n = int(self.headers["Content-Length"])

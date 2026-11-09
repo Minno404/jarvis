@@ -98,6 +98,19 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
 .holo-panel > h3{cursor:zoom-in}#bigView .holo-panel > h3{cursor:zoom-out}
+.holo-panel.disk h4{margin:10px 0 4px;font-size:11px;letter-spacing:.12em;opacity:.7;text-transform:uppercase}
+.holo-panel.disk .dkdrive,.holo-panel.disk .dkrow{display:grid;grid-template-columns:minmax(0,1fr) 2fr auto;gap:8px;align-items:center;margin:3px 0;font-size:12px}
+.holo-panel.disk .dkdrive{grid-template-columns:40px 1fr auto}
+.holo-panel.disk .dkp{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+.holo-panel.disk .dkfiles .dkrow{grid-template-columns:minmax(0,1fr) auto}
+.holo-panel.disk .dkbar{height:8px;background:#ffffff14;border-radius:4px;overflow:hidden}
+.holo-panel.disk .dkbar i{display:block;height:100%;background:var(--cyan,#5fe3ff);border-radius:4px;transition:width .8s}
+.holo-panel.disk .dkbar i.hot{background:#ff5a5a}
+.holo-panel.disk .dkitem{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:center;margin:5px 0;font-size:12px;cursor:pointer}
+.holo-panel.disk .dkitem small{grid-column:2/4;opacity:.65;font-size:11px}
+.holo-panel.disk .dksz{font-variant-numeric:tabular-nums;opacity:.9}
+.holo-panel.disk .dkmsg{font-size:12px;margin-top:6px}
+.holo-panel.disk .dkmsg:empty{display:none}
 .holo-panel.blueprint .bp3tools{position:absolute;left:10px;bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:2;font:12px monospace;color:#cfeaff}
 .holo-panel.blueprint .bp3tools button{background:#04122299;border:1px solid #9fd2ff88;color:#dff4ff;padding:4px 10px;border-radius:4px;cursor:pointer;font:inherit}
 .holo-panel.blueprint .bp3tools button.on{background:#ffd36b33;border-color:#ffd36b}
@@ -1238,7 +1251,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -2099,6 +2112,46 @@ function showResearch(ev){
     im.onerror=()=>im.remove();g.append(im)}}
   if(ev.done)p.classList.add('done')}
 // ---- Run a simulation (simulate.py): the projection plays out like a suit simulation, scenarios side by side ----
+// The disk doctor: how full each drive is, what's using the space, and what can be cleared (tick, then Clear)
+const gbs=b=>b>=1073741824?(b/1073741824).toFixed(b>=10737418240?0:1)+' GB':Math.max(1,Math.round(b/1048576))+' MB';
+let DISK=null;
+function showDisk(ev){
+  if(DISK&&DISK.isConnected)closePanel(DISK);
+  const p=DISK=document.createElement('div');p.className='holo-panel disk wide';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3>Disk doctor</h3><div class="dkdrives"></div>'
+    +'<h4>Can be cleared</h4><div class="dkitems"></div><div class="hacts"><button type="button" class="dkgo">Clear selected</button><button type="button" class="dkre">Scan again</button></div>'
+    +'<div class="dkmsg" aria-live="polite"></div><h4>Biggest folders</h4><div class="dkbars"></div><h4>Biggest files</h4><div class="dkfiles"></div>';
+  p.querySelector('.holo-x').onclick=()=>closePanel(p);
+  const dr=p.querySelector('.dkdrives');for(const d of ev.drives){const pct=Math.round(100*d.used/Math.max(1,d.total)),row=document.createElement('div');row.className='dkdrive';
+    row.innerHTML='<b></b><div class="dkbar"><i></i></div><span></span>';row.querySelector('b').textContent=d.drive;
+    const i=row.querySelector('i');i.style.width=pct+'%';if(pct>=85)i.classList.add('hot');
+    row.querySelector('span').textContent=`${pct}% full · ${gbs(d.free)} free of ${gbs(d.total)}`;dr.append(row)}
+  const it=p.querySelector('.dkitems');
+  if(!ev.items.length)it.textContent='Nothing worth clearing right now.';
+  for(const x of ev.items){const l=document.createElement('label');l.className='dkitem';
+    l.innerHTML='<input type="checkbox"><b></b><span class="dksz"></span><small></small>';const cb=l.querySelector('input');cb.value=x.id;
+    cb.checked=!['installers','devcache','updates'].includes(x.id);  // the ones to think about are left unticked
+    l.querySelector('b').textContent=x.title;l.querySelector('.dksz').textContent=gbs(x.bytes);l.querySelector('small').textContent=x.why;it.append(l)}
+  const total=()=>ev.items.filter(x=>p.querySelector(`input[value="${x.id}"]`)?.checked).reduce((a,x)=>a+x.bytes,0);
+  const go=p.querySelector('.dkgo'),msg=p.querySelector('.dkmsg'),upd=()=>{go.textContent=`Clear selected (${gbs(total())})`;go.disabled=!total()};
+  it.onchange=upd;upd();go.hidden=!ev.items.length;
+  go.onclick=async()=>{const ids=[...it.querySelectorAll('input:checked')].map(c=>c.value);if(!ids.length)return;
+    go.disabled=true;msg.textContent='Clearing… (files in use are skipped)';
+    try{const r=await fetch('/api/disk_clean',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})}).then(x=>x.json());
+      msg.textContent=r.error||`Freed ${r.freed_gb} GB.`}catch(e){msg.textContent="Couldn't clear it: "+e.message}};
+  p.querySelector('.dkre').onclick=()=>{msg.textContent='Scanning… (about half a minute)';fetch('/api/disk_scan',{method:'POST'}).catch(()=>{})};
+  const fb=p.querySelector('.dkbars'),mx=Math.max(1,...ev.folders.map(f=>f.bytes));
+  for(const f of ev.folders){const row=document.createElement('div');row.className='dkrow';row.innerHTML='<span class="dkp"></span><div class="dkbar"><i></i></div><span class="dksz"></span>';
+    row.querySelector('.dkp').textContent=f.path;row.querySelector('.dkp').title=f.path;row.querySelector('i').style.width=(100*f.bytes/mx)+'%';
+    row.querySelector('.dksz').textContent=(f.complete?'':'≥ ')+gbs(f.bytes);fb.append(row)}
+  const ff=p.querySelector('.dkfiles');if(!ev.big_files.length)ff.textContent='No single file over 512 MB.';
+  for(const f of ev.big_files){const row=document.createElement('div');row.className='dkrow';row.innerHTML='<span class="dkp"></span><span class="dksz"></span>';
+    row.querySelector('.dkp').textContent=f.path;row.querySelector('.dkp').title=f.path;row.querySelector('.dksz').textContent=gbs(f.bytes);ff.append(row)}
+  $('holo').prepend(p);[...$('holo').children].slice(3).forEach(closePanel);movable(p,'disk');if(layout.disk)free(p,fromLayout(layout.disk));sfx('panel')}
+function diskCleaned(ev){
+  if(!DISK||!DISK.isConnected)return;DISK.querySelector('.dkmsg').textContent=`Freed ${gbs(ev.freed)}: `+ev.done.map(d=>`${d.title} ${d.freed_gb} GB`).join(', ');
+  const dr=DISK.querySelector('.dkdrives');ev.drives.forEach((d,k)=>{const row=dr.children[k];if(!row)return;const pct=Math.round(100*d.used/Math.max(1,d.total));
+    row.querySelector('i').style.width=pct+'%';row.querySelector('i').classList.toggle('hot',pct>=85);row.querySelector('span').textContent=`${pct}% full · ${gbs(d.free)} free of ${gbs(d.total)}`})}
 function showSim(ev){
   const p=document.createElement('div');p.className='holo-panel sim wide';
   p.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3></h3><div class="simbox"><canvas></canvas></div><div class="simleg"></div><div class="simins"></div><div class="hacts"><button type="button">Run it again</button></div>';

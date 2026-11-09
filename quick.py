@@ -74,6 +74,12 @@ def quick(text):
                     r"wake up(?: jarvis| daddy s home)?|daddy s home", t) and "boot_up" in R:
         R["boot_up"]()
         return "Initiating boot sequence."
+    if re.fullmatch(r"(?:run |open |start )?(?:the |a )?disk doctor|what s (?:filling|taking up|using) (?:up )?(?:all )?(?:my |the )?"
+                    r"(?:drive|disk|storage|space|c drive|hard drive)|free up (?:some )?(?:disk |drive )?space|"
+                    r"(?:clean up|scan) (?:my |the )?(?:drive|disk|c drive|storage)", t) and "disk_doctor" in R:
+        import threading
+        threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
+        return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
     if re.fullmatch(r"(?:put |send )?(?:the |my )?(?:pc|computer) to sleep|sleep (?:the |my )?(?:pc|computer)|"
                     r"good ?night jarvis", t) and "sleep_pc" in R:
         import threading

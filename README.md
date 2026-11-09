@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.55.1** (shown at the bottom right of the HUD)
+**Version 1.56.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.56.0** (9 Nov 2026): the disk doctor ("disk doctor", "what's filling my drive?", "free up space"). In about
+  half a minute Jarvis measures every drive, the biggest folders and files, and what can be cleared safely: temp files,
+  crash dumps, browser, graphics shader and developer caches, Windows Update downloads, old installers in Downloads
+  (to the Recycle Bin, so they can be restored), his own old pictures and the Recycle Bin. A panel shows it all with
+  tick boxes and a Clear button; nothing is removed until you choose. Files in use are skipped, links are never
+  followed, and your own files are never touched.
 - **1.55.1** (9 Nov 2026): "Test ChatGPT coding": Jarvis checks whether ChatGPT can really do coding and PC jobs on
   this PC. He looks for an add-on in custom/ that replaces how jobs run, or a sandbox setting (on Windows, Codex's
   sandbox is what says "blocked" or "Access denied"), then has ChatGPT create a file and run a command in a scratch
