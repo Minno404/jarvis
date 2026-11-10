@@ -1,4 +1,4 @@
 {
- "version": "1.60.0",
- "notes": "Token usage panel: say \"token usage\" to see what each brain and the autopilot use and how much is left."
+ "version": "1.60.1",
+ "notes": "Autopilot: ChatGPT screens every check, Claude is only asked to confirm a trade (saves your Claude limit)."
 }

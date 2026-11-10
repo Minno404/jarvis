@@ -295,11 +295,15 @@ def autopilot(week, day, brains):
         p["tokens"] += weight(e)
         p["cost"] += e["cost"]
     avg = _avg(ap)
+    ts = sorted(e["t"] for e in ap)
+    checks = sum(1 for i, t in enumerate(ts) if not i or t - ts[i - 1] > 120)  # calls a minute or two apart: one check
+    per_check = len(ap) / checks if checks else 1  # ChatGPT screens; Claude is only asked when it sees a trade
     out = {"today_calls": len(tday), "today_tokens": round(sum(weight(e) for e in tday)),
            "per_call": avg and round(avg),
            "brains": [{"name": k, "calls": v["calls"], "tokens": round(v["tokens"]), "cost": round(v["cost"], 3)}
                       for k, v in per_brain.items()],
-           "per_day": avg and round(avg * 2 * 96)}  # 2 brains every 15 minutes, all day
+           "per_check": round(per_check, 2),
+           "per_day": avg and round(avg * per_check * 96)}  # every 15 minutes, all day
     try:
         import mt5trade
         out["running"] = bool(mt5trade.trading_now())
@@ -373,7 +377,7 @@ def selftest():
         limit_hit("Claude")
         c = next(b for b in report(tmp / ".codex")["brains"] if b["name"] == "Claude")
         assert c["chats_left"] == 0  # ran out with what's in the window now
-        assert r["autopilot"]["today_calls"] == 1 and r["autopilot"]["per_day"] == 3000 * 192
+        assert r["autopilot"]["today_calls"] == 1 and r["autopilot"]["per_day"] == 3000 * 96
         rate_event({"type": "rate_limit_event", "rate_limit_info": {"status": "allowed_warning", "utilization": 0.5,
                                                                    "rateLimitType": "five_hour", "resetsAt": reset}})
         c = next(b for b in report(tmp / ".codex")["brains"] if b["name"] == "Claude")

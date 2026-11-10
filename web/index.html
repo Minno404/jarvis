@@ -2247,7 +2247,7 @@ function showUsage(ev){
     const a=ev.autopilot,ab=p.querySelector('.usa');ab.textContent='';
     ab.append(el('div','usday',(a.running?'Running now. ':'Off right now. ')+`Today: ${a.today_calls} brain calls, ${tok(a.today_tokens)} tokens.`));
     for(const x of a.brains)ab.append(el('div','usday',`${x.name}: ${x.calls} calls, ${tok(x.tokens)} tokens`+(x.cost?` (≈$${x.cost} at API prices)`:'')));
-    if(a.per_call)ab.append(el('div','usday',`About ${tok(a.per_call)} tokens per brain per check; a full day (96 checks, 2 brains) ≈ ${tok(a.per_day)} tokens.`));
+    if(a.per_call)ab.append(el('div','usday',`About ${tok(a.per_call)} tokens per brain per check; ${a.per_check} brain calls per check (ChatGPT screens, Claude only confirms a trade); a full day of 96 checks ≈ ${tok(a.per_day)} tokens.`));
     if(a.gpt_pct_per_hour!=null)ab.append(el('div','usleft',`Uses about ${a.gpt_pct_per_hour}% of ChatGPT's 5-hour limit per hour.`));
     if(!a.today_calls&&!a.per_call)ab.append(el('small',null,'No autopilot checks logged yet.'))};
   fill(ev);

@@ -493,7 +493,8 @@ def ask_chatgpt(prompt):
 
 
 def brains():
-    """The two brains to ask: Claude and ChatGPT, or DeepSeek standing in for whichever is missing."""
+    """The two brains to ask: ChatGPT then Claude, or DeepSeek standing in for whichever is missing. The first one
+    screens: the second (usually Claude, his main brain for chatting) is only asked when the first sees a trade."""
     import deepseek
     import gpt_brain
     out = []
@@ -503,7 +504,7 @@ def brains():
         out.append(("ChatGPT", ask_chatgpt))
     if len(out) < 2 and CLAUDE and deepseek.available() and not IS_OUT("DeepSeek"):
         out.append(("DeepSeek", lambda p: ask_claude(p, ds=True)))
-    return out[:2]
+    return sorted(out, key=lambda b: b[0] != "ChatGPT")[:2]  # ChatGPT first: it screens every check
 
 
 def agree(a, b, side_entry, digits):
@@ -683,6 +684,8 @@ class Autopilot:
             '"stop": price, "target": price, "confidence": 0-100, "reason": "one sentence"}')
         picks, names = [], []
         for name, ask in brains():
+            if picks and str((picks[0] or {}).get("action")).lower() not in ("buy", "sell"):
+                break  # the first brain sees no trade (or didn't answer): the second isn't asked, saving its limit
             try:
                 picks.append(_json_in(ask(prompt)))
             except Exception as e:
@@ -690,6 +693,10 @@ class Autopilot:
                 self.show(f"{name} didn't answer: {str(e)[:80]}")
             names.append(name)
         self.log({"at": datetime.datetime.now().isoformat(timespec="seconds"), "brains": dict(zip(names, picks))})
+        if len(picks) == 1 and picks[0]:
+            why = str(picks[0].get("reason", ""))[:110]
+            self.show(f"No trade: {names[0]} sees no clear setup right now." + (f" {why}" if why else ""))
+            return
         if len(picks) < 2 or not all(picks):
             self.show("No trade: both brains must answer")
             return
