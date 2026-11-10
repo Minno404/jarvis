@@ -896,7 +896,7 @@ const cv=$('core'),cx=cv.getContext('2d');let mode='idle',t=0,level=0,target=0,n
 let accent='95,227,255';const col={idle:'95,227,255',listening:'95,227,255',thinking:'255,179,71',speaking:'95,227,255',hold:'70,105,125'};
 // The 3D holographic core (three.js). Rings are real 3D segments tilted like a gyroscope, with
 // orbiting particles and a glowing heart. Falls back to the flat core if three.js didn't load.
-const RINGS=[[110,10,6,1,.7],[170,3,3,-.6,.85],[230,14,24,.35,.5],[300,2,2,-.25,.9],[350,6,60,.15,.35],[395,1.5,1,0,1]];
+const RINGS=[[110,16,6,1,.7],[170,5,3,-.6,.85],[230,20,24,.35,.5],[300,4,2,-.25,.9],[350,9,60,.15,.35],[395,2.5,1,0,1]];
 let holo3d=null;
 const par={x:0,y:0,tx:0,ty:0,on:false};  // pointer offset -1..1, eased; tilts the core and slides the background layers
 let split=null;const SPLIT_COL={claude:'217,119,87',gpt:'16,163,127'};  // split mode (see enterSplit)
