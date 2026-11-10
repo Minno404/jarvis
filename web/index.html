@@ -2496,7 +2496,10 @@ async function checkUpdate(show){
   b.onclick=async()=>{b.disabled=true;b.textContent='Updating…';
     try{const r=await (await fetch('/api/update',{method:'POST'})).json();
       if(r.error)throw new Error(r.error);
-      b.textContent='Restarting…';announce('Installing the update. Back in a moment.')}
+      b.textContent='Restarting…';announce('Installing the update. Back in a moment.');
+      const want=u.version,t0=Date.now(),poll=setInterval(async()=>{  // back up on the new version: reload the page (the phone too)
+        try{const v=(await (await fetch('/api/boot')).json()).version;if(v===want){clearInterval(poll);location.reload()}}catch(e){}
+        if(Date.now()-t0>180000)clearInterval(poll)},3000)}
     catch(e){b.disabled=false;b.textContent='Update failed: try again';console.log(e)}};
 }
 

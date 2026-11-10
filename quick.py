@@ -207,6 +207,14 @@ def quick(text):
         r = R["hud_panel"](m.group(2), show)
         return _ok(r, ("Done, {TITLE}." if not show else "Here you are, {TITLE}."))
     # --- Jarvis himself: restart or power down (never the PC: that needs saying "PC" and goes to Claude) ---
+    if re.fullmatch(r"(?:update|upgrade) (?:yourself|jarvis|your ?self)|install (?:the |your )?(?:latest )?update|"
+                    r"(?:get|grab|download) (?:the )?(?:latest )?update(?: and restart)?|update and restart", t) and "update_jarvis" in R:
+        r = R["update_jarvis"]()
+        if r.get("error"):
+            return "I couldn't update, {TITLE}. " + r["error"]
+        if not r.get("installed"):
+            return "I'm already on the latest version, {TITLE}: " + r.get("version", "") + "."
+        return "Installing version " + r["version"] + " and restarting, {TITLE}. Back in a moment."
     if re.fullmatch(r"(?:restart|reboot|reload|reset) (?:yourself|jarvis|your ?self)|(?:restart|reboot) (?:your )?systems", t):
         return _ok(R["jarvis_power"]("restart"), "Restarting, {TITLE}. Back in a moment.")
     if re.fullmatch(r"power (?:yourself )?down|power off|shut (?:yourself|jarvis) down|shut ?down (?:yourself|jarvis)|"

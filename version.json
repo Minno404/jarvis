@@ -1,4 +1,4 @@
 {
- "version": "1.59.1",
- "notes": "Phone replies no longer drop on long answers; clearer autopilot decisions."
+ "version": "1.59.2",
+ "notes": "Update Jarvis from your phone: the Update button, or say 'update yourself'."
 }

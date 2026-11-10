@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.59.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.59.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -860,6 +860,27 @@ def set_autostart(on):
         raise ValueError("Windows didn't let Jarvis change its startup setting. " + (r.stderr or "")[-200:])
     features._save("settings.json", {**features.settings(), "autostart": bool(on), "autostart_how": how[0]})
     return how[0]
+
+
+def update_jarvis():
+    """Install the latest version from GitHub and restart (voice: 'update yourself', from the PC or his phone)."""
+    try:
+        u = updater.check(VERSION)
+    except Exception as e:
+        return {"error": f"couldn't check GitHub: {e}"}
+    if u.get("error"):
+        return {"error": u["error"]}
+    if not u.get("update"):
+        return {"installed": 0, "version": VERSION}
+    files = updater.install()
+    threading.Timer(6.0, updater.restart).start()  # after he's heard the answer
+    return {"installed": len(files), "version": u.get("version", "")}
+
+
+FUNCS["update_jarvis"] = update_jarvis
+TOOLS.append({"name": "update_jarvis", "description": "Install the latest Jarvis from GitHub and restart ('update "
+              "yourself', 'install the update'); works from his phone too. Say you're updating first: Jarvis "
+              "restarts a few seconds after.", "input_schema": {"type": "object", "properties": {}}})
 
 
 def save_prefs(d):
@@ -1994,9 +2015,7 @@ class Handler(SimpleHTTPRequestHandler):
             d = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             return self.send_json(features.save_settings(d.get("name", ""), d.get("city", ""), d.get("title", "sir"),
                                                          d.get("features")))
-        if self.path == "/api/update":  # the HUD's Update button: install the new version and restart
-            if not self.local():
-                return self.send_error(403)
+        if self.path == "/api/update":  # the Update button, on this PC or his phone (allowed() checked the phone key)
             try:
                 TASKS["update"] = {"label": "Installing the update", "progress": None}
                 files = updater.install()

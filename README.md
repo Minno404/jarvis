@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.59.1** (shown at the bottom right of the HUD)
+**Version 1.59.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.59.2** (10 Nov 2026): update Jarvis from your phone. The Update button works on the phone too (it used to work
+  on the PC only), and you can say "update yourself" or "install the update" from either: Jarvis installs the latest
+  version, restarts on the PC, and the page reloads by itself once he's back on the new version.
 - **1.59.1** (10 Nov 2026): long answers no longer drop on the phone ("I have lost contact with the server"): while
   the brain thinks, Jarvis sends a small keep-alive every 10 seconds, because phones and Tailscale cut a silent
   connection after about a minute (and that also stopped the brain mid-answer). The autopilot card says what the
