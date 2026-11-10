@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.73.2** (shown at the bottom right of the HUD)
+**Version 1.73.3** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.73.3** (11 Nov 2026): on the phone, outside holo mode, Jarvis's sound mixes with whatever is playing (YouTube,
+  music) instead of pausing it. Holo mode still takes over the audio so he's heard properly.
 - **1.73.2** (11 Nov 2026): the phone no longer zooms in and shifts the page when he taps the message box (or any
   other box): iPhones zoom on text boxes under 16px, so on touch screens they're 16px.
 - **1.73.1** (11 Nov 2026): roster email on a day he picks, no alerts. Settings, Roster email, "Check on": on that
