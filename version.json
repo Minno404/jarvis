@@ -1,4 +1,4 @@
 {
- "version": "1.73.3",
- "notes": "Phone: Jarvis no longer pauses YouTube or music (except in holo mode)."
+ "version": "1.73.4",
+ "notes": "Phone: pick how Jarvis's voice plays with your other audio (Settings > Voice)."
 }
