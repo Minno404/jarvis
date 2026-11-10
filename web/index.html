@@ -367,6 +367,10 @@ body{user-select:none;-webkit-user-select:none}
 body.dropping::before{background:rgba(var(--rgb),.08);outline:2px dashed var(--cyan);outline-offset:-12px}
 @media (max-width:600px){#photoBtn{padding:0 10px}}
 .panel>.holo-x{top:8px;right:8px}
+.holo-pin{position:absolute;top:6px;right:30px;border:0;padding:2px 4px;background:none;font-size:calc(11px*var(--fs));line-height:1;z-index:1;opacity:.28;filter:grayscale(1);cursor:pointer}
+.panel>.holo-pin{top:8px;right:32px}.holo-pin:hover{opacity:.8}.pinned>.holo-pin{opacity:.95;filter:none}
+.pinned.free{resize:none}.pinned>h2,.pinned>h3{cursor:default}
+@media (max-width:999px){.holo-pin{display:none}}#bigView .holo-pin{display:none}
 /* Extra panel kinds */
 .prog{margin:8px 0}.prog .row{border:0;padding:0 0 4px}.prog .bar{height:6px}
 .prog .bar i.warnbar{background:var(--amber);box-shadow:0 0 8px var(--amber)}
@@ -1332,11 +1336,20 @@ for(const [k,b] of Object.entries(layout))if(b&&b.v===2&&b.w*(+getComputedStyle(
 for(const [k,b] of Object.entries(layout))if(!b||!(b.w>=100)||!(b.h>=50))delete layout[k];  // a closed panel's 0 x 0 saved by mistake (it opened as a speck top left)
 const saveLayout=()=>{try{localStorage.setItem(LAYOUT,JSON.stringify(layout))}catch(e){}};
 let topZ=10;
+let colPins=new Set();try{colPins=new Set(JSON.parse(localStorage.getItem('jarvis-colpins')||'[]'))}catch(e){}  // pinned, still in their column
 // Moved panels are remembered relative to the window (where across and down, and size in HUD scale), so the same
 // layout mirrors onto a bigger or smaller window and every panel is kept fully on screen.
 const scaleNow=()=>+getComputedStyle(document.documentElement).getPropertyValue('--s')||1;
 function toLayout(r){const S=scaleNow();return{fx:(r.left+r.width/2)/innerWidth,fy:(r.top+r.height/2)/innerHeight,w:r.width/S,h:r.height/S,v:2}}
+// A pinned panel keeps its distance from the window edges nearest to it (left/right/centre, top/bottom/middle), in
+// HUD scale, so when the window grows it stays beside the panels around it instead of drifting across the screen.
+function pinOf(r){const S=scaleNow(),cx=r.left+r.width/2,cy=r.top+r.height/2,
+    ax=cx<innerWidth/3?'l':cx>innerWidth*2/3?'r':'c',ay=cy<innerHeight/3?'t':cy>innerHeight*2/3?'b':'m';
+  return{ax,ay,dx:(ax==='l'?r.left:ax==='r'?innerWidth-r.right:cx-innerWidth/2)/S,dy:(ay==='t'?r.top:ay==='b'?innerHeight-r.bottom:cy-innerHeight/2)/S}}
 function fromLayout(b){
+  if(b.pin){const S=scaleNow(),P=b.pin,w=Math.min(b.w*S,innerWidth-8),h=Math.min(b.h*S,innerHeight-8),
+      x=P.ax==='l'?P.dx*S:P.ax==='r'?innerWidth-P.dx*S-w:innerWidth/2+P.dx*S-w/2,y=P.ay==='t'?P.dy*S:P.ay==='b'?innerHeight-P.dy*S-h:innerHeight/2+P.dy*S-h/2;
+    return{x:Math.max(0,Math.min(innerWidth-w,x)),y:Math.max(0,Math.min(innerHeight-h,y)),w,h}}
   if(b.v!==2)b={fx:(b.x+b.w/2)/Math.max(innerWidth,b.x+b.w),fy:(b.y+b.h/2)/Math.max(innerHeight,b.y+b.h),w:b.w,h:b.h};  // older saves
   const S=scaleNow(),w=Math.min(b.w*S,innerWidth-8),h=Math.min(b.h*S,innerHeight-8);
   return{x:Math.max(0,Math.min(innerWidth-w,b.fx*innerWidth-w/2)),y:Math.max(0,Math.min(innerHeight-h,b.fy*innerHeight-h/2)),w,h};
@@ -1361,9 +1374,9 @@ function movable(p,id){
   const remember=(mine)=>{if(!id||p.closest('#bigView')||!p.isConnected||p.classList.contains('out'))return;  // (enlarged or closing: not where he put it)
     const r=p.getBoundingClientRect();if(r.width<120||r.height<60)return;  // (a closing panel shrinks to nothing)
     if(!mine&&Date.now()-(+p.dataset.reflow||0)<800)return;  // a window resize or enlarge/shrink, not his change
-    layout[id]=toLayout(r);saveLayout()};
+    layout[id]={...toLayout(r),...(layout[id]?.pin?{pin:layout[id].pin}:{})};saveLayout()};
   h.addEventListener('pointerdown',e=>{
-    if(e.button||innerWidth<1000||e.target.closest('button')||p.closest('#bigView'))return;
+    if(e.button||innerWidth<1000||e.target.closest('button')||p.closest('#bigView')||p.classList.contains('pinned'))return;
     e.preventDefault();if(p.classList.contains('free'))p.style.zIndex=++topZ;else free(p);p.classList.add('lifted');
     const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;h.setPointerCapture(e.pointerId);
     const move=m=>{p.style.left=Math.max(0,Math.min(innerWidth-r.width,m.clientX-dx))+'px';p.style.top=Math.max(0,Math.min(innerHeight-r.height,m.clientY-dy))+'px'};
@@ -1372,6 +1385,15 @@ function movable(p,id){
   p.addEventListener('pointerdown',()=>{if(p.classList.contains('free'))p.style.zIndex=++topZ});
   let t;new ResizeObserver(()=>{if(p.classList.contains('free')){clearTimeout(t);t=setTimeout(remember,300)}}).observe(p);
   if(id&&layout[id]&&innerWidth>=1000)free(p,fromLayout(layout[id]));
+  if(id){  // the pin: locks the panel where it is (no dragging or resizing) and anchors it to the nearest window edges
+    const b=document.createElement('button');b.type='button';b.className='holo-pin';b.textContent='\u{1F4CC}';
+    const show=()=>{const on=!!layout[id]?.pin||(!p.classList.contains('free')&&colPins.has(id));p.classList.toggle('pinned',on);b.title=on?'Pinned: click to unpin':'Pin it here (locks it, and it keeps its place beside the panels around it when the window changes size)';b.setAttribute('aria-pressed',on)};
+    b.onclick=()=>{if(innerWidth<1000)return;
+      if(!p.classList.contains('free')){colPins.has(id)?colPins.delete(id):colPins.add(id);  // still in its column: just locked there
+        try{localStorage.setItem('jarvis-colpins',JSON.stringify([...colPins]))}catch(e){}}
+      else if(layout[id]?.pin)delete layout[id].pin;else{const r=p.getBoundingClientRect();layout[id]={...toLayout(r),pin:pinOf(r)}}
+      saveLayout();show();sfx('panel')};
+    const x=p.querySelector(':scope>.holo-x');x?x.after(b):p.prepend(b);setTimeout(()=>{const x2=p.querySelector(':scope>.holo-x');if(x2&&b.previousElementSibling!==x2)x2.after(b)},0);show()}
 }
 document.querySelectorAll('.panel[data-id]').forEach(p=>movable(p,p.dataset.id));
 // Side panels can be closed with their x; ask Jarvis to bring one back ("show the MT5 journal")

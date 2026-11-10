@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.70.7** (shown at the bottom right of the HUD)
+**Version 1.71.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.71.0** (11 Nov 2026): a pin button next to each panel's close button (on the PC). A pinned panel can't be
+  dragged or resized. Pinned in its side column, it stays in the column. Pinned somewhere he moved it, it keeps its
+  distance from the nearest window edges (left/right/centre, top/bottom/middle), so when the window is enlarged it
+  stays beside the panels around it instead of drifting across. Click the pin again to unpin.
 - **1.70.7** (11 Nov 2026): security fix. Other websites open in his browser could send commands to Jarvis at
   127.0.0.1:8765 (Jarvis fully trusts requests from this PC), or reach it through a domain pointed at 127.0.0.1.
   Every request now has to come from Jarvis's own page or a program on the PC: the Host must be this PC, a

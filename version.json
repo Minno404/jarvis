@@ -1,4 +1,4 @@
 {
- "version": "1.70.7",
- "notes": "Security fix: other websites can no longer send commands to Jarvis through your browser."
+ "version": "1.71.0",
+ "notes": "Pin panels in place: the pin next to the close button."
 }
