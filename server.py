@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.73.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.73.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2343,7 +2343,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"shown": bool(LIVE.get("show_window"))})
         if self.path == "/api/roster_mail":  # Settings > Roster email: save
             b = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            return self.send_json(roster_mail.roster_email_settings(b.get("gmail"), b.get("app_password"), b.get("sender"), b.get("name")))
+            return self.send_json(roster_mail.roster_email_settings(b.get("gmail"), b.get("app_password"), b.get("sender"),
+                                                                    b.get("name"), b.get("check_day")))
         if self.path == "/api/focus":  # a panel he's absorbed in (roleplay) opened or closed
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             if body.get("what") == "roleplay":
@@ -3252,14 +3253,19 @@ if __name__ == "__main__":
                 print(datetime.datetime.now(), "left off:", repr(e))
 
         def roster_watch():
-            """Every 2 hours: a new roster email? Say so (reading it needs the brain, so he says 'get my roster')."""
+            """On the day he picked (Settings > Roster email), once from 9 am: if the newest roster email isn't the one
+            loaded last time, the brain loads it and he hears how many shifts came in. No alerts otherwise."""
             while True:
-                time.sleep(7200)
+                time.sleep(1800)
                 try:
-                    uid = roster_mail.check_new()
-                    if uid and LIVE.get("roster_told") != uid:
-                        LIVE["roster_told"] = uid
-                        say("Your new roster just came in, sir. Say 'get my roster' and I'll load your shifts.")
+                    if roster_mail.due():
+                        uid = roster_mail.check_new()
+                        roster_mail.checked()
+                        if uid:
+                            ask_claude_and_say(
+                                "[Automatic weekly roster check, not typed by {USER}] A new roster email is in. Call "
+                                "get_roster, find his shifts, save them with save_shifts, then tell him in one short "
+                                "spoken sentence how many shifts and hours you loaded and when the first one is.")
                 except Exception as e:
                     print(datetime.datetime.now(), "roster check:", repr(e)[:200])
         threading.Thread(target=roster_watch, daemon=True).start()

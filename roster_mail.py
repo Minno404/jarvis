@@ -25,9 +25,29 @@ def conf():
     return features._load(CONF, {})
 
 
-def roster_email_settings(gmail=None, app_password=None, sender=None, name=None):
-    """Save the roster email settings (any left out stay as they were). Returns them without the password."""
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def due(now=None):
+    """The weekly check: his chosen day, from 9 am, and not done yet today."""
+    c, now = conf(), now or datetime.datetime.now()
+    day = c.get("check_day", "")
+    return (day in DAYS and DAYS.index(day) == now.weekday() and now.hour >= 9
+            and c.get("last_check") != now.date().isoformat())
+
+
+def checked(now=None):
     c = conf()
+    c["last_check"] = (now or datetime.datetime.now()).date().isoformat()
+    features._save(CONF, c)
+
+
+def roster_email_settings(gmail=None, app_password=None, sender=None, name=None, check_day=None):
+    """Save the roster email settings (any left out stay as they were). Returns them without the password.
+    check_day: the weekday Jarvis looks for a new roster and loads it ('' for never)."""
+    c = conf()
+    if check_day is not None:
+        c["check_day"] = str(check_day).lower() if str(check_day).lower() in DAYS else ""
     for k, v in (("gmail", gmail), ("sender", sender), ("name", name)):
         if v is not None:
             c[k] = str(v).strip()
@@ -40,6 +60,7 @@ def roster_email_settings(gmail=None, app_password=None, sender=None, name=None)
 def public():
     c = conf()
     return {"gmail": c.get("gmail", ""), "sender": c.get("sender", ""), "name": c.get("name", ""),
+            "check_day": c.get("check_day", ""),
             "password_saved": bool(c.get("app_password")), "last_uid": c.get("last_uid")}
 
 
@@ -182,6 +203,11 @@ def selftest():
         assert r["password_saved"] and "app_password" not in r and conf()["app_password"] == "abcdefghijklmnop"
         msg = email.message_from_string("Subject: =?utf-8?q?Roster_w/c_17_Nov?=\n\nhi")
         assert _name(msg.get("Subject")) == "Roster w/c 17 Nov"
+        roster_email_settings(check_day="Wednesday")
+        wed = datetime.datetime(2026, 11, 11, 10)  # a Wednesday
+        assert due(wed) and not due(wed.replace(hour=8)) and not due(wed + datetime.timedelta(days=1))
+        checked(wed)
+        assert not due(wed)
         print("roster mail self-test passed")
     finally:
         features.HERE = real

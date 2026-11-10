@@ -1,4 +1,4 @@
 {
- "version": "1.73.0",
- "notes": "Roster from Gmail: set it up in Settings > Roster email, then \"get my roster\"."
+ "version": "1.73.1",
+ "notes": "Roster email: pick the day Jarvis checks; he loads a new roster by himself."
 }
