@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.59.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.59.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -2219,7 +2219,23 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/x-ndjson")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            send = lambda obj: (self.wfile.write((json.dumps(obj) + "\n").encode()), self.wfile.flush())
+            wlock, last = threading.Lock(), [time.time()]
+
+            def send(obj):
+                with wlock:
+                    self.wfile.write((json.dumps(obj) + "\n").encode())
+                    self.wfile.flush()
+                    last[0] = time.time()
+            done = threading.Event()
+
+            def heartbeat():  # while the brain thinks, a small line every 10 s: phones and Tailscale drop a silent
+                while not done.wait(10):  # connection after a minute or so ("lost contact with the server")
+                    if time.time() - last[0] >= 10:
+                        try:
+                            send({"k": 1})
+                        except (ConnectionError, OSError):
+                            return
+            threading.Thread(target=heartbeat, daemon=True).start()
             pieces, reply = chat_stream(text, photo), []
             try:
                 for p in pieces:
@@ -2234,6 +2250,7 @@ class Handler(SimpleHTTPRequestHandler):
                 except ConnectionError:
                     return None
             finally:
+                done.set()
                 pieces.close()  # stops Claude Code if the window closed mid-reply
                 if reply and not text.startswith("[Automatic"):
                     learn.log_exchange(text, "".join(reply).strip())

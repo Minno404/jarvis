@@ -686,14 +686,14 @@ class Autopilot:
         a = picks[0]
         s = next((k for k in market if k.upper().startswith(str(a.get("symbol", "")).upper()[:6])), None)
         if not s:
-            self.show(f"No trade: {names[0]} said {a.get('action')}, {names[1]} said {picks[1].get('action')}")
+            self.show(self.no_trade(names, picks))
             return
         tick, info = mt5.symbol_info_tick(s), mt5.symbol_info(s)
         entry = tick.ask if a.get("action") == "buy" else tick.bid
         deal = agree({**a, "symbol": s}, {**picks[1], "symbol": s if str(picks[1].get("symbol", "")).upper()[:6] == s.upper()[:6] else picks[1].get("symbol")},
                      entry, info.digits)
         if not deal:
-            self.show(f"No trade: {names[0]} said {a.get('action')}, {names[1]} said {picks[1].get('action')}")
+            self.show(self.no_trade(names, picks))
             return
         if deal["rr"] < lim["auto_min_rr"]:
             self.show(f"No trade: both said {deal['side']} {s}, but reward:risk is only {deal['rr']:.1f}")
@@ -719,6 +719,15 @@ class Autopilot:
             self.show(f"Traded: {deal['side']} {lots} {s}")
         else:
             self.show("Trade refused: " + r.get("error", "?"))
+
+    @staticmethod
+    def no_trade(names, picks):
+        """'No trade: both brains see no setup (Claude: ...)' for the card: what each said, and why."""
+        acts = [str((p or {}).get("action") or "no answer") for p in picks]
+        why = next((str(p.get("reason", ""))[:110] for p in picks if p and p.get("reason")), "")
+        head = (f"both brains see no clear setup right now" if acts == ["none", "none"] else
+                f"they disagree ({names[0]}: {acts[0]}, {names[1]}: {acts[1]})")
+        return f"No trade: {head}." + (f" {names[0]}: {why}" if why else "")
 
     def log(self, entry):
         log = _load(AUTO_LOG, [])[-500:]

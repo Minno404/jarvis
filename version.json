@@ -1,4 +1,4 @@
 {
- "version": "1.59.0",
- "notes": "Trading with the screens off, and a Test trade button."
+ "version": "1.59.1",
+ "notes": "Phone replies no longer drop on long answers; clearer autopilot decisions."
 }
