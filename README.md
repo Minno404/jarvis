@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.70.6** (shown at the bottom right of the HUD)
+**Version 1.70.7** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.70.7** (11 Nov 2026): security fix. Other websites open in his browser could send commands to Jarvis at
+  127.0.0.1:8765 (Jarvis fully trusts requests from this PC), or reach it through a domain pointed at 127.0.0.1.
+  Every request now has to come from Jarvis's own page or a program on the PC: the Host must be this PC, a
+  Tailscale name or localhost, a browser's Origin must match it, and the browser must not mark it cross-site.
 - **1.70.6** (11 Nov 2026): "MT5", "MetaTrader" and "open MT5" always mean the plain MetaTrader 5 app. Jarvis no longer
   asks which broker terminal (FTMO, Purple Trading, EightCap, VantageFX) to open.
 - **1.70.5** (11 Nov 2026): thicker core rings (about 1.6 times as wide).

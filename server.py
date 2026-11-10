@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.70.6"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.70.7"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2086,8 +2086,36 @@ class Handler(SimpleHTTPRequestHandler):
         p = ip.split(".")
         return len(p) == 4 and p[0] == "100" and 64 <= int(p[1]) <= 127
 
+    def same_site(self):
+        """Blocks other websites from using Jarvis through his own browser. A page on any other site can send
+        requests to 127.0.0.1:8765, and those arrive from this PC, which Jarvis trusts fully. Three checks: the Host
+        must be an address of this PC, a Tailscale name or "localhost" (a site's own domain pointed at 127.0.0.1,
+        "DNS rebinding", fails); a browser's Origin must be that same host; and the browser's own Sec-Fetch-Site
+        must not say cross-site (top-level page loads excepted, so links to Jarvis still open it)."""
+        host = (self.headers.get("Host") or "").strip().lower()
+        name = host[1:].split("]")[0] if host.startswith("[") else host.rsplit(":", 1)[0]
+        if not (name in ("localhost", "127.0.0.1", "::1") or name.endswith(".ts.net")
+                or re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", name) or ":" in name):
+            return False
+        origin = self.headers.get("Origin")
+        if origin is not None:
+            from urllib.parse import urlsplit
+            o = (urlsplit(origin).netloc or "").lower()
+            fwd = (self.headers.get("X-Forwarded-Host") or "").lower()
+            # (Tailscale's secure link proxies the phone's request: its Origin is the .ts.net name)
+            if not o or o not in (host, fwd) and not (self.via_tailscale_https() and o.split(":")[0].endswith(".ts.net")):
+                return False
+        site = self.headers.get("Sec-Fetch-Site", "")
+        if site == "cross-site" and not (self.command == "GET" and self.headers.get("Sec-Fetch-Mode") == "navigate"):
+            return False
+        return True
+
     def allowed(self):
-        """This PC always; his devices on Tailscale; a phone once it has opened the pairing link (it keeps a cookie)."""
+        """This PC always; his devices on Tailscale; a phone once it has opened the pairing link (it keeps a cookie).
+        Never another website acting through his browser (same_site)."""
+        if not self.same_site():
+            self.send_error(403, "Not from another website")
+            return False
         if self.local():
             return True
         LIVE["phone_seen"] = time.time()  # (allowed or not: only used to decide whether to hand off to the phone)
