@@ -1,4 +1,4 @@
 {
- "version": "1.64.0",
- "notes": "Blueprints now use Claude Fable 5.2; everything else stays on Sonnet."
+ "version": "1.64.1",
+ "notes": "Fable only makes blueprints; enlarging, pulling apart and the rest use Sonnet."
 }

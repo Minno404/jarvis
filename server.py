@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.64.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.64.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1585,20 +1585,18 @@ def system_prompt_file():
 
 CHAT_MODEL = os.environ.get("JARVIS_CLI_MODEL", "sonnet")
 BLUEPRINT_MODEL = os.environ.get("JARVIS_BLUEPRINT_MODEL", "claude-fable-5-2")  # the strongest at shapes and parts
-BLUEPRINT_TALK = re.compile(r"blue ?print|(?:pull|take|tear|break) (?:it|this|that) (?:apart|open)|dissect|"
-                            r"what'?s inside|tear ?down|exploded? view|(?:more|finer|fine) detail|1:1|to scale", re.I)
+BLUEPRINT_MAKE = re.compile(r"blue ?print|(?:more|finer|fine|extra) detail", re.I)  # making one, or a part in detail
+BLUEPRINT_HANDLE = re.compile(r"\b(?:enlarge|shrink|bigger|smaller|close|hide|clear|rotate|spin|turn|zoom|save|"
+                              r"export|download|measure|slice|move|reset|pull|explode|apart|inside)\b", re.I)
 
 
 def chat_model(text, ds=False):
-    """Blueprint work (asking for one, or anything said within 10 minutes of the last one) goes to Fable; the rest
-    stays on the everyday model."""
+    """Only making a blueprint (or building a part of it in more detail) goes to Fable. Handling one that's already
+    up (enlarge it, pull it apart, rotate, save) and everything else stays on the everyday model."""
     if ds or LIVE.get("no_blueprint_model"):
         return CHAT_MODEL
-    try:
-        recent = time.time() - (HERE / "blueprint_state.json").stat().st_mtime < 600
-    except OSError:
-        recent = False
-    return BLUEPRINT_MODEL if recent or BLUEPRINT_TALK.search(text or "") else CHAT_MODEL
+    t = text or ""
+    return BLUEPRINT_MODEL if BLUEPRINT_MAKE.search(t) and not BLUEPRINT_HANDLE.search(t) else CHAT_MODEL
 
 
 class NoModel(Exception):
