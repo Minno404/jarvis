@@ -1,4 +1,4 @@
 {
- "version": "1.61.0",
- "notes": "Autopilot quiet hours: no chart checks 04:00 to 10:30 daily and Saturday 04:00 to Monday 10:30 (change in Settings, Trading)."
+ "version": "1.62.0",
+ "notes": "Phone panels stay until closed; autopilot panel at the bottom while it runs; MT5 journal per account."
 }

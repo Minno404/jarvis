@@ -837,11 +837,11 @@ async function sync(){
   try{const r=await fetch('/api/journal');if(!r.ok)throw 0;trades=await r.json();live=true}catch(e){live=false}
   $('jtag').textContent=live?'LIVE':'EXAMPLE';$('api').textContent=live?'Online':'Offline';$('api').style.color=live?'var(--cyan)':'var(--amber)';
   render();
-  try{const r=await fetch('/api/mt5');if(!r.ok)throw 0;const d=await r.json(),st=d.stats;if(!st.trades)throw 0;
+  try{const r=await fetch('/api/mt5');if(!r.ok)throw 0;const d=await r.json(),st=d.stats;if(!st.trades&&!st.account)throw 0;  // (an account with no trades yet: an empty journal)
     const money=v=>(v<0?'-$':'+$')+Math.abs(v).toFixed(2);
-    $('acct').textContent=String(st.account||'MT5').replace(/^MT5 /,'');$('mN').textContent=st.trades;$('mW').textContent=st.win_rate+'%';
-    $('mP').textContent=money(st.net_pnl);$('mP').className=st.net_pnl>=0?'win':'loss';
-    $('mF').textContent=st.profit_factor??'-';$('mL').textContent=Object.keys(st.top_loss_reasons)[0]||'-';
+    $('acct').textContent=String(st.account||'MT5').replace(/^MT5 /,'');$('mN').textContent=st.trades;$('mW').textContent=st.trades?st.win_rate+'%':'-';
+    $('mP').textContent=money(st.net_pnl||0);$('mP').className=(st.net_pnl||0)>=0?'win':'loss';
+    $('mF').textContent=st.profit_factor??'-';$('mL').textContent=Object.keys(st.top_loss_reasons||{})[0]||'-';
     $('mT').innerHTML=d.recent.slice().reverse().map(t=>`<tr><td>${esc(t.symbol)}</td><td>${esc(t.direction)}</td><td class="${t.pnl>=0?'win':'loss'}">${money(t.pnl)}</td><td style="color:var(--mute)">${esc(t.tags.split(',')[0])}</td></tr>`).join('');
     $('mt5').hidden=false;
   }catch(e){$('mt5').hidden=true}
@@ -1275,9 +1275,13 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;keepTrack(ev,()=>dispatch(ev))}
   }catch(e){}
 }
+function dispatch(ev){if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+// Phone: panels that come up stay up the next time the app opens, until closed with their x (the side panels
+// already remember being closed). The trading autopilot's panel is the exception: it's at the bottom when the
+// autopilot is running, and not there when it isn't.
 setInterval(events,1000);events();
 // ---- Hand-off: walk away from the PC and the phone carries on (the conversation, and the panels on screen) ----
 let pickedUp=0;
@@ -2181,7 +2185,7 @@ function showAuto(ev){
   if(!AUTOP||!AUTOP.isConnected){AUTOP=document.createElement('div');AUTOP.className='holo-panel autop';
     AUTOP.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3>Trading autopilot</h3><div class="aprows"></div><div class="hacts"><button type="button" class="apgo"></button><button type="button" class="aptest">Test trade</button></div>';
     AUTOP.querySelector('.aptest').onclick=runTestTrade;
-    AUTOP.querySelector('.holo-x').onclick=()=>closePanel(AUTOP);$('holo').prepend(AUTOP);movable(AUTOP,'autop');if(layout.autop)free(AUTOP,fromLayout(layout.autop))}
+    AUTOP.querySelector('.holo-x').onclick=()=>closePanel(AUTOP);if(PHONE){AUTOP.classList.add('docked');phoneDock(AUTOP)}else{$('holo').prepend(AUTOP);movable(AUTOP,'autop');if(layout.autop)free(AUTOP,fromLayout(layout.autop))}}
   const L=ev.limits||{},rows=[['Status',ev.on?'ON':'off'],['Trades today',`${ev.trades_today||0} of ${L.auto_max_trades}`],
     ['Size a trade',amt(L.trade_size,L.trade_size_unit)],['Daily loss limit',amt(L.trade_daily_loss,L.trade_daily_loss_unit)],
     ...(L.trade_daily_target?[['Daily target',amt(L.trade_daily_target,L.trade_daily_target_unit)]]:[]),...(L.trade_equity_floor?[['Equity floor','$'+L.trade_equity_floor]]:[]),['Account',L.auto_live?'real money allowed':'demo only'],
@@ -2376,7 +2380,7 @@ new MutationObserver(()=>{  // a panel Jarvis just opened for an "enlarge" reque
   if(BIG.pending&&Date.now()-BIG.pending<180000){const p=$('holo').querySelector('.holo-panel:not(.out)');if(p){BIG.pending=0;enterBig(p)}}
   if(BIG.el&&!$('bigView').contains(BIG.el))exitBig()}).observe($('holo'),{childList:true});
 new MutationObserver(()=>{if(BIG.el&&(BIG.el.classList.contains('out')||!BIG.el.isConnected))setTimeout(()=>exitBig(),450)}).observe($('bigView'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
-function closePanel(p){if(p.classList.contains('out'))return;sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
+function closePanel(p){if(p.classList.contains('out'))return;forget(p);sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
 function showPanel(ev){
   const p=document.createElement('div'),h=document.createElement('h3'),x=document.createElement('button');
   sfx('panel');p.className='holo-panel';h.textContent=ev.title;x.className='holo-x';x.type='button';x.textContent='\u00d7';x.setAttribute('aria-label','Close panel');x.onclick=()=>closePanel(p);
@@ -2884,4 +2888,20 @@ if(!LOCAL&&location.protocol==='https:'&&navigator.serviceWorker)navigator.servi
   for(;;){try{const r=await fetch('/api/alive',{cache:'no-store'});if(r.ok){if(down)location.reload();return}}catch(e){}
     if(!down){down=true;try{add('j','Jarvis is restarting on your PC. This page reconnects the moment he is back.')}catch(e){}}
     await new Promise(r=>setTimeout(r,2000))}})();
+// (phone panel keeping: see keepTrack above; here because LOCAL is defined further down)
+var PHONE=!LOCAL&&!PIN,KEEP_KEY='jarvis-phone-panels',KEEP_TYPES=new Set(['panel','sim','disk','usage','research','blueprint']);
+var kept={};try{kept=JSON.parse(localStorage.getItem(KEEP_KEY)||'{}')}catch(e){}
+const saveKept=()=>{try{localStorage.setItem(KEEP_KEY,JSON.stringify(kept))}catch(e){}};
+function keepTrack(ev,run){if(typeof PHONE==='undefined')return run();
+  if(!PHONE||!KEEP_TYPES.has(ev.type))return run();
+  const before=new Set($('holo').children);run();
+  const p=[...$('holo').children].find(x=>!before.has(x)&&!x.classList.contains('out'));
+  if(!p)return;const key=ev.type==='panel'?'panel:'+(ev.title||''):ev.type;
+  p.dataset.keep=key;kept[key]={...ev,at:Date.now()};saveKept()}
+function forget(p){if(p?.dataset.keep&&kept[p.dataset.keep]){delete kept[p.dataset.keep];saveKept()}}
+function phoneDock(p){  // the bottom of the phone's panel column
+  const last=[...document.querySelectorAll('.panel[data-id]')].pop();if(last)last.parentElement.append(p);else $('holo').append(p)}
+if(PHONE){
+  for(const ev of Object.values(kept).sort((a,b)=>a.at-b.at))try{keepTrack({...ev,seconds:null},()=>dispatch({...ev,seconds:null}))}catch(e){}
+  fetch('/api/autopilot',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"status":1}'}).then(r=>r.json()).then(st=>{if(st.on)showAuto(st)}).catch(()=>{})}
 </script>

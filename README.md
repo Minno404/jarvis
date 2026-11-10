@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.61.0** (shown at the bottom right of the HUD)
+**Version 1.62.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.62.0** (11 Nov 2026): phone panels stay. Panels that come up on the phone are still there the next time the
+  app opens, until closed with their x. The trading autopilot's panel sits at the bottom of the phone's panels
+  whenever the autopilot is running (and can stop or start it from there), and isn't there when it's off. The MT5
+  journal records each trade's account number and shows only the account MT5 is logged into: log into another
+  account and the journal switches to that account's trades (empty for a new one). Switching back brings the old
+  ones back.
 - **1.61.0** (11 Nov 2026): autopilot quiet hours. From 04:00 to 10:30 every day, and from Saturday 04:00 to
   Monday 10:30, the autopilot doesn't look at charts or ask the brains, even when it's on. Trades already open are
   still managed (break-even). Change the times in Settings, Trading, "Quiet hours" (this PC's clock).

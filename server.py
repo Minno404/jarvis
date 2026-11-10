@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.61.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.62.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -133,7 +133,7 @@ def journal_report(since=None):
 MT5_CSV, MT5_READS = HERE / "mt5_positions.csv", HERE / "mt5_reads.json"
 REPORTS = HERE / "mt5 reports"  # drop MT5 History reports (.html) here
 CSV_COLS = ["position", "opened", "closed", "symbol", "direction", "volume", "entry", "exit",
-            "stop", "tp", "pnl", "balanceAtOpen"]
+            "stop", "tp", "pnl", "balanceAtOpen", "account"]  # account: the MT5 login the trade was on
 
 
 def parse_report(path):
@@ -189,7 +189,9 @@ def parse_report(path):
         except (IndexError, ValueError):
             continue  # a summary row, not a trade
     balances.sort()
+    acct = re.search(r"Account:\s*(\d+)", re.sub(r"<[^>]+>", " ", text))
     for t in positions:
+        t["account"] = acct.group(1) if acct else ""
         before = [b for tm, b in balances if tm <= t["opened"]]
         t["balanceAtOpen"] = before[-1] if before else ""
         for k in ("opened", "closed"):
@@ -217,14 +219,20 @@ def _merge_positions(rows, source, replace=False):
     import csv
     known = {r["position"]: r for r in csv.DictReader(MT5_CSV.open(encoding="utf-8"))} if MT5_CSV.exists() else {}
     before = len(known)
+    changed = False
     for t in rows:
-        if replace or t["position"] not in known:
-            known[t["position"]] = t
-    if len(known) == before and not replace:
+        old = known.get(t["position"])
+        if replace or old is None:
+            known[t["position"]] = {**t, "account": t.get("account") or (old or {}).get("account", "")}
+            changed = True
+        elif t.get("account") and not old.get("account"):  # a trade saved before accounts were recorded
+            old["account"] = t["account"]
+            changed = True
+    if not changed:
         return
     tmp = MT5_CSV.with_suffix(".tmp")
     with tmp.open("w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, CSV_COLS)
+        w = csv.DictWriter(fh, CSV_COLS, extrasaction="ignore", restval="")
         w.writeheader()
         w.writerows(sorted(known.values(), key=lambda r: r["closed"]))
     tmp.replace(MT5_CSV)
@@ -357,11 +365,17 @@ def mt5_sync_live():
         return  # never launch MT5 just to read history
     mt5 = _mt5()
     acct = mt5.account_info()
+    if not acct:
+        return
     state = features._load("state.json", {})
-    if acct and state.get("mt5_account") != f"MT5 {acct.login}":
-        features._save("state.json", {**state, "mt5_account": f"MT5 {acct.login}"})
+    if state.get("mt5_account") != f"MT5 {acct.login}" or state.get("mt5_login") != str(acct.login):
+        # logged into another account: the journal now shows that account's trades
+        features._save("state.json", {**state, "mt5_account": f"MT5 {acct.login}", "mt5_login": str(acct.login)})
     deals = mt5.history_deals_get(datetime.datetime(2020, 1, 1), datetime.datetime.now() + datetime.timedelta(days=2))
-    _merge_positions(positions_from_deals(deals or [], mt5.account_info().balance), "MT5 terminal")
+    rows = positions_from_deals(deals or [], acct.balance)
+    for r in rows:
+        r["account"] = str(acct.login)
+    _merge_positions(rows, "MT5 terminal")
 
 
 def mt5_load(since=None, until=None, symbol=None):
@@ -374,8 +388,15 @@ def mt5_load(since=None, until=None, symbol=None):
     if not MT5_CSV.exists():
         return []
     reads = {r["position"]: r for r in json.loads(MT5_READS.read_text())} if MT5_READS.exists() else {}
+    rows = list(csv.DictReader(MT5_CSV.open(encoding="utf-8")))
+    login = features._load("state.json", {}).get("mt5_login")
+    if login and any(t.get("account") == login for t in rows):
+        rows = [t for t in rows if t.get("account") == login]  # only the MT5 account he's logged into
+    elif login and any(t.get("account") for t in rows):
+        rows = []  # an account with no trades yet: an empty journal (trades from before accounts were recorded show
+        #            only until the first look at MT5 labels them)
     out = []
-    for t in csv.DictReader(MT5_CSV.open(encoding="utf-8")):
+    for t in rows:
         if since and t["closed"] < since or until and t["closed"][:10] > until:
             continue
         if symbol and symbol.upper().replace("/", "") not in t["symbol"]:
@@ -390,7 +411,7 @@ def mt5_load(since=None, until=None, symbol=None):
 def mt5_report(since=None, until=None, symbol=None):
     ts = mt5_load(since, until, symbol)
     if not ts:
-        return {"trades": 0}
+        return {"trades": 0, "account": features._load("state.json", {}).get("mt5_account")}
     wins, losses = [t for t in ts if t["pnl"] > 0], [t for t in ts if t["pnl"] < 0]
     gross_win, gross_loss = sum(t["pnl"] for t in wins), -sum(t["pnl"] for t in losses)
     group = lambda key: {k: {"trades": len(v), "net": round(sum(t["pnl"] for t in v), 2),
@@ -2186,8 +2207,8 @@ class Handler(SimpleHTTPRequestHandler):
             if not self.local():
                 return self.send_error(403)
             return self.send_json(mt5trade.test_trade())
-        if self.path in ("/api/trade_confirm", "/api/autopilot"):  # trade tickets and the autopilot: this PC only
-            if not self.local():
+        if self.path in ("/api/trade_confirm", "/api/autopilot"):  # trade tickets: this PC only; the autopilot's
+            if self.path == "/api/trade_confirm" and not self.local():  # status, start and stop: his phone too
                 return self.send_error(403)
             n = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(n)) if n else {}
