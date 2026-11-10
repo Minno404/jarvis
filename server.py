@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.68.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.69.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -802,6 +802,28 @@ def _args(tool):
     return ", ".join(out)
 
 
+# Fewer tokens per message: each tool gets the first sentence of its description in the brain's instructions (the
+# full one is a tool_help call away), except these, whose full rules matter every time (money, deleting, power).
+FULL_DESC = {"close_app", "propose_trade", "propose_change", "trading_settings", "autopilot", "test_trade",
+             "cleanup_run", "disk_clean", "sleep_pc", "jarvis_power", "pc_task", "dev_task", "update_jarvis",
+             "incognito", "remember"}
+
+
+def short_desc(d):
+    m = re.match(r"(.{20,140}?[.!?;])(\s|$)", d)
+    return m.group(1) if m else (d[:140] + "...") if len(d) > 140 else d
+
+
+def tool_help(name):
+    t = next((t for t in TOOLS if t["name"] == name), None)
+    return {"name": name, "description": t["description"], "arguments": t["input_schema"]} if t else {
+        "error": f"No tool called {name}"}
+
+
+FUNCS["tool_help"] = tool_help
+TOOLS.append({"name": "tool_help", "description": "The full description and arguments of one of your tools.",
+              "input_schema": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}})
+
 CLI_PROMPT = SYSTEM + """
 Your tools are commands. Run one with the Bash tool exactly like this, JSON arguments in single quotes:
   python server.py tool <name> '{"arg": "value"}'
@@ -812,8 +834,10 @@ when it helps you answer: your own docs and code here (README.md, CUSTOM.md, *.p
 image after the screenshot tool, or a photo he sends you (uploads/...). To change or add to anything, including
 yourself (new panels, features, fixes), don't do it in chat: hand it to the coder with dev_task (project
 "jarvis" for changes to you; it reads CUSTOM.md and builds in custom/, kept through updates) and say it's on it.
-The tools, as name(arguments; * = required):
-""" + "\n".join(f"- {t['name']}({_args(t)}): {t['description']}" for t in TOOLS)
+The tools, as name(arguments; * = required), each with the start of its description. Before using a tool whose
+arguments or rules you aren't sure of, read its full description: python server.py tool tool_help '{"name": "<tool>"}'
+""" + "\n".join(f"- {t['name']}({_args(t)}): {t['description'] if t['name'] in FULL_DESC else short_desc(t['description'])}"
+                 for t in TOOLS)
 
 
 UPLOADS = HERE / "uploads"  # photos he sends Jarvis
@@ -960,6 +984,8 @@ def save_prefs(d):
         s = features.settings()
     if isinstance(d.get("features"), dict):
         s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
+    if d.get("claude_route") in ("auto", "sonnet"):  # Settings > Brain > Claude model
+        s["claude_route"] = d["claude_route"]
     if "incognito_model" in d:  # an Ollama model of his choosing for incognito chats (downloaded in the background)
         m = str(d["incognito_model"] or "").strip()
         if m and not re.fullmatch(r"[\w./:-]{1,100}", m):
@@ -1004,7 +1030,7 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
-                                                            "local_voice", "local_on", "incognito_model", "split_claude_voice",
+                                                            "local_voice", "local_on", "incognito_model", "claude_route", "split_claude_voice",
                                                             "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -1652,13 +1678,25 @@ BLUEPRINT_HANDLE = re.compile(r"\b(?:enlarge|shrink|bigger|smaller|close|hide|cl
                               r"export|download|measure|slice|move|reset|pull|explode|apart|inside)\b", re.I)
 
 
+QUICK_MODEL = os.environ.get("JARVIS_QUICK_MODEL", "haiku")  # everyday requests: a fraction of Sonnet's share of the limit
+HARDER = re.compile(r"\b(?:code|coding|program|script|debug|bug|fix|build|analy[sz]|plan|strateg|compare|explain|why|"
+                    r"research|write|essay|email|letter|summar|review|report|journal|trad(?:e|es|ing)|chart|gold|"
+                    r"xau|setup|spend|spending|budget|simulat|calculat|math|translat|advice|should i|decide|"
+                    r"photo|picture|screenshot|uploads/|recipe|plan)\w*", re.I)
+
+
 def chat_model(text, ds=False):
-    """Only making a blueprint (or building a part of it in more detail) goes to Fable. Handling one that's already
-    up (enlarge it, pull it apart, rotate, save) and everything else stays on the everyday model."""
-    if ds or LIVE.get("no_blueprint_model"):
-        return CHAT_MODEL
+    """Which Claude model answers. Making a blueprint goes to Fable. With Settings > Brain > Claude model on Auto
+    (the default), everyday requests (open this, what's the weather, timers, the TV...) go to Haiku and anything
+    that needs more thought (trading, writing, explaining, planning, photos, long messages) to Sonnet."""
     t = text or ""
-    return BLUEPRINT_MODEL if BLUEPRINT_MAKE.search(t) and not BLUEPRINT_HANDLE.search(t) else CHAT_MODEL
+    if ds:
+        return CHAT_MODEL
+    if not LIVE.get("no_blueprint_model") and BLUEPRINT_MAKE.search(t) and not BLUEPRINT_HANDLE.search(t):
+        return BLUEPRINT_MODEL
+    if features.settings().get("claude_route", "auto") != "auto" or len(t) > 280 or HARDER.search(t):
+        return CHAT_MODEL
+    return QUICK_MODEL
 
 
 class NoModel(Exception):
@@ -1668,8 +1706,12 @@ class NoModel(Exception):
 def chat_cli(text, ds=False):
     """Talk through Claude Code, which runs on the user's Claude plan instead of API credits. ds: on DeepSeek's
     servers instead (deepseek.py)."""
+    model = chat_model(text, ds)
+    if model == BLUEPRINT_MODEL:  # its instructions only carry the start of each tool's description: the whole one here
+        text += "\n[Your blueprint tools in full: " + json.dumps(
+            [tool_help(n) for n in ("blueprint", "blueprint_detail", "research_object", "research_parts")]) + "]"
     try:
-        yield from _chat_cli(text, ds, chat_model(text, ds))
+        yield from _chat_cli(text, ds, model)
     except NoModel:
         yield from _chat_cli(text, ds, CHAT_MODEL)
 

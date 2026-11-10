@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.68.1** (shown at the bottom right of the HUD)
+**Version 1.69.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,13 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.69.0** (11 Nov 2026): uses far less of the Claude plan.
+  - Everyday requests (apps, weather, timers, the TV) go to Claude Haiku; trading, writing, explaining, planning,
+    photos and long messages go to Sonnet; making a blueprint to Fable. Settings, Brain, "Claude model" switches to
+    "Always Sonnet".
+  - The brain's instructions carry only the first sentence of each tool's description (the full one is a tool_help
+    call away), except the tools where the rules matter every time (money, deleting, power): about 31% shorter.
+  - Local AI model choices add Liquid LFM3 1.7B: small, fast on the processor and strong at using tools.
 - **1.68.1** (11 Nov 2026): custom add-on panels can call their own add-on's functions (POST /api/custom_call; only
   custom/*.py FUNCS, never the core tools). See CUSTOM.md.
 - **1.68.0** (11 Nov 2026): incognito mode and REA.

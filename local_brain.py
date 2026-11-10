@@ -26,7 +26,8 @@ MODELS = [(14, "gpt-oss:20b", "gpt-oss 20B (OpenAI's open model): the best fit f
           (7, "qwen3:8b", "Qwen3 8B: good for mid-range graphics cards"),
           (0, "qwen3:4b", "Qwen3 4B: small and quick, for modest PCs")]
 # Settings > Brain > Local AI model: smaller is quicker and lighter, bigger is cleverer
-SIZES = [("qwen3:1.7b", "Tiny: Qwen3 1.7B (1.4 GB, quickest, fine for chat and simple commands)"),
+SIZES = [("lfm3:1.7b-q4_K_M", "Tiny, best for the processor: Liquid LFM3 1.7B (1.1 GB, fast, strong at using tools; needs Ollama 0.40.13+)"),
+         ("qwen3:1.7b", "Tiny: Qwen3 1.7B (1.4 GB, quickest, fine for chat and simple commands)"),
          ("qwen3:4b", "Small: Qwen3 4B (2.5 GB, a good balance)"),
          ("qwen3:8b", "Medium: Qwen3 8B (5 GB, best on a graphics card)"),
          ("gpt-oss:20b", "Large: gpt-oss 20B (13 GB, cleverest, needs lots of memory)")]

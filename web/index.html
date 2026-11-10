@@ -696,6 +696,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI voice</span><select id="localVoice" style="flex:1"></select><button type="button" id="localVoiceTest">Test</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI model</span><select id="localModel" style="flex:1"></select></div>
+      <div class="keyrow"><span class="hint" style="min-width:110px">Claude model</span><select id="claudeRoute" style="flex:1"><option value="auto">Auto: Haiku for everyday, Sonnet for harder (saves your limit)</option><option value="sonnet">Always Sonnet</option></select></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Incognito model</span><input id="incogModel" type="text" placeholder="optional: an Ollama model (name:tag) that answers in incognito" autocomplete="off" style="flex:1"><button type="button" id="incogSave">Save</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI runs on</span><select id="localOn" style="flex:1"><option value="gpu">Graphics card (fast)</option><option value="ram">RAM and processor (slower, keeps the graphics card free)</option></select></div>
     </fieldset>
@@ -2838,8 +2839,10 @@ function showIncognito(on){document.documentElement.classList.toggle('incognito'
     b.onclick=()=>fetch('/api/incognito',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"on":false}'});document.body.append(b)}
   if(!on&&b)b.remove()}
 fetch('/api/incognito').then(r=>r.json()).then(r=>showIncognito(r.on)).catch(()=>{});
+$('claudeRoute').onchange=()=>savePref({claude_route:$('claudeRoute').value});
 $('incogSave').onclick=()=>savePref({incognito_model:$('incogModel').value.trim()});
 function showPrefs(p){
+  if(p.claude_route)$('claudeRoute').value=p.claude_route;
   if('incognito_model' in p&&document.activeElement!==$('incogModel'))$('incogModel').value=p.incognito_model||'';
   prefs={...prefs,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&v!==null))};
   if(p.depth_mode&&(p.depth_mode==='standard')!==depthStd)applyDepth(p.depth_mode);  // the saved pref wins over this device's copy

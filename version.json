@@ -1,4 +1,4 @@
 {
- "version": "1.68.1",
- "notes": "Custom add-on panels can call their own functions."
+ "version": "1.69.0",
+ "notes": "Cheaper on the Claude plan: Haiku for everyday requests, a shorter prompt; LFM3 1.7B as a local AI choice."
 }
