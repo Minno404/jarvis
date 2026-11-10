@@ -1,4 +1,4 @@
 {
- "version": "1.62.1",
- "notes": "Phone voice works straight away: the plain Tailscale address now goes to the secure link by itself."
+ "version": "1.62.2",
+ "notes": "Split mode on the phone: triple-tap the core."
 }

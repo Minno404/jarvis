@@ -29,7 +29,7 @@ h2{font-family:var(--display);font-size:calc(11px*var(--s)*var(--fs));letter-spa
 .brand{font-family:var(--display);font-weight:700;letter-spacing:.6em;font-size:calc(clamp(20px,3vw,calc(30px*var(--s)))*var(--fs));color:var(--cyan);text-shadow:0 0 20px rgba(var(--rgb),.6);margin-right:-.6em}
 .sub{color:var(--mute);letter-spacing:.3em;font-size:calc(10px*var(--s)*var(--fs));text-transform:uppercase}
 canvas{width:min(calc(420px*var(--s)),100%);aspect-ratio:1;max-width:100%}
-.core-wrap{position:relative;width:min(calc(420px*var(--s)),100%,62vh);aspect-ratio:1;max-width:100%;cursor:pointer}
+.core-wrap{position:relative;width:min(calc(420px*var(--s)),100%,62vh);aspect-ratio:1;max-width:100%;cursor:pointer;touch-action:manipulation}
 .core-wrap canvas{position:absolute;inset:0;width:100%;height:100%}
 .state{font-family:var(--display);letter-spacing:.4em;text-transform:uppercase;font-size:calc(12px*var(--s)*var(--fs));color:var(--amber)}
 .log{width:100%;max-width:calc(640px*var(--s));height:calc(200px*var(--s));overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
@@ -66,7 +66,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .qr div{background:#fff;padding:8px;line-height:0}
 .modal p{color:var(--mute);line-height:1.6;margin:8px 0}.modal a{color:var(--cyan)}
 @media (max-width:1000px){.wrap{grid-template-columns:1fr}.center{order:-1}}
-@media (max-width:600px){canvas,.core-wrap{width:min(240px,62vw)}.sub{display:none}.log{height:28vh}.brand{font-size:calc(20px*var(--fs))}}
+@media (max-width:600px){canvas,.core-wrap{width:min(240px,62vw)}.core-wrap.split{width:96vw}.sub{display:none}.log{height:28vh}.brand{font-size:calc(20px*var(--fs))}}
 /* Holographic panels that float out of the core */
 .center{position:relative}
 .holo{position:absolute;top:calc(64px*var(--s));right:-10px;width:min(calc(330px*var(--s)),42%);display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
@@ -1157,7 +1157,7 @@ function enterSplit(){
       +`<div class="sc-tag">${sd==='gpt'?'ChatGPT':'Claude'}<small>${sd==='gpt'?'cons':'pros'}</small></div></div>`).join('');$('coreWrap').append(box)}
   split={speaker:null};for(const el of box.querySelectorAll('.sc-side')){const c=el.querySelector('canvas');split[el.dataset.side]={c,cx:c.getContext('2d')}}
   $('coreWrap').classList.add('split');dispatchEvent(new Event('resize'));sfx('panel');
-  add('j','Split mode. Ask me anything: Claude gives you the pros, ChatGPT the cons. Triple-click either of us, or say "Jarvis merge", to merge back.');
+  add('j','Split mode. Ask me anything: Claude gives you the pros, ChatGPT the cons. '+(LOCAL?'Triple-click':'Triple-tap')+' either of us, or say "Jarvis merge", to merge back.');
 }
 async function mergeSplit(sd){
   if(!split)return;stopSpeaking();busy=false;split=null;$('coreWrap').classList.remove('split');dispatchEvent(new Event('resize'));setMode('idle');sfx('panel');
@@ -1166,7 +1166,9 @@ async function mergeSplit(sd){
   if(r.using)showBrain(r.using);
   add('j',r.error?`Merged back, but I couldn't switch my brain: ${r.error}`:`Merged back into one, thinking with ${r.using} from now on.`);
 }
-$('coreWrap').addEventListener('click',e=>{if(e.detail!==3)return;
+let taps=[];  // triple-click, or triple-tap on a phone (phones report every tap as a single click)
+$('coreWrap').addEventListener('click',e=>{const now=performance.now();taps=[...taps.filter(t=>now-t<600),now];
+  if(e.detail!==3&&taps.length<3)return;taps=[];
   if(!split)return enterSplit();const sd=e.target.closest('.sc-side')?.dataset.side;if(sd)mergeSplit(sd)});
 async function debate(q){
   if(voiceOn)stopSpeaking();

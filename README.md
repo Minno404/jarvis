@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.62.1** (shown at the bottom right of the HUD)
+**Version 1.62.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.62.2** (11 Nov 2026): split mode on the phone. Triple-tap the core to split it into Claude (pros) and
+  ChatGPT (cons), triple-tap either one to merge back with that one as the brain. The two cores fill the phone's width.
 - **1.62.1** (11 Nov 2026): the phone always opens Jarvis's secure Tailscale link, where its microphone works.
   Opening the plain Tailscale address (http://...:8765) sends the phone straight to the https one, and the Pair
   phone QR code only offers the secure link.
