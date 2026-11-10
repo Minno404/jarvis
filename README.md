@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.64.1** (shown at the bottom right of the HUD)
+**Version 1.65.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.65.0** (11 Nov 2026): a more 3D core and a deeper HUD (designed with Claude Fable 5.2). The core is a lit
+  sphere in a turning wire shell, with banded rings at their own tilts and depths that spread apart as Jarvis talks,
+  fog on their far side, and a slight lean toward the mouse. Behind it: a dot field, a perspective floor grid and a
+  vignette that shift at different rates as the mouse moves. Panels float: a lit top edge, a shadow and glow under
+  them, and a slow 3-pixel hover (off on phones and with reduced motion).
 - **1.64.1** (11 Nov 2026): Fable only makes blueprints. Asking for a blueprint or for more detail on a part uses
   Fable; handling one that's up (enlarge, pull it apart, rotate, close, save) and everything else uses Sonnet. The
   10-minute window after a blueprint is gone.

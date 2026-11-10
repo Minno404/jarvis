@@ -17,7 +17,7 @@ body{background:radial-gradient(ellipse at 50% 40%,var(--bg-glow) 0%,var(--void)
 body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.03) 0 1px,transparent 1px 3px)}
 .wrap{min-height:100%;box-sizing:border-box;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:calc(260px*var(--s)) 1fr calc(300px*var(--s));gap:calc(16px*var(--s));max-width:none;margin:0 auto}
 .col{display:flex;flex-direction:column;gap:calc(16px*var(--s));min-width:0}
-.panel{background:var(--panel);border:1px solid var(--line);padding:calc(14px*var(--s));position:relative;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);backdrop-filter:blur(4px)}
+.panel{background:var(--panel);border:1px solid var(--line);padding:calc(14px*var(--s));position:relative;clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 60px),100% 100%,calc(100% - 12px) 100%,100% calc(100% - 12px),100% 100%,calc(100% + 50px) calc(100% + 60px),-50px calc(100% + 60px));backdrop-filter:blur(4px);box-shadow:var(--float)}
 .panel::before{content:"";position:absolute;top:0;left:12px;width:40px;height:2px;background:var(--cyan)}
 h2{font-family:var(--display);font-size:calc(11px*var(--s)*var(--fs));letter-spacing:.25em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px;font-weight:600}
 .clock{font-family:var(--display);font-size:calc(44px*var(--s)*var(--fs));font-weight:700;color:var(--cyan);text-shadow:0 0 18px rgba(var(--rgb),.5);font-variant-numeric:tabular-nums;line-height:1}
@@ -71,8 +71,8 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .center{position:relative}
 .holo{position:absolute;top:calc(64px*var(--s));right:-10px;width:min(calc(330px*var(--s)),42%);display:flex;flex-direction:column;gap:12px;z-index:5;pointer-events:none}
 .holo-panel{pointer-events:auto;position:relative;background:rgba(6,30,46,calc(var(--pa) + .22));border:1px solid var(--cyan-dim);padding:calc(12px*var(--s)) calc(14px*var(--s)) calc(10px*var(--s));
-  box-shadow:0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
-  transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}
+  box-shadow:var(--float),0 0 28px rgba(var(--rgb),.18),inset 0 0 30px rgba(var(--rgb),.06);backdrop-filter:blur(3px);
+  transform-origin:left center;animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both,bob 9s steps(1) .7s infinite}
 .handoff{text-align:center;color:var(--cyan);letter-spacing:.25em;font-size:calc(10px*var(--s)*var(--fs));margin:10px 0;opacity:.8;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0;text-transform:uppercase}
 .holo-panel.workshop .wsbox{position:relative;height:calc(260px*var(--s));margin-top:6px;border:1px solid var(--line);
@@ -173,13 +173,14 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
   text-transform:uppercase;line-height:1.9;pointer-events:none;z-index:6;text-shadow:0 0 8px rgba(var(--rgb),.6);transition:opacity .6s}
 .boot .ok{color:var(--text)}.boot .dim{color:var(--mute)}
 @media (max-width:1000px){.holo{position:static;width:100%;max-width:640px}}
+@media (max-width:600px){.holo-panel{animation:holoIn .65s cubic-bezier(.2,.8,.2,1) both}}
 @media (prefers-reduced-motion:reduce){.holo-panel,.holo-panel.out{animation:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 /* Polish: corner brackets, a slow scan sweep, a faint grid, colour changes fade */
 body{transition:background .8s}
 .panel,.holo-panel,h2,.clock,.brand,.bar i{transition:border-color .8s,color .8s,background-color .8s,box-shadow .8s,text-shadow .8s}
 .panel::after{content:"";position:absolute;right:12px;bottom:0;width:40px;height:2px;background:var(--cyan);opacity:.5}
-.panel:hover{border-color:var(--cyan-dim);box-shadow:0 0 22px rgba(var(--rgb),.12)}
+.panel:hover{border-color:var(--cyan-dim);box-shadow:var(--float),0 0 22px rgba(var(--rgb),.14)}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:linear-gradient(rgba(var(--rgb),.035) 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,rgba(var(--rgb),.035) 1px,transparent 1px) 0 0/48px 48px;
   mask-image:radial-gradient(ellipse at 50% 40%,#000 0%,transparent 75%)}
@@ -190,9 +191,9 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 /* Movable, resizable panels: drag by the title, resize from the bottom-right corner */
 .grip{cursor:grab;user-select:none;touch-action:none}.grip:active{cursor:grabbing}
 .free{position:fixed!important;margin:0!important;resize:both;overflow:auto;z-index:8;max-width:none!important;box-sizing:border-box;
-  clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px)!important;animation:none!important}
+  clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 60px),-50px calc(100% + 60px))!important;animation:none!important}
 .free::-webkit-resizer{background:linear-gradient(135deg,transparent 50%,var(--cyan) 50%,var(--cyan) 60%,transparent 60%,transparent 72%,var(--cyan) 72%,var(--cyan) 82%,transparent 82%)}
-.free.lifted{box-shadow:0 0 36px rgba(var(--rgb),.35);border-color:var(--cyan)}
+.free.lifted{box-shadow:var(--float),0 0 36px rgba(var(--rgb),.35);border-color:var(--cyan)}
 .holo-panel.free{display:flex;flex-direction:column}
 .holo-panel .pic{display:block;width:100%;height:auto;max-height:340px;object-fit:contain;background:rgba(0,0,0,.25);
   filter:drop-shadow(0 0 10px rgba(var(--rgb),.25));animation:picIn .8s ease-out both}
@@ -253,9 +254,24 @@ form{opacity:.55;transition:opacity .3s}form:hover,form:focus-within{opacity:1}
 .chip{border-color:transparent;background:rgba(var(--rgb),.04)}.chip:hover{border-color:var(--line)}
 /* Backgrounds ("make the background stars", or Settings) */
 #bgimg,#bgfx{position:fixed;inset:0;pointer-events:none;z-index:0}
-#bgimg{background-size:cover;background-position:center}
+#bgimg{background-size:cover;background-position:center;inset:-12px}
 #bgfx{width:100%!important;height:100%!important;max-width:none;aspect-ratio:auto}
 #bgimg::after{content:"";position:absolute;inset:0;background:rgba(3,7,12,var(--bg-dim,.55))}
+/* Depth: far dots, a perspective floor and a vignette sit behind everything and slide under the pointer (see parallax);
+   panels keep still above them with a lit top edge, a dark drop shadow and an accent glow underneath. */
+:root{--float:inset 0 1px 0 rgba(var(--rgb),.16),inset 0 0 26px rgba(var(--rgb),.04),0 14px 24px -10px rgba(0,0,0,.85),0 26px 40px -20px rgba(var(--rgb),.34)}
+#depth{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+#depth i,#depth b{position:absolute;display:block}
+#depth .far{inset:-30px;opacity:.55;background:radial-gradient(circle,rgba(var(--rgb),.6) 0 1px,transparent 1.6px) 0 0/140px 120px,radial-gradient(circle,rgba(200,230,255,.4) 0 1px,transparent 1.6px) 70px 50px/190px 170px}
+#depth .floor{left:-40px;right:-40px;bottom:-30px;height:44%;perspective:560px;perspective-origin:50% 0;-webkit-mask-image:linear-gradient(transparent 4%,#000 90%);mask-image:linear-gradient(transparent 4%,#000 90%)}
+#depth .floor i{left:-60%;right:-60%;top:0;height:300%;transform-origin:50% 0;transform:rotateX(66deg);overflow:hidden}
+#depth .floor b{inset:0;background:linear-gradient(rgba(var(--rgb),.2) 1.5px,transparent 1.5px) 0 0/56px 56px,linear-gradient(90deg,rgba(var(--rgb),.2) 1.5px,transparent 1.5px) 50% 0/56px 56px}
+#depth .vig{inset:0;background:radial-gradient(ellipse at 50% 42%,transparent 40%,rgba(0,0,0,.6) 100%)}
+body[data-bg=image] #depth>:not(.vig),body[data-bg=stars] #depth>:not(.vig),body[data-bg=rain] #depth>:not(.vig),body[data-bg=hex] #depth .far,html.pc-holo #depth>:not(.vig),html.pinmode #depth{display:none}
+body[data-bg=dark] #depth>:not(.vig){opacity:.3}body[data-bg=nebula] #depth .floor{opacity:.5}
+@keyframes bob{0%{transform:none}17%,83%{transform:translate3d(0,-1px,0)}33%,67%{transform:translate3d(0,-2px,0)}50%{transform:translate3d(0,-3px,0)}}
+@media (min-width:601px){.col>.panel{animation:bob 9s steps(1) infinite}.col>.panel:nth-child(2n){animation-delay:-3s}.col>.panel:nth-child(3n){animation-delay:-6s}
+  html.pinmode .panel{animation:none}}
 body[data-bg=dark]{background:var(--void)}body[data-bg=dark]::before{opacity:.35}
 body[data-bg=grid]::before{background:linear-gradient(rgba(var(--rgb),.09) 1px,transparent 1px) 0 0/32px 32px,linear-gradient(90deg,rgba(var(--rgb),.09) 1px,transparent 1px) 0 0/32px 32px;
   mask-image:radial-gradient(ellipse at 50% 45%,#000 10%,transparent 85%)}
@@ -492,6 +508,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
 <div class="wingrip" id="wingrip" hidden></div>
 <div id="winedges" hidden><i class="rz n" data-e="n"></i><i class="rz s" data-e="s"></i><i class="rz e" data-e="e"></i><i class="rz w" data-e="w"></i><i class="rz ne" data-e="ne"></i><i class="rz nw" data-e="nw"></i><i class="rz se" data-e="se"></i><i class="rz sw" data-e="sw"></i></div>
 <div id="bgimg" hidden></div><canvas id="bgfx" hidden aria-hidden="true"></canvas>
+<div id="depth" aria-hidden="true"><i class="far"></i><i class="floor"><i><b></b></i></i><i class="vig"></i></div>
 <div id="amb" aria-hidden="true"><i class="rainfx"></i></div>
 <div class="sweep" aria-hidden="true"></div>
 <div class="wrap">
@@ -857,44 +874,58 @@ let accent='95,227,255';const col={idle:'95,227,255',listening:'95,227,255',thin
 // orbiting particles and a glowing heart. Falls back to the flat core if three.js didn't load.
 const RINGS=[[110,10,6,1,.7],[170,3,3,-.6,.85],[230,14,24,.35,.5],[300,2,2,-.25,.9],[350,6,60,.15,.35],[395,1.5,1,0,1]];
 let holo3d=null;
+const par={x:0,y:0,tx:0,ty:0,on:false};  // pointer offset -1..1, eased; tilts the core and slides the background layers
 let split=null;const SPLIT_COL={claude:'217,119,87',gpt:'16,163,127'};  // split mode (see enterSplit)
 function build3d(){
   if(!window.THREE||calm)return null;
   try{
     const c3=$('core3d'),r=new THREE.WebGLRenderer({canvas:c3,alpha:true,antialias:true});
     r.setPixelRatio(Math.min(devicePixelRatio||1,2));
-    const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(38,1,.1,100);cam.position.set(0,0,10.5);
+    const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(38,1,.1,100);cam.position.set(0,0,9.8);
     const u=3.4/420,add=THREE.AdditiveBlending,mats=[],world=new THREE.Group();scene.add(world);
+    scene.fog=new THREE.Fog(0,7.9,13.8);  // additive colours fade to nothing with distance: the far side of every ring is dimmer
     const mat=o=>{const m=new THREE.MeshBasicMaterial({color:0x5fe3ff,transparent:true,opacity:o,side:THREE.DoubleSide,blending:add,depthWrite:false});m.userData.base=o;mats.push(m);return m};
     const rings=RINGS.map(([rad,w,n,spd,f],i)=>{
       const tilt=new THREE.Group(),spin=new THREE.Group();tilt.add(spin);world.add(tilt);
-      tilt.rotation.set([0,.5,-.35,.75,-.2,0][i],[0,.3,.55,-.4,.15,0][i],0);  // each ring in its own plane
+      const tx=[.25,.6,-.45,.8,-.3,0][i],ty=[-.2,.35,.6,-.45,.2,0][i];  // each ring in its own plane
       const m=mat(.35+i%2*.35),inner=(rad-Math.max(w,1.5)/2)*u,outer=(rad+Math.max(w,1.5)/2)*u;
-      for(let k=0;k<n;k++){const a=k*Math.PI*2/n;spin.add(new THREE.Mesh(new THREE.RingGeometry(inner,outer,Math.max(8,Math.round(64*f/n*6)),1,a,Math.PI*2/n*f),m))}
-      return{tilt,spin,spd,i,m}});
+      for(let k=0;k<n;k++){const a=k*Math.PI*2/n,len=Math.PI*2/n*f,sg=Math.max(8,Math.round(64*f/n*6));spin.add(new THREE.Mesh(new THREE.RingGeometry(inner,outer,sg,1,a,len),m));
+        if(w>=10)spin.add(new THREE.Mesh(new THREE.CylinderGeometry(outer,outer,w*u*1.5,sg,1,true,a+Math.PI/2,len).rotateX(Math.PI/2),m))}  // thick rings get a wall, so they read as bands
+      return{tilt,spin,spd,i,m,tx,ty}});
     const ticks=new THREE.Group(),tm=mat(.55);world.add(ticks);
     for(let k=0;k<72;k++){const l=(k%6?8:20)*u,a=k/72*Math.PI*2;const g=new THREE.PlaneGeometry(l,1.6*u),me=new THREE.Mesh(g,tm);
       me.position.set(Math.cos(a)*(410*u-l/2),Math.sin(a)*(410*u-l/2),0);me.rotation.z=a;ticks.add(me)}
     const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);
       gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.2,'rgba(255,255,255,.55)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c)})();
     const glowM=new THREE.SpriteMaterial({map:glowTex,color:0x5fe3ff,blending:add,transparent:true,depthWrite:false}),glow=new THREE.Sprite(glowM);world.add(glow);
-    const heartM=new THREE.MeshBasicMaterial({color:0xd8f8ff}),heart=new THREE.Mesh(new THREE.SphereGeometry(36*u,32,16),heartM);world.add(heart);
+    // the heart is a lit ball (bright face, dark limb, a highlight, an accent rim) inside a slowly turning wire shell
+    const heartM=new THREE.ShaderMaterial({uniforms:{c:{value:new THREE.Color()},a:{value:new THREE.Color()}},
+      vertexShader:'varying vec3 n;void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+      fragmentShader:'uniform vec3 c;uniform vec3 a;varying vec3 n;void main(){float f=max(n.z,0.),l=max(dot(normalize(n),normalize(vec3(-.5,.6,.65))),0.);gl_FragColor=vec4(c*(.12+.88*f*f)+vec3(pow(l,10.))*.8+a*pow(1.-f,2.5)*.9,1.);}'}),
+      heart=new THREE.Mesh(new THREE.SphereGeometry(40*u,32,20),heartM);world.add(heart);
+    const shellM=new THREE.LineBasicMaterial({color:0x5fe3ff,transparent:true,opacity:.4,blending:add,depthWrite:false}),
+      shell=new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(74*u,1)),shellM);mats.push(shellM);world.add(shell);
     const pn=160,pos=new Float32Array(pn*3),seed=[];for(let k=0;k<pn;k++){seed.push([Math.random()*Math.PI*2,(130+Math.random()*260)*u,(Math.random()-.5)*1.4,.2+Math.random()*.6])}
     const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
     const pm=new THREE.PointsMaterial({color:0x5fe3ff,size:.045,transparent:true,opacity:.8,blending:add,depthWrite:false}),pts=new THREE.Points(pg,pm);world.add(pts);
     const fit=()=>{const w=$('coreWrap').clientWidth||420;r.setSize(w,w,false)};fit();addEventListener('resize',fit);
     $('core3d').hidden=false;cv.style.visibility='hidden';
-    return{r,scene,cam,world,rings,ticks,glow,glowM,heart,heartM,pts,pg,pos,seed,mats,pm,tm};
+    ticks.position.z=-.75;
+    return{r,scene,cam,world,rings,ticks,glow,glowM,heart,heartM,shell,shellM,open:1,pts,pg,pos,seed,mats,pm,tm};
   }catch(e){console.warn('3D core unavailable',e);return null}
 }
 function draw3d(h,c,pulse){
   const [R,G,B]=c.split(',').map(v=>v/255),now=performance.now()/1000;
-  h.world.rotation.y=Math.sin(t*.35)*.35;h.world.rotation.x=Math.sin(t*.22)*.18;
+  h.open+=((({listening:.2,thinking:1.5})[mode]||1)-h.open)*.04;  // listening: rings swing flat to face you; thinking: they tumble wide
+  h.world.rotation.y=Math.sin(t*.35)*.35+par.x*.3;h.world.rotation.x=Math.sin(t*.22)*.18+par.y*.22;
   for(const g of h.rings){const b=bootK(g.i),s=(.55+.45*b)*(1+level*(g.i<3?.15:.04));
-    g.tilt.visible=b>0;g.tilt.scale.setScalar(s);g.spin.rotation.z=t*g.spd;g.m.opacity=(g.m.userData.base+level*.3)*b}
+    g.tilt.visible=b>0;g.tilt.scale.setScalar(s);g.spin.rotation.z=t*g.spd;g.m.opacity=(g.m.userData.base+level*.3)*b;
+    const wob=g.i<5?.2:0;g.tilt.rotation.x=g.tx*h.open+Math.sin(t*.3+g.i*1.7)*wob;g.tilt.rotation.y=g.ty*h.open+Math.cos(t*.24+g.i)*wob;
+    g.tilt.position.z=(2.5-g.i)*.22*(1+level*1.6)}  // inner rings sit nearer the eye; the voice pushes the stack apart
   const bt=bootK(6);h.ticks.rotation.z=-t*.1;h.tm.opacity=.55*bt;
-  for(const m of h.mats)m.color.setRGB(R,G,B);h.glowM.color.setRGB(R,G,B);h.pm.color.setRGB(R,G,B);h.heartM.color.setRGB(.6+R*.4,.6+G*.4,.6+B*.4);
+  for(const m of h.mats)m.color.setRGB(R,G,B);h.glowM.color.setRGB(R,G,B);h.pm.color.setRGB(R,G,B);h.heartM.uniforms.c.value.setRGB(.4+R*.6,.4+G*.6,.4+B*.6);h.heartM.uniforms.a.value.setRGB(R,G,B);
   const k=1+pulse/80;h.heart.scale.setScalar(k);h.glow.scale.setScalar((3.4+pulse/40)*bootK(0));h.glowM.opacity=.75;
+  h.shell.rotation.set(t*.25,t*.6,0);h.shell.scale.setScalar((1+level*.4+(mode==='listening'?Math.sin(now*3)*.04:0))*bootK(0));h.shellM.opacity=Math.min(1,(mode==='listening'?.7:.4)+level*.5);
   for(let i=0;i<h.seed.length;i++){const[a0,rr,z,sp]=h.seed[i],a=a0+t*sp*(mode==='thinking'?2.2:1),rad=rr*(1+level*.25);
     h.pos[i*3]=Math.cos(a)*rad;h.pos[i*3+1]=Math.sin(a)*rad*.92;h.pos[i*3+2]=z+Math.sin(now+i)*.08}
   h.pg.attributes.position.needsUpdate=true;h.pm.opacity=.8*bootK(3);
@@ -922,18 +953,27 @@ function paint2d(c,pulse){
   // glow
   const g=cx.createRadialGradient(C,C,0,C,C,200+pulse);g.addColorStop(0,`rgba(${c},.9)`);g.addColorStop(.25,`rgba(${c},.35)`);g.addColorStop(1,`rgba(${c},0)`);
   cx.fillStyle=g;cx.beginPath();cx.arc(C,C,200+pulse,0,7);cx.fill();
-  cx.fillStyle=`rgba(${c},1)`;cx.beginPath();cx.arc(C,C,36+pulse*.5,0,7);cx.fill();
+  const hr=40+pulse*.5,hg=cx.createRadialGradient(C-hr*.35,C-hr*.4,hr*.05,C,C,hr);hg.addColorStop(0,'#fff');hg.addColorStop(.35,`rgba(${c},1)`);hg.addColorStop(1,`rgba(${c},.35)`);  // lit ball
+  cx.fillStyle=hg;cx.beginPath();cx.arc(C,C,hr,0,7);cx.fill();
   // rings: [radius, width, arc count, speed, dash fraction]
   [[110,10,6,1,.7],[170,3,3,-.6,.85],[230,14,24,.35,.5],[300,2,2,-.25,.9],[350,6,60,.15,.35],[395,1.5,1,0,1]].forEach(([r,w,n,s,f],i)=>{
     const b=bootK(i);if(b<=0)return;  // boot sequence: each ring powers up in turn
     const R=r*(1+level*(i<3?.15:.04))*(.55+.45*b);cx.strokeStyle=`rgba(${c},${(.35+i%2*.35+level*.3)*b})`;cx.lineWidth=w;
-    for(let k=0;k<n;k++){const a=t*s+k*(Math.PI*2/n);cx.beginPath();cx.arc(C,C,R,a,a+(Math.PI*2/n)*f);cx.stroke()}
+    const sq=[.9,.74,.86,.68,.92,1][i],rot=i*1.1+t*.08*(i%2?1:-1);  // each ring squashed and turned, as if tilted in its own plane
+    for(let k=0;k<n;k++){const a=t*s+k*(Math.PI*2/n);cx.beginPath();cx.ellipse(C,C,R,R*sq,rot,a,a+(Math.PI*2/n)*f);cx.stroke()}
   });
   // ticks
   cx.strokeStyle=`rgba(${c},${.6*bootK(6)})`;cx.lineWidth=2;
   for(let k=0;k<72;k++){const a=k/72*Math.PI*2-t*.1,l=k%6?8:20;cx.beginPath();cx.moveTo(C+Math.cos(a)*(410),C+Math.sin(a)*410);cx.lineTo(C+Math.cos(a)*(410-l),C+Math.sin(a)*(410-l));cx.stroke()}
 }
 if(!PIN){holo3d=build3d();draw()}  // a pinned panel's window skips the core
+// Parallax (PC pointer only): far dots, effects, picture and floor slide by different amounts; the loop stops once it settles
+if(!PIN&&!calm&&matchMedia('(hover:hover) and (pointer:fine)').matches){
+  const L=[[$('bgimg'),5],[document.querySelector('#depth .far'),8],[$('bgfx'),12],[document.querySelector('#depth .floor'),24]];
+  const step=()=>{par.x+=(par.tx-par.x)*.07;par.y+=(par.ty-par.y)*.07;
+    for(const[el,k]of L)el.style.transform=`translate3d(${(-par.x*k).toFixed(1)}px,${(-par.y*k*.6).toFixed(1)}px,0)`;
+    par.on=Math.abs(par.tx-par.x)+Math.abs(par.ty-par.y)>.003;if(par.on)requestAnimationFrame(step)};
+  addEventListener('mousemove',e=>{par.tx=e.clientX/innerWidth*2-1;par.ty=e.clientY/innerHeight*2-1;if(!par.on){par.on=true;requestAnimationFrame(step)}},{passive:true})}
 
 // Chat
 const states={idle:'Standing by',listening:'Listening',thinking:'Processing',speaking:'Responding',hold:'On hold'};

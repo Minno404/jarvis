@@ -1,4 +1,4 @@
 {
- "version": "1.64.1",
- "notes": "Fable only makes blueprints; enlarging, pulling apart and the rest use Sonnet."
+ "version": "1.65.0",
+ "notes": "More 3D core and a deeper HUD background; panels float."
 }
