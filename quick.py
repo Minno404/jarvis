@@ -98,6 +98,13 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    if "rp_chat" in R and "hud_panel" in R:  # the roleplay add-on (custom/roleplay.py) is installed
+        if re.fullmatch(r"(?:go |start |open |enter |show |bring up )?(?:the )?role ?play(?: mode| panel)?(?: on)?|let'?s role ?play", t):
+            R["hud_panel"]("roleplay", True)
+            return "Roleplay is open, {TITLE}. Pick a character or make one, and choose the AI in its dropdown."
+        if re.fullmatch(r"(?:close|end|stop|exit|leave|hide) (?:the )?role ?play(?: mode| panel)?|role ?play(?: mode)? off", t):
+            R["hud_panel"]("roleplay", False)
+            return "Roleplay closed, {TITLE}."
     if re.fullmatch(r"(?:go |turn on |start |enter )?incognito(?: mode)?(?: on)?", t) and "incognito" in R:
         R["incognito"](on=True)
         return "Incognito, {TITLE}. Nothing from here on is logged, learned or remembered, and it's wiped when you leave."
