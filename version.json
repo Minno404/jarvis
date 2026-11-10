@@ -1,4 +1,4 @@
 {
- "version": "1.70.5",
- "notes": "Thicker rings around the core."
+ "version": "1.70.6",
+ "notes": "MT5 always means the plain MetaTrader 5, never a broker's copy."
 }

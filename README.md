@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.70.5** (shown at the bottom right of the HUD)
+**Version 1.70.6** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.70.6** (11 Nov 2026): "MT5", "MetaTrader" and "open MT5" always mean the plain MetaTrader 5 app. Jarvis no longer
+  asks which broker terminal (FTMO, Purple Trading, EightCap, VantageFX) to open.
 - **1.70.5** (11 Nov 2026): thicker core rings (about 1.6 times as wide).
 - **1.70.4** (11 Nov 2026): the core as an armillary sphere. The four inner rings are gimbals, each at its own
   inclination and turning about the vertical at its own pace, all centred on the heart; the two outer rings and the

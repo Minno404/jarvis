@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.70.5"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.70.6"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -479,9 +479,14 @@ def list_apps(query=""):
     return [n for n in names if query.lower() in n.lower()] if query else names
 
 
+APP_ALIASES = {"mt5": "MetaTrader 5", "mt 5": "MetaTrader 5", "metatrader": "MetaTrader 5",
+               "metatrader5": "MetaTrader 5", "meta trader": "MetaTrader 5", "meta trader 5": "MetaTrader 5"}  # his plain
+# MT5, never a broker's copy (EightCap, FTMO, Purple Trading, VantageFX...)
+
+
 def open_app(name):
     apps = _shortcuts()
-    q = name.lower().strip()
+    q = APP_ALIASES.get(name.lower().strip(), name).lower().strip()
     exact = [n for n in apps if n.lower() == q]
     part = sorted((n for n in apps if q in n.lower()), key=len)
     pick = exact[0] if exact else part[0] if len(part) == 1 or (part and part[0].lower().startswith(q)) else None
@@ -566,8 +571,9 @@ TOOLS = [
                                                                     "description": "default [\"XAUUSD\"]"}}}},
     {"name": "account_status", "description": "His MT5 balance, equity, floating P&L and open positions right now.",
      "input_schema": {"type": "object", "properties": {}}},
-    {"name": "open_app", "description": "Open an app or game on {USER}'s PC by name (Start Menu / desktop shortcut), "
-     "e.g. MetaTrader 5, Spotify, Discord, League of Legends. If it returns candidates, pick one and retry.",
+    {"name": "open_app", "description": "Open an app or game on {USER}'s PC by name (Start Menu / desktop shortcut). "
+     "e.g. Spotify, Discord, League of Legends. If it returns candidates, pick one and retry. MT5 or MetaTrader always "
+     "means the app 'MetaTrader 5': never a broker's copy (FTMO, Purple Trading, EightCap, VantageFX), and don't ask which.",
      "input_schema": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}},
     {"name": "list_apps", "description": "Names of installed apps and games, optionally filtered by a word.",
      "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}}},
@@ -808,7 +814,7 @@ def _args(tool):
 
 # Fewer tokens per message: each tool gets the first sentence of its description in the brain's instructions (the
 # full one is a tool_help call away), except these, whose full rules matter every time (money, deleting, power).
-FULL_DESC = {"close_app", "propose_trade", "propose_change", "trading_settings", "autopilot", "test_trade",
+FULL_DESC = {"open_app", "close_app", "propose_trade", "propose_change", "trading_settings", "autopilot", "test_trade",
              "cleanup_run", "disk_clean", "sleep_pc", "jarvis_power", "pc_task", "dev_task", "update_jarvis",
              "incognito", "remember"}
 
