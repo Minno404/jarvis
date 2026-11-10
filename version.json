@@ -1,4 +1,4 @@
 {
- "version": "1.60.2",
- "notes": "Restarts are quicker and can't hang; the phone no longer goes white while Jarvis restarts."
+ "version": "1.61.0",
+ "notes": "Autopilot quiet hours: no chart checks 04:00 to 10:30 daily and Saturday 04:00 to Monday 10:30 (change in Settings, Trading)."
 }

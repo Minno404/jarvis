@@ -98,7 +98,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
 .holo-panel > h3{cursor:zoom-in}#bigView .holo-panel > h3{cursor:zoom-out}
-#tradeSet .keyrow{flex-wrap:nowrap}#tradeSet .tsl{min-width:120px}#tradeSet input[type=number]{width:90px;flex:0 0 90px}#tradeSet select{width:auto;flex:0 0 auto}
+#tradeSet .keyrow{flex-wrap:nowrap}#tradeSet .tsl{min-width:120px}#tradeSet input[type=number]{width:90px;flex:0 0 90px}#tradeSet input[type=time]{width:auto;flex:0 0 auto}#tradeSet select{width:auto;flex:0 0 auto}
 .holo-panel.ttest ol{margin:6px 0;padding-left:18px;font-size:12px}.holo-panel.ttest li{margin:3px 0}.holo-panel.ttest li.bad{color:#ff8a8a}.holo-panel.ttest li.ok{color:#9fffc8}
 .holo-panel.ticket canvas{display:block;width:100%;height:170px;margin:6px 0}
 .holo-panel.ticket .tkhead{font-size:16px;font-weight:700;letter-spacing:.04em}
@@ -676,8 +676,9 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <div class="keyrow"><span class="hint tsl">Max lots</span><input type="number" min="0" step="any" data-t="trade_max_lots"><span class="hint tsl">Max risk a trade</span><input type="number" min="0" step="any" data-t="trade_max_risk_pct"><span class="hint">%</span></div>
       <div class="keyrow"><span class="hint tsl">Autopilot trades a day</span><input type="number" min="0" step="1" data-t="auto_max_trades"><span class="hint tsl">Min reward:risk</span><input type="number" min="0" step="any" data-t="auto_min_rr"></div>
       <div class="keyrow"><span class="hint tsl">Autopilot symbols</span><input type="text" data-t="auto_symbols" placeholder="XAUUSD, EURUSD" style="flex:1"></div>
+      <div class="keyrow" style="flex-wrap:wrap"><span class="hint tsl">Quiet hours</span><input type="time" data-t="auto_quiet_from"><span class="hint">to</span><input type="time" data-t="auto_quiet_to"><select data-t="auto_weekend_off"><option value="true">+ weekends off</option><option value="false">weekends on</option></select></div>
       <div class="keyrow"><span class="hint" id="tradeLive" style="flex:1"></span><button type="button" id="tradeTest">Test trade</button><button type="button" id="tradeSave">Save trading</button></div>
-      <p class="hint">The equity floor blocks any trade that could take equity below it if every stop were hit; if equity reaches it, Jarvis closes his own trades and stops the autopilot. Real money is switched on by voice ("switch on live trading") and a click on the card that comes up.</p>
+      <p class="hint">In quiet hours the autopilot doesn't look at charts or ask the brains (this PC's clock); weekends off runs from Saturday's start time to Monday's end time. Trades already open keep being managed. The equity floor blocks any trade that could take equity below it if every stop were hit; if equity reaches it, Jarvis closes his own trades and stops the autopilot. Real money is switched on by voice ("switch on live trading") and a click on the card that comes up.</p>
     </fieldset>
     <fieldset><legend>Startup &amp; closing</legend>
       <label><input type="checkbox" id="autoStart"> Start Jarvis when Windows starts (he waits in the tray by the clock if the option below is on)</label>
@@ -2790,7 +2791,7 @@ function fillTrading(L){if(!L)return;for(const el of tradeFields()){const v=L[el
   $('tradeLive').textContent=`Real money: your trades ${L.trade_live?'ON':'off'} · autopilot ${L.auto_live?'ON':'off'}`}
 async function loadTrading(){try{fillTrading(await (await fetch('/api/trading')).json())}catch(e){}}
 $('tradeTest').onclick=()=>{$('settingsModal').hidden=true;runTestTrade()};
-$('tradeSave').onclick=async()=>{const d={};for(const el of tradeFields())d[el.dataset.t]=el.dataset.t==='auto_symbols'?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.tagName==='SELECT'?el.value:(el.value===''?0:+el.value);
+$('tradeSave').onclick=async()=>{const d={};for(const el of tradeFields())d[el.dataset.t]=el.dataset.t==='auto_symbols'?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.tagName==='SELECT'||el.type==='time'?el.value:(el.value===''?0:+el.value);
   $('setMsg').textContent='';try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trading:d})})).json();
     if(r.error)throw new Error(r.error);fillTrading(r.trading);$('setMsg').textContent='Trading settings saved.'}catch(e){$('setMsg').textContent=e.message||"Couldn't save."}};
 $('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};

@@ -53,6 +53,10 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_max_trades": 3,           # autopilot trades a day
     "auto_min_rr": 1.5,             # reward to risk at least this
     "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
+    # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
+    "auto_quiet_from": "04:00",     # every day from ...
+    "auto_quiet_to": "10:30",       # ... until (thin market overnight)
+    "auto_weekend_off": True,       # and from Saturday's quiet_from until Monday's quiet_to (markets shut)
 }
 
 
@@ -76,6 +80,13 @@ def save_limits(d):
         elif k in ("trade_live", "auto_live"):
             if not v:
                 s[k] = False
+        elif k in ("auto_quiet_from", "auto_quiet_to"):
+            v = str(v or "").strip()
+            if v and not re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", v):
+                raise ValueError(f"{k} must be a time like 04:00")
+            s[k] = v.zfill(5) if v else ""
+        elif k == "auto_weekend_off":
+            s[k] = v in (True, 1, "1", "true", "on", "yes")
         elif k == "auto_symbols":
             s[k] = [str(x).strip().upper().replace("/", "")[:12] for x in (v if isinstance(v, list) else str(v).split(",")) if str(x).strip()][:4] or ["XAUUSD"]
         elif k in LIMITS:
@@ -88,6 +99,31 @@ def save_limits(d):
             s[k] = int(n) if k == "auto_max_trades" else n
     features._save("settings.json", s)
     return limits()
+
+
+def quiet_until(lim=None, now=None):
+    """In his quiet hours (no chart checks, no brains): when they end, else None."""
+    lim = lim or limits()
+    now = now or datetime.datetime.now()
+    hm = lambda v: datetime.time(*map(int, v.split(":"))) if v else None
+    f, t = hm(lim.get("auto_quiet_from")), hm(lim.get("auto_quiet_to"))
+
+    def quiet(d):
+        x, wd = d.time(), d.weekday()  # Monday 0 ... Sunday 6
+        if lim.get("auto_weekend_off") and f and t and ((wd == 5 and x >= f) or wd == 6 or (wd == 0 and x < t)):
+            return True
+        if not (f and t) or f == t:
+            return False
+        return f <= x < t if f < t else (x >= f or x < t)  # a window past midnight, e.g. 22:00 to 06:00
+
+    if not quiet(now):
+        return None
+    d = now.replace(second=0, microsecond=0)
+    for _ in range(4 * 24 * 60):  # minute by minute, at most 4 days
+        d += datetime.timedelta(minutes=1)
+        if not quiet(d):
+            return d
+    return None
 
 
 def money(value, unit, base):
@@ -545,7 +581,8 @@ class Autopilot:
     def status(self):
         st = _load(AUTO_STATE, {})
         return {"on": self.on, "today": st.get("date"), "trades_today": st.get("trades", 0),
-                "start_equity": st.get("start_equity"), "last": self.last, "limits": limits()}
+                "start_equity": st.get("start_equity"), "last": self.last, "limits": limits(),
+                "quiet_until": (lambda u: u and f"{u:%a %H:%M}")(quiet_until())}
 
     def start(self):
         if self.on:
@@ -565,7 +602,10 @@ class Autopilot:
         self.thread = threading.Thread(target=self.loop, daemon=True)
         self.thread.start()
         self.show("Autopilot on")
-        return {"started": True, **self.status()}
+        out = {"started": True, **self.status()}
+        if out["quiet_until"]:
+            out["note"] = f"It's quiet hours: the autopilot starts checking charts at {out['quiet_until']}."
+        return out
 
     def stop(self, why="Stopped"):
         self.on = False
@@ -591,8 +631,15 @@ class Autopilot:
     def _loop(self, next_look):
         while self.on:
             try:
-                self.manage()
-                if time.time() >= next_look:
+                self.manage()  # trades already open keep being looked after, quiet hours or not
+                until = quiet_until()
+                if until:
+                    msg = f"Quiet hours: not checking charts until {until:%a %H:%M}."
+                    if getattr(self, "_quiet", None) != msg:
+                        self._quiet = msg
+                        self.show(msg)
+                elif time.time() >= next_look:
+                    self._quiet = None
                     self.cycle()
                     now = time.time()
                     next_look = now - now % 900 + 900 + 20  # just after each 15-minute candle closes

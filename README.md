@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.60.2** (shown at the bottom right of the HUD)
+**Version 1.61.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.61.0** (11 Nov 2026): autopilot quiet hours. From 04:00 to 10:30 every day, and from Saturday 04:00 to
+  Monday 10:30, the autopilot doesn't look at charts or ask the brains, even when it's on. Trades already open are
+  still managed (break-even). Change the times in Settings, Trading, "Quiet hours" (this PC's clock).
 - **1.60.2** (10 Nov 2026): faster, reliable restarts. Restarting (from the phone, the tray, an update) starts the
   new Jarvis directly, skipping Jarvis.bat's component checks, which took several seconds and could hang forever on an
   install. The new copy waits for the old one to close, then opens the port. jarvis.log shows how many seconds
