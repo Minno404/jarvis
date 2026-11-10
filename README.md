@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.69.1** (shown at the bottom right of the HUD)
+**Version 1.70.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.70.0** (11 Nov 2026): focus while playing. With the roleplay panel open, a D&D session on (Dungeon Master
+  persona) or incognito mode, the trading autopilot keeps trading but its panel doesn't pop up, and its announcements
+  (trades, break-even, limits) and other routine ones are held, then told in one go when he's done. Add-on panels
+  report being open with POST /api/focus.
 - **1.69.1** (11 Nov 2026): the plain MetaTrader 5, never a broker's copy. With both "MetaTrader 5" and a broker's
   own (like "EightCap MetaTrader 5") installed, opening MT5, the autopilot, trades and live data all use the plain one,
   and "stop trading" closes only that one. Start Menu shortcuts with the same name prefer the one in its own folder.

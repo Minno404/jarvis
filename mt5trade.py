@@ -730,7 +730,8 @@ class Autopilot:
 
     def show(self, msg):
         self.last = {**self.last, "msg": msg, "at": datetime.datetime.now().strftime("%H:%M")}
-        _panel({"type": "autopilot", **self.status()})
+        if not features.focus():  # roleplay, D&D or incognito: it keeps trading, but its panel stays out of the way
+            _panel({"type": "autopilot", **self.status()})
 
     def say(self, text):
         import server_bridge

@@ -68,6 +68,22 @@ def incognito():
     return INCOGNITO.exists()
 
 
+ROLEPLAY_OPEN = HERE / "roleplay_open.flag"  # the roleplay panel (custom add-on) is open
+
+
+def focus():
+    """What he's absorbed in right now (roleplay, a D&D session, incognito): background chatter (the trading
+    autopilot's updates, routine announcements) is held until he's done. The autopilot itself keeps running."""
+    out = []
+    if INCOGNITO.exists():
+        out.append("incognito")
+    if ROLEPLAY_OPEN.exists():
+        out.append("roleplay")
+    if settings().get("persona") == "dm":
+        out.append("D&D")
+    return out
+
+
 def remember(fact, source="asked"):
     """source: 'asked' (he told Jarvis to remember it) or 'learned' (picked up from conversation)."""
     if incognito():

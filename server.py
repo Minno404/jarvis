@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.69.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.70.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2300,6 +2300,11 @@ class Handler(SimpleHTTPRequestHandler):
             if LIVE.get("show_window"):
                 threading.Thread(target=LIVE["show_window"], daemon=True).start()
             return self.send_json({"shown": bool(LIVE.get("show_window"))})
+        if self.path == "/api/focus":  # a panel he's absorbed in (roleplay) opened or closed
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            if body.get("what") == "roleplay":
+                features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
+            return self.send_json({"focus": features.focus()})
         if self.path == "/api/custom_call":  # a custom add-on's own panel calling its own functions (custom/*.py)
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             fn = next((m.FUNCS[body.get("name")] for m in custom_loader.modules
@@ -2663,6 +2668,7 @@ if __name__ == "__main__":
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
     server_bridge.IN_SERVER = True  # this is the running Jarvis: the autopilot lives here
     features.INCOGNITO.unlink(missing_ok=True)  # a restart ends incognito mode
+    features.ROLEPLAY_OPEN.unlink(missing_ok=True)  # (the page says again if the roleplay panel is still open)
     server_bridge._say = lambda text: LIVE.get("say", print)(text)
 
     def watch_floor():  # his equity floor, every 30 seconds while MT5 is open (mt5trade.floor_watch)
@@ -3123,7 +3129,7 @@ if __name__ == "__main__":
             if st["away"] and time.time() - LIVE.get("phone_seen", 0) < 120:
                 push_event({"type": "phone_say", "text": persona(text)})  # he's left the PC but has his phone: tell him there
                 return
-            if st["away"] or ((st["game"] or features.settings().get("quiet")) and not urgent):
+            if st["away"] or ((st["game"] or features.settings().get("quiet") or features.focus()) and not urgent):
                 st["held"].append(text)
             else:
                 speak_now(text)
@@ -3231,7 +3237,7 @@ if __name__ == "__main__":
                             boot_up(held)  # long time away: the full Iron Man welcome
                         else:
                             deliver_held("Welcome back, sir.")
-                    quiet = bool(features.settings().get("quiet"))
+                    quiet = bool(features.settings().get("quiet") or features.focus())  # roleplay, D&D, incognito too
                     was_quiet, st["quiet"] = st["quiet"], quiet
                     if (was_game and not st["game"] or was_quiet and not quiet) and not st["away"] and not st["game"] \
                             and not quiet:
