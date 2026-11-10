@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.73.4"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.73.5"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1396,6 +1396,10 @@ def chat_stream(text, photo=None):
                                                      "before you answer.]")
     else:
         photo = None
+    if not photo and ROSTER_NOW.fullmatch(re.sub(r"[^a-z ]", "", (text or "").lower()).strip()):
+        text += ("\n[Check his roster email now: call get_roster, find his shifts, save them with save_shifts, then "
+                 "my_shifts, and tell him in one short sentence how many shifts and hours, and when the first is. If "
+                 "it's the roster already loaded, say so.]")
     try:  # everyday commands ("pause the music", "TV volume 15") are done right here: no Claude, no tokens
         fast = None if photo or shot else quick.quick(text)
     except Exception as e:
@@ -1695,6 +1699,10 @@ HARDER = re.compile(r"\b(?:code|coding|program|script|debug|bug|fix|build|analy[
                     r"research|write|essay|email|letter|summar|review|report|journal|trad(?:e|es|ing)|chart|gold|"
                     r"xau|setup|spend|spending|budget|simulat|calculat|math|translat|advice|should i|decide|"
                     r"photo|picture|screenshot|uploads/|recipe|plan|roster)\w*", re.I)
+
+
+ROSTER_NOW = re.compile(r"(?:jarvis )?(?:check|get|grab|fetch|find|load|look for|pull)(?: up)? (?:my |the |for )?(?:new |latest )?"
+                        r"rosters?(?: emails?| now| from (?:my )?(?:email|gmail))?(?: now)?|check (?:my )?(?:email|gmail) for (?:my |the )?roster")
 
 
 def chat_model(text, ds=False):
