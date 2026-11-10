@@ -1693,7 +1693,7 @@ QUICK_MODEL = os.environ.get("JARVIS_QUICK_MODEL", "haiku")  # everyday requests
 HARDER = re.compile(r"\b(?:code|coding|program|script|debug|bug|fix|build|analy[sz]|plan|strateg|compare|explain|why|"
                     r"research|write|essay|email|letter|summar|review|report|journal|trad(?:e|es|ing)|chart|gold|"
                     r"xau|setup|spend|spending|budget|simulat|calculat|math|translat|advice|should i|decide|"
-                    r"photo|picture|screenshot|uploads/|recipe|plan)\w*", re.I)
+                    r"photo|picture|screenshot|uploads/|recipe|plan|roster)\w*", re.I)
 
 
 def chat_model(text, ds=False):
