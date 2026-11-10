@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.59.3"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.60.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -589,11 +589,12 @@ import workshop   # the hologram workshop: 3D models from his projects (see work
 import blueprint  # blueprint mode: something held up to the camera, drawn as a blueprint (see blueprint.py)
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
 import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
+import usage      # tokens each brain used and how much is left (see usage.py)
 import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
 import mt5trade   # trades he confirms on the HUD, and the trading autopilot (see mt5trade.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1348,6 +1349,7 @@ def chat_stream(text, photo=None):
             return
         if said or not LIMIT_HIT.search(str(e)):
             raise
+        usage.limit_hit(using)
         OUT[using]["until"] = reset_time(str(e)) or time.time() + 3600  # when it says it resets, else in an hour
         nxt = brain_status()["using"] if brain == "auto" else next_brain(using)
         if not nxt or nxt == using:
@@ -1612,6 +1614,9 @@ def chat_cli(text, ds=False):
                     yield None
                 elif ev.get("type") == "result":
                     result = ev
+                    usage.claude(ev, "chat", ds)
+                elif ev.get("type") == "rate_limit_event" and not ds:
+                    usage.rate_event(ev)
             proc.wait(timeout=30)
             if result and result.get("session_id"):
                 session = result["session_id"]
@@ -1956,6 +1961,8 @@ class Handler(SimpleHTTPRequestHandler):
             after = int(parse_qs(urlsplit(self.path).query).get("after", ["0"])[0] or 0)
             with EVENTS_LOCK:
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
+        if self.path == "/api/usage":  # the token usage panel's Refresh button
+            return self.send_json(usage.report())
         if self.path == "/api/trading":  # the Trading section of Settings
             return self.send_json(mt5trade.limits())
         if self.path == "/api/boot":

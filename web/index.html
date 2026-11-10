@@ -115,6 +115,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.disk .dkbar{height:8px;background:#ffffff14;border-radius:4px;overflow:hidden}
 .holo-panel.disk .dkbar i{display:block;height:100%;background:var(--cyan,#5fe3ff);border-radius:4px;transition:width .8s}
 .holo-panel.disk .dkbar i.hot{background:#ff5a5a}
+.holo-panel.usage .usbrain{margin:6px 0 10px}.holo-panel.usage .usbrain>b{display:block;margin-bottom:3px}.holo-panel.usage .usrow{display:grid;grid-template-columns:minmax(0,1fr) 2fr auto;gap:8px;align-items:center;margin:3px 0;font-size:12px}.holo-panel.usage .usleft{color:var(--cyan,#5fe3ff);font-size:13px;margin:3px 0}.holo-panel.usage .usday{font-size:12px;opacity:.85;margin:2px 0}.holo-panel.usage small{display:block;opacity:.65;font-size:11px}.holo-panel.usage .dkbar{height:8px;background:#ffffff14;border-radius:4px;overflow:hidden}.holo-panel.usage .dkbar i{display:block;height:100%;background:var(--cyan,#5fe3ff);border-radius:4px}.holo-panel.usage .dkbar i.hot{background:#ff5a5a}
 .holo-panel.disk .dkitem{display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;align-items:center;margin:5px 0;font-size:12px;cursor:pointer}
 .holo-panel.disk .dkitem small{grid-column:2/4;opacity:.65;font-size:11px}
 .holo-panel.disk .dksz{font-variant-numeric:tabular-nums;opacity:.9}
@@ -1273,7 +1274,7 @@ let evSeq=null;
 async function events(){
   try{const list=await (await fetch('/api/events?after='+(evSeq??0))).json();
     if(evSeq===null){evSeq=list.length?list[list.length-1].seq:0;return}  // don't replay old panels on load
-    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+    for(const ev of list){evSeq=ev.seq;if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
   }catch(e){}
 }
 setInterval(events,1000);events();
@@ -2223,6 +2224,35 @@ function showDisk(ev){
   for(const f of ev.big_files){const row=document.createElement('div');row.className='dkrow';row.innerHTML='<span class="dkp"></span><span class="dksz"></span>';
     row.querySelector('.dkp').textContent=f.path;row.querySelector('.dkp').title=f.path;row.querySelector('.dksz').textContent=gbs(f.bytes);ff.append(row)}
   $('holo').prepend(p);[...$('holo').children].slice(3).forEach(closePanel);movable(p,'disk');if(layout.disk)free(p,fromLayout(layout.disk));sfx('panel')}
+let USAGE=null;
+const tok=n=>n==null?'?':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?Math.round(n/1e3)+'k':String(Math.round(n));
+const untilTxt=t=>{const s=t-Date.now()/1000;if(!t||s<=0)return '';const h=Math.floor(s/3600),m=Math.round(s%3600/60);
+  return 'resets in '+(h>=24?Math.round(h/24)+'d':h?h+'h '+m+'m':m+'m')};
+function showUsage(ev){
+  if(USAGE&&USAGE.isConnected)closePanel(USAGE);
+  const p=USAGE=document.createElement('div');p.className='holo-panel usage wide';
+  p.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3>Token usage</h3><div class="usb"></div><h4>Trading autopilot</h4><div class="usa"></div><div class="hacts"><button type="button" class="usre">Refresh</button></div>';
+  p.querySelector('.holo-x').onclick=()=>closePanel(p);
+  const el=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+  const fill=ev=>{const box=p.querySelector('.usb');box.textContent='';
+    for(const b of ev.brains){const c=el('div','usbrain');c.append(el('b',null,b.name));
+      for(const l of b.limits){const row=el('div','usrow'),bar=el('div','dkbar'),i=el('i');i.style.width=Math.min(100,l.used)+'%';if(l.used>=85)i.classList.add('hot');
+        bar.append(i);row.append(el('span',null,l.label),bar,el('span',null,`${Math.round(l.used)}% used ${untilTxt(l.resets)}`));c.append(row)}
+      const left=[];if(b.chats_left!=null)left.push(`≈${b.chats_left.toLocaleString()} more messages`);if(b.jobs_left!=null)left.push(`≈${b.jobs_left.toLocaleString()} more jobs`);
+      if(b.balance)left.push(`balance ${b.balance.amount.toFixed(2)} ${b.balance.currency}`);if(b.tasks_left!=null)left.push(`≈${b.tasks_left.toLocaleString()} more tasks at $${b.cost_per_task} each`);
+      if(left.length)c.append(el('div','usleft',left.join(' · ')));
+      const per=[b.per_chat&&`${tok(b.per_chat)} per message`,b.per_job&&`${tok(b.per_job)} per job`].filter(Boolean).join(', ');
+      c.append(el('div','usday',`Today: ${b.today_calls} calls, ${tok(b.today_tokens)} tokens`+(b.today_cost?` (≈$${b.today_cost} at API prices)`:'')+(per?` · ${per}`:'')));
+      if(b.note)c.append(el('small',null,b.note));box.append(c)}
+    const a=ev.autopilot,ab=p.querySelector('.usa');ab.textContent='';
+    ab.append(el('div','usday',(a.running?'Running now. ':'Off right now. ')+`Today: ${a.today_calls} brain calls, ${tok(a.today_tokens)} tokens.`));
+    for(const x of a.brains)ab.append(el('div','usday',`${x.name}: ${x.calls} calls, ${tok(x.tokens)} tokens`+(x.cost?` (≈$${x.cost} at API prices)`:'')));
+    if(a.per_call)ab.append(el('div','usday',`About ${tok(a.per_call)} tokens per brain per check; a full day (96 checks, 2 brains) ≈ ${tok(a.per_day)} tokens.`));
+    if(a.gpt_pct_per_hour!=null)ab.append(el('div','usleft',`Uses about ${a.gpt_pct_per_hour}% of ChatGPT's 5-hour limit per hour.`));
+    if(!a.today_calls&&!a.per_call)ab.append(el('small',null,'No autopilot checks logged yet.'))};
+  fill(ev);
+  p.querySelector('.usre').onclick=async()=>{try{fill(await fetch('/api/usage').then(r=>r.json()))}catch(e){}};
+  $('holo').prepend(p);[...$('holo').children].slice(3).forEach(closePanel);movable(p,'usage');if(layout.usage)free(p,fromLayout(layout.usage));sfx('panel')}
 function diskCleaned(ev){
   if(!DISK||!DISK.isConnected)return;DISK.querySelector('.dkmsg').textContent=`Freed ${gbs(ev.freed)}: `+ev.done.map(d=>`${d.title} ${d.freed_gb} GB`).join(', ');
   const dr=DISK.querySelector('.dkdrives');ev.drives.forEach((d,k)=>{const row=dr.children[k];if(!row)return;const pct=Math.round(100*d.used/Math.max(1,d.total));

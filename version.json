@@ -1,4 +1,4 @@
 {
- "version": "1.59.3",
- "notes": "A frozen or older Jarvis is replaced when you open Jarvis again."
+ "version": "1.60.0",
+ "notes": "Token usage panel: say \"token usage\" to see what each brain and the autopilot use and how much is left."
 }

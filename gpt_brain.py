@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import features
+import usage
 
 HERE = Path(__file__).resolve().parent
 
@@ -171,6 +172,7 @@ def chat(system_prompt, message, images=(), local=False, _retry=True):
                     yield t
                     yield None
         proc.wait(timeout=30)
+        usage.codex(out, "chat", local)
         _, texts, err = parse(out)
         if err or not texts:
             thread["id"] = None
@@ -195,6 +197,7 @@ def run_task(prompt, cwd, timeout=1800, local=False, pc=True):
               "and expected here).\n\n") + prompt
     r = subprocess.run(command(None, (), local, cwd), input=prompt, capture_output=True, text=True, encoding="utf-8", cwd=cwd,
                        timeout=timeout, creationflags=NO_WINDOW)
+    usage.codex(r.stdout.splitlines(), "job", local)
     _, texts, err = parse(r.stdout.splitlines())
     if err or not texts:
         return f"It didn't work: {err or (r.stderr or r.stdout)[-200:].strip() or 'no answer'}", False

@@ -98,6 +98,11 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    if re.fullmatch(r"(?:show |open )?(?:my |the )?(?:token|tokens|ai) usage(?: panel)?|how many (?:tokens|tasks|messages|jobs) "
+                    r"(?:have i got|do i have|can you do|are) left|how many more (?:tasks|messages|jobs) (?:can you )?do|"
+                    r"what does (?:the )?(?:auto ?pilot|auto ?trading|trading autopilot) use", t) and "token_usage" in R:
+        said = R["token_usage"]()["summary"]
+        return said[:1].upper() + said[1:] + ", {TITLE}. Details on the panel."
     if re.fullmatch(r"(?:put |send )?(?:the |my )?(?:pc|computer) to sleep|sleep (?:the |my )?(?:pc|computer)|"
                     r"good ?night jarvis", t) and "sleep_pc" in R:
         import threading

@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import features
+import usage
 from features import _load, _save, _next_id
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -163,6 +164,7 @@ def run_job(job, claude, brain="claude"):
                                cwd=job["path"], timeout=1800, creationflags=NO_WINDOW,
                                env=deepseek.env() if brain == "deepseek" else None)
             out = json.loads(r.stdout)
+            usage.claude(out, "job", brain == "deepseek")
             text = out.get("result", "").strip() or "It finished but didn't say anything."
             status = "error" if out.get("is_error") else "done"
         except Exception as e:

@@ -460,14 +460,22 @@ def _json_in(text):
 
 def ask_claude(prompt, ds=False):
     import deepseek
-    cmd = [CLAUDE, "-p", "--output-format", "text", "--model", "sonnet", "--tools", "",
+    import usage
+    cmd = [CLAUDE, "-p", "--output-format", "json", "--model", "sonnet", "--tools", "",
            "--setting-sources", "project", "--strict-mcp-config", "--disable-slash-commands",
            "--system-prompt", "You are a careful trading analyst. Reply with one JSON object only."]
     r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8", timeout=300, cwd=HERE,
                        env=deepseek.env() if ds else None, creationflags=NO_WINDOW)
     if r.returncode:
         raise RuntimeError((r.stdout + r.stderr)[-300:])
-    return r.stdout
+    try:
+        out = json.loads(r.stdout)
+    except ValueError:
+        return r.stdout
+    usage.claude(out, "autopilot", ds)
+    if out.get("is_error"):
+        raise RuntimeError(str(out.get("result"))[-300:])
+    return out.get("result", "")
 
 
 def ask_chatgpt(prompt):
@@ -476,6 +484,8 @@ def ask_chatgpt(prompt):
     cmd[cmd.index("-s") + 1] = "read-only"  # it only answers: it runs nothing
     r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8", errors="replace",
                        timeout=300, cwd=HERE, creationflags=NO_WINDOW)
+    import usage
+    usage.codex(r.stdout.splitlines(), "autopilot")
     _, texts, err = gpt_brain.parse(r.stdout.splitlines())
     if err or not texts:
         raise RuntimeError(err or "no answer")

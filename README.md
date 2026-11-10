@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.59.3** (shown at the bottom right of the HUD)
+**Version 1.60.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.60.0** (10 Nov 2026): token usage panel, shown only when asked ("token usage", "how many tokens have I got
+  left?", "how many more tasks can you do?", "what does the autopilot use?"). Every brain call (chat, jobs, the
+  trading autopilot) is logged with its tokens. The panel shows each brain's tokens today, ChatGPT's 5-hour and
+  weekly limits (read from Codex's own session files), Claude's limit when Claude Code reports it, DeepSeek's
+  balance, about how many more messages and jobs fit, and what the autopilot uses per check, per day and as a share
+  of ChatGPT's 5-hour limit.
 - **1.59.3** (10 Nov 2026): a frozen Jarvis no longer blocks a new one. Opening Jarvis while another copy is
   running replaces it if that copy is an older version, its window has frozen (its page stopped checking in for 30
   seconds), or it has stopped answering but still holds Jarvis's port (it's ended: only a Jarvis, or a program
