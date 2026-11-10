@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.72.0** (shown at the bottom right of the HUD)
+**Version 1.73.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.73.0** (11 Nov 2026): the roster from Gmail. Settings, Roster email: his Gmail, a Google app password (read
+  only, kept on the PC, never sent to an AI), the address the roster comes from and his name on it. Every 2 hours Jarvis
+  checks for a new roster email and says when one arrives; "get my roster" downloads the newest (PDF, Excel, CSV or
+  pictures; files kept in rosters/), finds his name's shifts and saves them. Gmail is read through IMAP, read-only.
 - **1.72.0** (11 Nov 2026): work shifts. Send a photo or screenshot of the roster ("here's my roster") and Jarvis
   reads it and saves every shift (date, start, end, where); a new roster replaces the old one for its dates. "Bring up
   my work shifts", "my roster" or "when do I work next?" shows the next two weeks as a panel (with hours) instantly,

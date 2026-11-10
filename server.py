@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.72.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.73.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -621,13 +621,14 @@ import workshop   # the hologram workshop: 3D models from his projects (see work
 import blueprint  # blueprint mode: something held up to the camera, drawn as a blueprint (see blueprint.py)
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
 import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
+import roster_mail  # the roster from his Gmail (see roster_mail.py)
 import shifts     # work shifts from his roster (see shifts.py)
 import usage      # tokens each brain used and how much is left (see usage.py)
 import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
 import mt5trade   # trades he confirms on the HUD, and the trading autopilot (see mt5trade.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -2171,6 +2172,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if EVENTS and after > EVENTS[-1]["seq"]:
                     after = 0  # the page is from before a restart (numbering started again): send what's new since
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
+        if self.path == "/api/roster_mail":  # Settings > Roster email (never the password itself)
+            return self.send_json(roster_mail.public())
         if self.path == "/api/incognito":  # a page opening mid-incognito shows the badge
             return self.send_json({"on": features.incognito()})
         if self.path == "/api/usage":  # the token usage panel's Refresh button
@@ -2338,6 +2341,9 @@ class Handler(SimpleHTTPRequestHandler):
             if LIVE.get("show_window"):
                 threading.Thread(target=LIVE["show_window"], daemon=True).start()
             return self.send_json({"shown": bool(LIVE.get("show_window"))})
+        if self.path == "/api/roster_mail":  # Settings > Roster email: save
+            b = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            return self.send_json(roster_mail.roster_email_settings(b.get("gmail"), b.get("app_password"), b.get("sender"), b.get("name")))
         if self.path == "/api/focus":  # a panel he's absorbed in (roleplay) opened or closed
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             if body.get("what") == "roleplay":
@@ -3244,6 +3250,19 @@ if __name__ == "__main__":
                 say(persona(r["line"] + " Say 'reopen them' and I'll bring it all back, {TITLE}."))
             except Exception as e:
                 print(datetime.datetime.now(), "left off:", repr(e))
+
+        def roster_watch():
+            """Every 2 hours: a new roster email? Say so (reading it needs the brain, so he says 'get my roster')."""
+            while True:
+                time.sleep(7200)
+                try:
+                    uid = roster_mail.check_new()
+                    if uid and LIVE.get("roster_told") != uid:
+                        LIVE["roster_told"] = uid
+                        say("Your new roster just came in, sir. Say 'get my roster' and I'll load your shifts.")
+                except Exception as e:
+                    print(datetime.datetime.now(), "roster check:", repr(e)[:200])
+        threading.Thread(target=roster_watch, daemon=True).start()
 
         def watcher():
             """Every 10 s: reminders, the morning brief, price alerts, trade guard, news and the day's review."""

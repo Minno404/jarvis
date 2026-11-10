@@ -704,6 +704,13 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <div class="keyrow"><span class="hint" style="min-width:110px">Incognito model</span><input id="incogModel" type="text" placeholder="optional: an Ollama model (name:tag) that answers in incognito" autocomplete="off" style="flex:1"><button type="button" id="incogSave">Save</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI runs on</span><select id="localOn" style="flex:1"><option value="gpu">Graphics card (fast)</option><option value="ram">RAM and processor (slower, keeps the graphics card free)</option></select></div>
     </fieldset>
+    <fieldset id="rosterSet"><legend>Roster email</legend>
+      <div class="keyrow"><span class="hint tsl">Your Gmail</span><input type="email" id="rmGmail" placeholder="you@gmail.com" autocomplete="off" style="flex:1"></div>
+      <div class="keyrow"><span class="hint tsl">App password</span><input type="password" id="rmPass" placeholder="16 letters from myaccount.google.com/apppasswords" autocomplete="off" style="flex:1"></div>
+      <div class="keyrow"><span class="hint tsl">Roster sender</span><input type="email" id="rmSender" placeholder="the address your roster comes from" autocomplete="off" style="flex:1"></div>
+      <div class="keyrow"><span class="hint tsl">Your name on it</span><input type="text" id="rmName" placeholder="as the roster shows it" autocomplete="off" style="flex:1"><button type="button" id="rmSave">Save</button></div>
+      <p class="hint" id="rmSt">Jarvis checks every 2 hours and tells you when a new roster arrives; say "get my roster" and he loads your shifts. The app password only reads mail (Google account, 2-Step Verification on, then App passwords); it stays on this PC.</p>
+    </fieldset>
     <fieldset><legend>Features</legend>
       <label><input type="checkbox" data-feat="trading"> Day trading and markets (journal, alerts, trade warnings, market news, daily review)</label>
       <label><input type="checkbox" data-feat="spending"> Spending (budget notes from Spend Breakdown)</label>
@@ -3059,4 +3066,9 @@ function phoneDock(p){  // the bottom of the phone's panel column
 if(PHONE){
   for(const ev of Object.values(kept).sort((a,b)=>a.at-b.at))try{keepTrack({...ev,seconds:null},()=>dispatch({...ev,seconds:null}))}catch(e){}
   fetch('/api/autopilot',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"status":1}'}).then(r=>r.json()).then(st=>{if(st.on)showAuto(st)}).catch(()=>{})}
+// Settings > Roster email
+const rmFill=r=>{if(!r)return;$('rmGmail').value=r.gmail||'';$('rmSender').value=r.sender||'';$('rmName').value=r.name||'';$('rmPass').placeholder=r.password_saved?'saved (type a new one to change it)':'16 letters from myaccount.google.com/apppasswords'};
+fetch('/api/roster_mail').then(r=>r.json()).then(rmFill).catch(()=>{});
+$('rmSave').onclick=async()=>{const r=await fetch('/api/roster_mail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gmail:$('rmGmail').value,app_password:$('rmPass').value,sender:$('rmSender').value,name:$('rmName').value})}).then(r=>r.json()).catch(()=>null);
+  $('rmPass').value='';rmFill(r);$('rmSt').textContent=r?'Saved. Say "get my roster" to load the newest one.':'Couldn\'t save.'};
 </script>

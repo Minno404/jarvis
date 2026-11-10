@@ -15,6 +15,7 @@ python -c "import vidaa" 2>nul || python -m pip install vidaa-control
 python -c "import pystray" 2>nul || python -m pip install pystray
 python -c "import pycaw" 2>nul || python -m pip install pycaw
 python -c "import pypdf" 2>nul || python -m pip install pypdf
+python -c "import openpyxl" 2>nul || python -m pip install openpyxl
 :launch
 rem Jarvis.exe shows as "Jarvis" with his icon in Task Manager and the taskbar (falls back to pythonw)
 set "JEXE=pythonw"

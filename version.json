@@ -1,4 +1,4 @@
 {
- "version": "1.72.0",
- "notes": "Work shifts: send your roster, then \"bring up my work shifts\"."
+ "version": "1.73.0",
+ "notes": "Roster from Gmail: set it up in Settings > Roster email, then \"get my roster\"."
 }
