@@ -1,4 +1,4 @@
 {
- "version": "1.70.3",
- "notes": "Core rings face you and drift freely around the heart."
+ "version": "1.70.4",
+ "notes": "The core is now an armillary sphere: gimbal rings turning around the heart."
 }

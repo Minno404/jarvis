@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.70.3** (shown at the bottom right of the HUD)
+**Version 1.70.4** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.70.4** (11 Nov 2026): the core as an armillary sphere. The four inner rings are gimbals, each at its own
+  inclination and turning about the vertical at its own pace, all centred on the heart; the two outer rings and the
+  dial stay square to the viewer as the frame. Listening folds the gimbals flat; thinking spins them faster.
 - **1.70.3** (11 Nov 2026): the rings face you (Saturn from above) and drift freely again, each in its own small
   lean and wobble, but always centred on the heart, never pushed back behind it.
 - **1.70.2** (11 Nov 2026): the core's ring plane faces the viewer, like Saturn seen from above its pole, and still

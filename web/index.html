@@ -909,15 +909,16 @@ function build3d(){
     const u=3.4/420,add=THREE.AdditiveBlending,mats=[],world=new THREE.Group();scene.add(world);
     scene.fog=new THREE.Fog(0,10.1,16);  // additive colours fade to nothing with distance: the far side of every ring is dimmer
     const mat=o=>{const m=new THREE.MeshBasicMaterial({color:0x5fe3ff,transparent:true,opacity:o,side:THREE.DoubleSide,blending:add,depthWrite:false});m.userData.base=o;mats.push(m);return m};
-    // Saturn seen from above: the rings face you, centred on the heart, each still drifting in its own small tilt
+    // An armillary sphere: the inner rings are gimbals, each at its own inclination, turning about the vertical at
+    // its own pace, all centred on the heart; the two outer rings and the dial stay square to you as the frame
     const plane=new THREE.Group();world.add(plane);
     const rings=RINGS.map(([rad,w,n,spd,f],i)=>{
       const tilt=new THREE.Group(),spin=new THREE.Group();tilt.add(spin);plane.add(tilt);
-      const tx=[.25,.6,-.45,.8,-.3,0][i]*.6,ty=[-.2,.35,.6,-.45,.2,0][i]*.6;  // each ring's own lean, pivoting on the heart
+      tilt.rotation.order='YXZ';const tx=[1.35,0,.9,1.15,0,0][i],ty=[.22,-.17,.12,-.08,0,0][i],ph=[0,.6,1.9,3.1,0,0][i];  // inclination, turn speed, start angle
       const m=mat(.35+i%2*.35),inner=(rad-Math.max(w,1.5)/2)*u,outer=(rad+Math.max(w,1.5)/2)*u;
       for(let k=0;k<n;k++){const a=k*Math.PI*2/n,len=Math.PI*2/n*f,sg=Math.max(8,Math.round(64*f/n*6));spin.add(new THREE.Mesh(new THREE.RingGeometry(inner,outer,sg,1,a,len),m));
         if(w>=10)spin.add(new THREE.Mesh(new THREE.CylinderGeometry(outer,outer,w*u*1.5,sg,1,true,a+Math.PI/2,len).rotateX(Math.PI/2),m))}  // thick rings get a wall, so they read as bands
-      return{tilt,spin,spd,i,m,tx,ty}});
+      return{tilt,spin,spd,i,m,tx,ty,ph}});
     const ticks=new THREE.Group(),tm=mat(.55);plane.add(ticks);
     for(let k=0;k<72;k++){const l=(k%6?8:20)*u,a=k/72*Math.PI*2;const g=new THREE.PlaneGeometry(l,1.6*u),me=new THREE.Mesh(g,tm);
       me.position.set(Math.cos(a)*(410*u-l/2),Math.sin(a)*(410*u-l/2),0);me.rotation.z=a;ticks.add(me)}
@@ -945,8 +946,9 @@ function draw3d(h,c,pulse){
   h.world.rotation.y=Math.sin(t*.35)*.35+par.x*.3;h.world.rotation.x=Math.sin(t*.22)*.18+par.y*.22;
   for(const g of h.rings){const b=bootK(g.i),s=(.55+.45*b)*(1+level*(g.i<3?.15:.04));
     g.tilt.visible=b>0;g.tilt.scale.setScalar(s);g.spin.rotation.z=t*g.spd;g.m.opacity=(g.m.userData.base+level*.3)*b;
-    const wob=g.i<5?.22:0;g.tilt.rotation.x=g.tx*h.open+Math.sin(t*.3+g.i*1.7)*wob;g.tilt.rotation.y=g.ty*h.open+Math.cos(t*.24+g.i)*wob;
-    g.tilt.position.z=0}  // each ring moves freely, but always centred on the heart
+    const gim=Math.min(1,h.open);  // listening: the gimbals fold flat to face you; otherwise they open out
+    g.tilt.rotation.x=g.tx*gim+(g.i>3?Math.sin(t*.3+g.i)*.05:0);g.tilt.rotation.y=g.ty?g.ph+t*g.ty*3:Math.cos(t*.24+g.i)*.05;
+    g.tilt.position.z=0}  // every ring turns freely, always centred on the heart
   // the ring plane faces you, like Saturn seen from above its pole: square on while listening, a slight lean while thinking
   h.plane.rotation.x=-Math.max(0,.12+(h.open-1)*.2);h.plane.rotation.z=Math.sin(t*.2)*.04;
   const bt=bootK(6);h.ticks.rotation.z=-t*.1;h.tm.opacity=.55*bt;
