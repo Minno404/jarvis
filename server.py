@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.62.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.63.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2227,7 +2227,7 @@ class Handler(SimpleHTTPRequestHandler):
                     return self.send_json(r)
                 if body.get("status"):
                     return self.send_json(mt5trade.AUTO.status())
-                return self.send_json(mt5trade.AUTO.start() if body.get("on", True) else mt5trade.AUTO.stop())
+                return self.send_json(mt5trade.AUTO.start() if body.get("on", True) else mt5trade.AUTO.stop(close=True))
             except Exception as e:
                 return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path in ("/api/disk_clean", "/api/disk_scan"):  # the disk doctor panel's buttons, from this PC only

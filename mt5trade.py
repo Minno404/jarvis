@@ -222,6 +222,94 @@ def _mt5():
     return mt5
 
 
+def _mt5_exe():
+    """Where terminal64.exe is: remembered from when it last ran, else the usual install folders."""
+    import glob
+    seen = features._load("state.json", {}).get("mt5_exe")
+    if seen and os.path.exists(seen):
+        return seen
+    for root in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", "")):
+        hits = sorted(glob.glob(os.path.join(root, "*", "terminal64.exe")) if root else [], key=lambda p: "MetaTrader 5" not in p)
+        if hits:
+            return hits[0]
+    return None
+
+
+def remember_mt5_exe():
+    """While MT5 runs, note where it's installed (brokers install it under their own name)."""
+    try:
+        import psutil
+        p = next((p for p in psutil.process_iter(["name", "exe"]) if (p.info["name"] or "").lower() == "terminal64.exe"), None)
+        if p and p.info["exe"]:
+            st = features._load("state.json", {})
+            if st.get("mt5_exe") != p.info["exe"]:
+                features._save("state.json", {**st, "mt5_exe": p.info["exe"]})
+    except Exception:
+        pass
+
+
+def _minimise(name="terminal64.exe"):
+    """Minimise MT5's windows (no focus stolen)."""
+    import ctypes
+    import psutil
+    from ctypes import wintypes
+    pids = {p.pid for p in psutil.process_iter(["name"]) if (p.info["name"] or "").lower() == name}
+    u = ctypes.windll.user32
+    found = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def each(hwnd, _):
+        pid = wintypes.DWORD()
+        u.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value in pids and u.IsWindowVisible(hwnd) and not u.GetWindow(hwnd, 4):  # top-level, no owner
+            found.append(hwnd)
+        return True
+    u.EnumWindows(each, 0)
+    for h in found:
+        u.ShowWindow(h, 7)  # SW_SHOWMINNOACTIVE
+    return bool(found)
+
+
+def open_mt5(wait=90):
+    """Open MT5 minimised (for the autopilot) and wait until it's logged in. -> True if Jarvis opened it."""
+    if os.name != "nt" or "terminal64.exe" in features.running():
+        return False
+    exe = _mt5_exe()
+    if not exe:
+        raise RuntimeError("Couldn't find MetaTrader 5 on this PC. Open it once yourself so Jarvis learns where it is.")
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 7  # start minimised, without taking focus
+    subprocess.Popen([exe], startupinfo=si, cwd=os.path.dirname(exe))
+    import MetaTrader5 as mt5
+    end = time.time() + wait
+    while time.time() < end:
+        time.sleep(2)
+        try:
+            _minimise()  # MT5 sometimes restores its window while it loads
+        except Exception:
+            pass
+        if "terminal64.exe" in features.running() and mt5.initialize() and mt5.account_info():
+            time.sleep(2)
+            try:
+                _minimise()
+            except Exception:
+                pass
+            return True
+    raise RuntimeError("MetaTrader 5 opened but didn't log in within a minute and a half. Check it's logged in.")
+
+
+def close_mt5():
+    """Close MT5 the normal way (like clicking X). Stops and targets stay on the broker's server."""
+    try:
+        import MetaTrader5 as mt5
+        mt5.shutdown()
+    except Exception:
+        pass
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/IM", "terminal64.exe"], capture_output=True, creationflags=NO_WINDOW)
+
+
 def _symbol(mt5, name):
     s = name.upper().replace("/", "")
     if s in ("GOLD",):
@@ -587,7 +675,9 @@ class Autopilot:
     def start(self):
         if self.on:
             return {"already": True, **self.status()}
-        mt5 = _mt5()  # fails here (and says why) if MT5 isn't open
+        opened = open_mt5()  # he asked for the autopilot: Jarvis opens MT5 himself (minimised) if it's closed
+        remember_mt5_exe()
+        mt5 = _mt5()
         why = ready(mt5)
         if why:
             return {"error": why + "."}
@@ -603,14 +693,22 @@ class Autopilot:
         self.thread.start()
         self.show("Autopilot on")
         out = {"started": True, **self.status()}
+        if opened:
+            out["mt5"] = "Opened MetaTrader 5 minimised."
         if out["quiet_until"]:
             out["note"] = f"It's quiet hours: the autopilot starts checking charts at {out['quiet_until']}."
         return out
 
-    def stop(self, why="Stopped"):
+    def stop(self, why="Stopped", close=False):
+        """close: he stopped it himself, so MT5 closes too (the autopilot stopping itself, e.g. at the loss limit,
+        leaves MT5 open)."""
         self.on = False
         self.show(why)
-        return {"stopped": True, "note": "Its open trades keep their stops and targets; ask to close them if he wants."}
+        out = {"stopped": True, "note": "Its open trades keep their stops and targets on the broker's server; ask to close them if he wants."}
+        if close:
+            close_mt5()
+            out["mt5"] = "Closed MetaTrader 5."
+        return out
 
     def show(self, msg):
         self.last = {**self.last, "msg": msg, "at": datetime.datetime.now().strftime("%H:%M")}
@@ -631,6 +729,8 @@ class Autopilot:
     def _loop(self, next_look):
         while self.on:
             try:
+                if os.name == "nt" and "terminal64.exe" not in features.running():
+                    open_mt5()  # MT5 was closed while the autopilot runs: open it again (minimised)
                 self.manage()  # trades already open keep being looked after, quiet hours or not
                 until = quiet_until()
                 if until:
@@ -932,8 +1032,8 @@ def autopilot(on=True):
     """Start or stop the autopilot. It runs inside Jarvis (the server), so a tool call asks the server to do it."""
     import server_bridge
     if server_bridge.IN_SERVER:
-        return AUTO.start() if on else AUTO.stop()
-    return server_bridge.post("/api/autopilot", {"on": bool(on)})
+        return AUTO.start() if on else AUTO.stop(close=True)
+    return server_bridge.post("/api/autopilot", {"on": bool(on)}, timeout=150)  # opening MT5 can take a minute
 
 
 def autopilot_status():
@@ -981,7 +1081,8 @@ TOOLS = [
     {"name": "autopilot", "description": (
         "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "
         "brains separately; it trades only when both pick the same trade, within his limits (risk per trade, daily "
-        "loss limit, trades a day, no news, demo unless he switched it to live). on: true to start, false to stop."),
+        "loss limit, trades a day, no news, demo unless he switched it to live). on: true to start, false to stop. "
+        "Starting opens MetaTrader 5 minimised if it's closed (it can take a minute); stopping closes MT5."),
      "input_schema": {"type": "object", "properties": {"on": {"type": "boolean"}}}},
     {"name": "autopilot_status", "description": "How the trading autopilot is doing: on or off, trades today, "
      "last decision and its limits.", "input_schema": {"type": "object", "properties": {}}},
