@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.57.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.58.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -864,6 +864,8 @@ def set_autostart(on):
 
 def save_prefs(d):
     """Listening mode, push-to-talk key and avatar choices from the HUD's settings."""
+    if isinstance(d.get("trading"), dict):  # the Trading section (its own Save button)
+        return {"trading": mt5trade.save_limits(d["trading"])}
     s = features.settings()
     if d.get("listen_mode") in ("wake", "ptt", "both"):
         s["listen_mode"] = d["listen_mode"]
@@ -1873,6 +1875,8 @@ class Handler(SimpleHTTPRequestHandler):
             after = int(parse_qs(urlsplit(self.path).query).get("after", ["0"])[0] or 0)
             with EVENTS_LOCK:
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
+        if self.path == "/api/trading":  # the Trading section of Settings
+            return self.send_json(mt5trade.limits())
         if self.path == "/api/boot":
             mt5_on = os.name == "nt" and "terminal64.exe" in features.running()
             # settings first: live status ("brain", "persona") must win over the saved setting of the same name
@@ -2349,6 +2353,16 @@ if __name__ == "__main__":
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
     server_bridge.IN_SERVER = True  # this is the running Jarvis: the autopilot lives here
     server_bridge._say = lambda text: LIVE.get("say", print)(text)
+
+    def watch_floor():  # his equity floor, every 30 seconds while MT5 is open (mt5trade.floor_watch)
+        while True:
+            time.sleep(30)
+            try:
+                if mt5trade.limits()["trade_equity_floor"] and (os.name != "nt" or "terminal64.exe" in features.running()):
+                    mt5trade.floor_watch()
+            except Exception as e:
+                print(datetime.datetime.now(), "equity floor check:", e)
+    threading.Thread(target=watch_floor, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # on Windows this would let two copies share the port
     httpd = None
     for attempt in range(2):

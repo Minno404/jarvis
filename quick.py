@@ -45,6 +45,10 @@ def custom_panels():
     return names
 
 
+def _amt(v, unit):
+    return f"${v:g}" if unit == "$" else f"{v:g} lots" if unit == "lots" else f"{v:g}%"
+
+
 def quick(text):
     """A spoken reply if this was an everyday command that's now been done, else None (ask Claude)."""
     R, t = features.REGISTRY, _clean(text)
@@ -81,8 +85,9 @@ def quick(text):
             return "I can't start the autopilot, {TITLE}. " + r["error"]
         lim = r.get("limits", {})
         return ("Autopilot engaged, {TITLE}. I'll check the charts every 15 minutes and only trade when both brains "
-                f"agree, risking {lim.get('auto_risk_pct')}% a trade, with a {lim.get('auto_daily_loss_pct')}% daily "
-                "loss limit. Say stop trading to stop me.") if r.get("started") else "The autopilot's already running, {TITLE}."
+                f"agree, sized at {_amt(lim.get('trade_size'), lim.get('trade_size_unit'))} a trade, with a "
+                f"{_amt(lim.get('trade_daily_loss'), lim.get('trade_daily_loss_unit'))} daily loss limit. "
+                "Say stop trading to stop me.") if r.get("started") else "The autopilot's already running, {TITLE}."
     if re.fullmatch(r"(?:stop|end|kill|halt|disengage) (?:the )?(?:trading|autopilot|trading autopilot|making money|auto ?trading)|"
                     r"turn off (?:the )?(?:trading )?autopilot", t) and "autopilot" in R:
         R["autopilot"](on=False)

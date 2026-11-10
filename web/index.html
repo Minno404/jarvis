@@ -98,6 +98,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-panel.blueprint .bpsrc a{color:#7fd4ff;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .holo-panel.blueprint .bpbox{position:relative}
 .holo-panel > h3{cursor:zoom-in}#bigView .holo-panel > h3{cursor:zoom-out}
+#tradeSet .tsl{min-width:120px}#tradeSet input[type=number]{width:90px}
 .holo-panel.ticket canvas{display:block;width:100%;height:170px;margin:6px 0}
 .holo-panel.ticket .tkhead{font-size:16px;font-weight:700;letter-spacing:.04em}
 .holo-panel.ticket.real h3{color:#ff8a8a}
@@ -662,6 +663,19 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <label><input type="checkbox" data-feat="spending"> Spending (budget notes from Spend Breakdown)</label>
       <label><input type="checkbox" data-feat="tv"> TV control</label>
       <p class="hint">Off means he won't bring it up by himself; it still works whenever you ask.</p>
+    </fieldset>
+    <fieldset id="tradeSet"><legend>Trading</legend>
+      <p class="hint">Used for trades Jarvis places and for the autopilot ("make me money"). % values are of your account size.</p>
+      <div class="keyrow"><span class="hint tsl">Account size</span><input type="number" min="0" step="any" data-t="trade_account_size" placeholder="0 = live balance"><span class="hint">$</span></div>
+      <div class="keyrow"><span class="hint tsl">Size per trade</span><input type="number" min="0" step="any" data-t="trade_size"><select data-t="trade_size_unit"><option value="%">% risked</option><option value="$">$ risked</option><option value="lots">lots</option></select></div>
+      <div class="keyrow"><span class="hint tsl">Daily loss limit</span><input type="number" min="0" step="any" data-t="trade_daily_loss"><select data-t="trade_daily_loss_unit"><option value="%">%</option><option value="$">$</option></select></div>
+      <div class="keyrow"><span class="hint tsl">Equity floor</span><input type="number" min="0" step="any" data-t="trade_equity_floor" placeholder="0 = none"><span class="hint">$ never below</span></div>
+      <div class="keyrow"><span class="hint tsl">Daily profit target</span><input type="number" min="0" step="any" data-t="trade_daily_target" placeholder="0 = none"><select data-t="trade_daily_target_unit"><option value="%">%</option><option value="$">$</option></select></div>
+      <div class="keyrow"><span class="hint tsl">Max lots</span><input type="number" min="0" step="any" data-t="trade_max_lots"><span class="hint tsl">Max risk a trade</span><input type="number" min="0" step="any" data-t="trade_max_risk_pct"><span class="hint">%</span></div>
+      <div class="keyrow"><span class="hint tsl">Autopilot trades a day</span><input type="number" min="0" step="1" data-t="auto_max_trades"><span class="hint tsl">Min reward:risk</span><input type="number" min="0" step="any" data-t="auto_min_rr"></div>
+      <div class="keyrow"><span class="hint tsl">Autopilot symbols</span><input type="text" data-t="auto_symbols" placeholder="XAUUSD, EURUSD" style="flex:1"></div>
+      <div class="keyrow"><span class="hint" id="tradeLive" style="flex:1"></span><button type="button" id="tradeSave">Save trading</button></div>
+      <p class="hint">The equity floor blocks any trade that could take equity below it if every stop were hit; if equity reaches it, Jarvis closes his own trades and stops the autopilot. Real money is switched on by voice ("switch on live trading") and a click on the card that comes up.</p>
     </fieldset>
     <fieldset><legend>Startup &amp; closing</legend>
       <label><input type="checkbox" id="autoStart"> Start Jarvis when Windows starts (he waits in the tray by the clock if the option below is on)</label>
@@ -2151,13 +2165,14 @@ function showTicket(ev){
     if(!ok.disabled)ok.textContent=`Confirm (${s}s)`;if(!s){clearInterval(tickTimer);ok.disabled=true;msg.textContent='Expired: ask again for a fresh ticket.'}},500);
   $('holo').prepend(p);movable(p,'ticket');if(layout.ticket)free(p,fromLayout(layout.ticket));sfx('panel');
   requestAnimationFrame(()=>tkChart(p.querySelector('canvas'),ev))}
-let AUTOP=null;
+let AUTOP=null;const amt=(v,u)=>u==='$'?'$'+v:u==='lots'?v+' lots':v+'%';
 function showAuto(ev){
   if(!AUTOP||!AUTOP.isConnected){AUTOP=document.createElement('div');AUTOP.className='holo-panel autop';
     AUTOP.innerHTML='<button type="button" class="holo-x" aria-label="Close">&times;</button><h3>Trading autopilot</h3><div class="aprows"></div><div class="hacts"><button type="button" class="apgo"></button></div>';
     AUTOP.querySelector('.holo-x').onclick=()=>closePanel(AUTOP);$('holo').prepend(AUTOP);movable(AUTOP,'autop');if(layout.autop)free(AUTOP,fromLayout(layout.autop))}
   const L=ev.limits||{},rows=[['Status',ev.on?'ON':'off'],['Trades today',`${ev.trades_today||0} of ${L.auto_max_trades}`],
-    ['Risk a trade',`${L.auto_risk_pct}%`],['Daily loss limit',`${L.auto_daily_loss_pct}%`],['Account',L.auto_live?'real money allowed':'demo only'],
+    ['Size a trade',amt(L.trade_size,L.trade_size_unit)],['Daily loss limit',amt(L.trade_daily_loss,L.trade_daily_loss_unit)],
+    ...(L.trade_daily_target?[['Daily target',amt(L.trade_daily_target,L.trade_daily_target_unit)]]:[]),...(L.trade_equity_floor?[['Equity floor','$'+L.trade_equity_floor]]:[]),['Account',L.auto_live?'real money allowed':'demo only'],
     ['Last',ev.last?.msg?`${ev.last.at} ${ev.last.msg}`:'nothing yet']];
   const box=AUTOP.querySelector('.aprows');box.innerHTML='';for(const [a,b] of rows){const r=document.createElement('div');r.innerHTML='<span></span><b></b>';r.children[0].textContent=a;r.children[1].textContent=b;box.append(r)}
   AUTOP.classList.toggle('on',!!ev.on);const go=AUTOP.querySelector('.apgo');go.textContent=ev.on?'Stop trading':'Start';
@@ -2726,7 +2741,14 @@ $('voiceVol').oninput=()=>{setVoiceVol($('voiceVol').value);$('volVal').textCont
 $('voiceVol').onchange=()=>{savePref({voice_volume:+$('voiceVol').value});try{audio();const v=voice();v.push('Volume set.');v.end()}catch(e){}};
 $('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
 $('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};
-$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice();refreshLocal()};
+$('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice();refreshLocal();loadTrading()};
+const tradeFields=()=>[...document.querySelectorAll('#tradeSet [data-t]')];
+function fillTrading(L){if(!L)return;for(const el of tradeFields()){const v=L[el.dataset.t];el.value=Array.isArray(v)?v.join(', '):(v??'')}
+  $('tradeLive').textContent=`Real money: your trades ${L.trade_live?'ON':'off'} · autopilot ${L.auto_live?'ON':'off'}`}
+async function loadTrading(){try{fillTrading(await (await fetch('/api/trading')).json())}catch(e){}}
+$('tradeSave').onclick=async()=>{const d={};for(const el of tradeFields())d[el.dataset.t]=el.dataset.t==='auto_symbols'?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.tagName==='SELECT'?el.value:(el.value===''?0:+el.value);
+  $('setMsg').textContent='';try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trading:d})})).json();
+    if(r.error)throw new Error(r.error);fillTrading(r.trading);$('setMsg').textContent='Trading settings saved.'}catch(e){$('setMsg').textContent=e.message||"Couldn't save."}};
 $('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};
 document.querySelectorAll('input[name=lm]').forEach(r=>r.onchange=()=>savePref({listen_mode:r.value}));
 document.querySelectorAll('input[name=as]').forEach(r=>r.onchange=()=>savePref({avatar_style:r.value}));

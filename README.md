@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.57.0** (shown at the bottom right of the HUD)
+**Version 1.58.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,13 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.58.0** (10 Nov 2026): a Trading section in Settings: account size (what % limits are taken of), the size you
+  want per trade (% or $ risked, or fixed lots), a daily loss limit, an equity floor, a daily profit target, max lots,
+  max risk a trade, the autopilot's trades a day, minimum reward:risk and symbols. Every trade (yours through Jarvis
+  and the autopilot's) is checked against them: none that could take today's loss past the limit, or equity below
+  the floor if every open stop were hit (trades without a stop block it). If equity ever reaches the floor, Jarvis
+  closes his own trades, stops the autopilot and tells you (your own manual trades are left alone). The autopilot
+  stops for the day at the profit target or the loss limit.
 - **1.57.0** (10 Nov 2026): trading on MT5. Trades you ask for ("buy 0.1 gold, stop 2310, target 2350", "move my
   stop to break-even", "close my gold trade") come up as a ticket on the HUD with the chart and the entry, stop and
   take-profit lines and the dollar risk; nothing is sent until you click Confirm (voice can't), and a stop loss is

@@ -1,4 +1,4 @@
 {
- "version": "1.57.0",
- "notes": "MT5 trading: confirm-by-click trade tickets, and the two-brain trading autopilot."
+ "version": "1.58.0",
+ "notes": "Trading settings: account size, size per trade, daily loss limit, equity floor, profit target."
 }

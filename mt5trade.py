@@ -41,17 +41,115 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "trade_max_risk_pct": 2.0,      # most of his balance one trade may risk (trades he asks for)
     "trade_live": False,            # trades on a real-money account (else demo only)
     "auto_live": False,             # the autopilot on a real-money account (separate switch)
-    "auto_risk_pct": 0.5,           # what one autopilot trade risks
-    "auto_daily_loss_pct": 2.0,     # the autopilot stops for the day after losing this much
+    # His own numbers, from the Trading section of Settings ($ or % of his account size):
+    "trade_account_size": 0.0,      # what % limits are taken of (0: the live balance)
+    "trade_size": 0.5,              # the size he wants: risk per trade ...
+    "trade_size_unit": "%",         # ... as % of the account, $ risked, or fixed "lots"
+    "trade_daily_loss": 2.0,        # daily loss limit: no new trades past it (the autopilot stops for the day)
+    "trade_daily_loss_unit": "%",
+    "trade_equity_floor": 0.0,      # equity must never go below this ($, 0: none)
+    "trade_daily_target": 0.0,      # daily profit target: the autopilot stops for the day once it's reached
+    "trade_daily_target_unit": "%",
     "auto_max_trades": 3,           # autopilot trades a day
     "auto_min_rr": 1.5,             # reward to risk at least this
     "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
 }
 
 
+UNITS = {"trade_size_unit": ("%", "$", "lots"), "trade_daily_loss_unit": ("%", "$"), "trade_daily_target_unit": ("%", "$")}
+
+
 def limits():
     s = features.settings()
     return {k: s.get(k, v) for k, v in LIMITS.items()}
+
+
+def save_limits(d):
+    """The Trading section of Settings. Numbers are checked; real-money switches can only be turned OFF here
+    (turning them on needs the click on a HUD card, via trading_settings)."""
+    s = features.settings()
+    for k, v in (d or {}).items():
+        if k in UNITS:
+            if v not in UNITS[k]:
+                raise ValueError(f"{k} must be one of {', '.join(UNITS[k])}")
+            s[k] = v
+        elif k in ("trade_live", "auto_live"):
+            if not v:
+                s[k] = False
+        elif k == "auto_symbols":
+            s[k] = [str(x).strip().upper().replace("/", "")[:12] for x in (v if isinstance(v, list) else str(v).split(",")) if str(x).strip()][:4] or ["XAUUSD"]
+        elif k in LIMITS:
+            try:
+                n = float(v or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"{k} must be a number")
+            if n < 0:
+                raise ValueError(f"{k} can't be negative")
+            s[k] = int(n) if k == "auto_max_trades" else n
+    features._save("settings.json", s)
+    return limits()
+
+
+def money(value, unit, base):
+    """$ from a setting given in $ or % of the account."""
+    return float(value) if unit == "$" else base * float(value) / 100
+
+
+def base_size(acc, lim):
+    return lim["trade_account_size"] or acc.balance
+
+
+def day_state(mt5):
+    """Today's starting equity and trade count (shared by his trades and the autopilot)."""
+    st = _load(AUTO_STATE, {})
+    today = datetime.date.today().isoformat()
+    if st.get("date") != today:
+        st = {"date": today, "start_equity": mt5.account_info().equity, "trades": 0}
+        _save(AUTO_STATE, st)
+    return st
+
+
+def open_risk(mt5):
+    """($ that all open trades lose if every stop is hit, [trades with no stop])."""
+    total, naked = 0.0, []
+    for p in mt5.positions_get() or []:
+        if not p.sl:
+            naked.append(f"#{p.ticket} {p.symbol}")
+            continue
+        info = mt5.symbol_info(p.symbol)
+        lost = (p.price_current - p.sl) if p.type == 0 else (p.sl - p.price_current)
+        total += max(0.0, lost / (info.trade_tick_size or info.point) * info.trade_tick_value * p.volume)
+    return total, naked
+
+
+def risk_check(mt5, lim, risk):
+    """Why a new trade risking $risk breaks his limits (or None): the daily loss limit and the equity floor."""
+    acc = mt5.account_info()
+    st = day_state(mt5)
+    base = base_size(acc, lim)
+    daily = money(lim["trade_daily_loss"], lim["trade_daily_loss_unit"], base)
+    lost = max(0.0, st["start_equity"] - acc.equity)
+    if daily and lost + risk > daily:
+        return (f"that could take today's loss to ${lost + risk:,.2f}, past his daily limit of ${daily:,.2f} "
+                f"(down ${lost:,.2f} so far)")
+    floor = lim["trade_equity_floor"]
+    if floor:
+        held, naked = open_risk(mt5)
+        if naked:
+            return f"his equity floor can't be protected while {', '.join(naked)} has no stop loss"
+        worst = acc.equity - held - risk
+        if worst < floor:
+            return (f"if every stop were hit, equity would fall to ${worst:,.2f}, below his floor of ${floor:,.2f}")
+    return None
+
+
+def wanted_size(info, entry, stop, acc, lim):
+    """Lots for the size he wants (Settings: % or $ risked, or fixed lots)."""
+    if lim["trade_size_unit"] == "lots":
+        step = info.volume_step or 0.01
+        return round(int(min(float(lim["trade_size"]), lim["trade_max_lots"]) / step) * step, 2)
+    return size_lots(info, entry, stop, money(lim["trade_size"], lim["trade_size_unit"], base_size(acc, lim)),
+                     lim["trade_max_lots"])
 
 
 def _load(path, default):
@@ -169,17 +267,23 @@ def propose_trade(symbol, side, stop, target=None, lots=None, risk_pct=None, ord
     bad = check_levels(side, entry, stop, target)
     if bad:
         return {"error": "; ".join(bad)}
-    bal = mt5.account_info().balance
+    acc = mt5.account_info()
+    bal = base_size(acc, lim)
     if lots:
         lots = min(float(lots), lim["trade_max_lots"])
+    elif risk_pct:
+        lots = size_lots(info, entry, stop, bal * float(risk_pct) / 100, lim["trade_max_lots"])
     else:
-        lots = size_lots(info, entry, stop, bal * float(risk_pct or 1.0) / 100, lim["trade_max_lots"])
+        lots = wanted_size(info, entry, stop, acc, lim)  # the size he set in Settings
     if not lots:
         return {"error": "The stop is too far for even the smallest lot size within his risk limit."}
     risk = loss_per_lot(info, entry, stop) * lots
     if risk > bal * lim["trade_max_risk_pct"] / 100:
         return {"error": f"That risks ${risk:,.2f}, over his limit of {lim['trade_max_risk_pct']}% "
                          f"(${bal * lim['trade_max_risk_pct'] / 100:,.2f}). Use a smaller size or closer stop."}
+    why = risk_check(mt5, lim, risk)
+    if why:
+        return {"error": "Not allowed: " + why + "."}
     t = {"id": uuid.uuid4().hex[:10], "kind": "open", "symbol": s, "side": side, "order": order, "entry": entry,
          "stop": stop, "target": target or None, "lots": lots, "risk": round(risk, 2),
          "reward": round(loss_per_lot(info, entry, target) * lots, 2) if target else None,
@@ -238,7 +342,16 @@ def confirm(ticket_id, cancel=False):
     mt5 = _mt5()
     if not is_demo(mt5) and not limits()["trade_live"]:
         return {"error": "Live trading is off."}
-    return send(mt5, t, MAGIC_MANUAL)
+    if t["kind"] == "open":
+        why = risk_check(mt5, limits(), t["risk"])  # things may have changed since the ticket was made
+        if why:
+            return {"error": "Not sent: " + why + "."}
+    r = send(mt5, t, MAGIC_MANUAL)
+    if r.get("done") and t["kind"] == "open":
+        st = day_state(mt5)
+        st["trades"] = st.get("trades", 0) + 1
+        _save(AUTO_STATE, st)
+    return r
 
 
 def send(mt5, t, magic):
@@ -278,21 +391,18 @@ def send(mt5, t, magic):
             "order": getattr(r, "order", None)}
 
 
-def trading_settings(live=None, max_lots=None, max_risk_pct=None, auto_live=None, auto_risk_pct=None,
-                     auto_daily_loss_pct=None, auto_max_trades=None, auto_symbols=None):
-    """Change his trading limits. Switching live trading ON needs his click on a HUD card; everything else
-    (including switching live off, or making limits stricter or looser) is set straight away."""
-    s = features.settings()
-    changes = {"trade_max_lots": max_lots, "trade_max_risk_pct": max_risk_pct, "auto_risk_pct": auto_risk_pct,
-               "auto_daily_loss_pct": auto_daily_loss_pct, "auto_max_trades": auto_max_trades}
-    new = {k: max(0.0, float(v)) for k, v in changes.items() if v is not None}
-    if auto_symbols:
-        new["auto_symbols"] = [str(x).upper().replace("/", "")[:12] for x in auto_symbols][:4]
+def trading_settings(live=None, auto_live=None, **changes):
+    """Change his trading limits (the same as the Trading section of Settings). Switching real money ON needs his
+    click on a HUD card; everything else is set straight away."""
+    new = {k: v for k, v in changes.items() if v is not None and (k in LIMITS or k in UNITS)}
     if live is False:
         new["trade_live"] = False
     if auto_live is False:
         new["auto_live"] = False
-    features._save("settings.json", {**s, **new})
+    try:
+        save_limits(new)
+    except ValueError as e:
+        return {"error": str(e)}
     out = {"limits": limits()}
     for key, on, text in (("trade_live", live, "Live trading (trades you confirm, on your real-money account)"),
                           ("auto_live", auto_live, "The autopilot on your real-money account")):
@@ -464,14 +574,6 @@ class Autopilot:
                     return
                 time.sleep(1)
 
-    def day(self, mt5):
-        st = _load(AUTO_STATE, {})
-        today = datetime.date.today().isoformat()
-        if st.get("date") != today:
-            st = {"date": today, "start_equity": mt5.account_info().equity, "trades": 0}
-            _save(AUTO_STATE, st)
-        return st
-
     def manage(self):
         """Break-even at 1R for the autopilot's own trades."""
         mt5 = _mt5()
@@ -492,11 +594,21 @@ class Autopilot:
         acc = mt5.account_info()
         if not is_demo(mt5) and not lim["auto_live"]:
             return "real-money account and the autopilot is demo only"
-        loss = (st["start_equity"] - acc.equity) / max(1, st["start_equity"]) * 100
-        if loss >= lim["auto_daily_loss_pct"]:
+        base = base_size(acc, lim)
+        lost = st["start_equity"] - acc.equity
+        daily = money(lim["trade_daily_loss"], lim["trade_daily_loss_unit"], base)
+        if daily and lost >= daily:
             self.on = False
-            self.say(f"Autopilot stopped for today: down {loss:.1f}%, its daily limit.")
-            return f"daily loss limit hit ({loss:.1f}%)"
+            self.say(f"Autopilot stopped for today: down ${lost:,.0f}, your daily loss limit.")
+            return f"daily loss limit hit (down ${lost:,.2f})"
+        target = money(lim["trade_daily_target"], lim["trade_daily_target_unit"], base)
+        if target and -lost >= target:
+            self.on = False
+            self.say(f"Autopilot stopped for today: up ${-lost:,.0f}, your daily profit target. Nicely done.")
+            return f"daily profit target reached (up ${-lost:,.2f})"
+        if lim["trade_equity_floor"] and acc.equity <= lim["trade_equity_floor"]:
+            self.on = False
+            return "equity is at his floor"
         if st["trades"] >= lim["auto_max_trades"]:
             return f"{st['trades']} trades today, its limit"
         if any(p.magic == MAGIC_AUTO for p in mt5.positions_get() or []):
@@ -513,7 +625,7 @@ class Autopilot:
     def cycle(self):
         mt5 = _mt5()
         lim = limits()
-        st = self.day(mt5)
+        st = day_state(mt5)
         why = self.guards(mt5, lim, st)
         if why:
             self.show(f"Waiting: {why}")
@@ -568,9 +680,13 @@ class Autopilot:
         if deal["rr"] < lim["auto_min_rr"]:
             self.show(f"No trade: both said {deal['side']} {s}, but reward:risk is only {deal['rr']:.1f}")
             return
-        lots = size_lots(info, entry, deal["stop"], acc.balance * lim["auto_risk_pct"] / 100, lim["trade_max_lots"])
+        lots = wanted_size(info, entry, deal["stop"], acc, lim)
         if not lots:
             self.show("No trade: the stop is too far for the smallest lot within the risk limit")
+            return
+        why = risk_check(mt5, lim, loss_per_lot(info, entry, deal["stop"]) * lots)
+        if why:
+            self.show("No trade: " + why)
             return
         t = {"kind": "open", "symbol": s, "side": deal["side"], "order": "market", "entry": entry, "stop": deal["stop"],
              "target": deal["target"], "lots": lots}
@@ -593,6 +709,36 @@ class Autopilot:
 
 
 AUTO = Autopilot()
+
+
+def floor_watch():
+    """Every 30 seconds while MT5 is open (server.py runs it): if equity reaches his floor, close every trade Jarvis
+    opened (his own manual ones are left alone, and he's told), stop the autopilot, and say so."""
+    lim = limits()
+    floor = lim["trade_equity_floor"]
+    if not floor:
+        return None
+    mt5 = _mt5()
+    acc = mt5.account_info()
+    if acc.equity > floor:
+        return None
+    AUTO.on = False
+    closed, others = [], []
+    for p in mt5.positions_get() or []:
+        if p.magic in (MAGIC_MANUAL, MAGIC_AUTO):
+            r = send(mt5, {"kind": "close", "position": p.ticket, "symbol": p.symbol,
+                           "side": "buy" if p.type == 0 else "sell", "lots": p.volume}, p.magic)
+            if r.get("done"):
+                closed.append(p.symbol)
+        else:
+            others.append(f"{p.symbol} #{p.ticket}")
+    msg = (f"Equity floor hit, {features.settings().get('title', 'sir')}: equity is ${acc.equity:,.2f}, your floor is "
+           f"${floor:,.2f}. " + (f"I've closed my {len(closed)} trade(s) and stopped the autopilot. " if closed else
+                                 "The autopilot is stopped. ")
+           + (f"Your own trades are still open: {', '.join(others)}." if others else ""))
+    import server_bridge
+    server_bridge.say(msg)
+    return msg
 
 
 def autopilot(on=True):
@@ -629,12 +775,19 @@ TOOLS = [
      "input_schema": {"type": "object", "required": ["ticket"], "properties": {
          "ticket": N, "stop": N, "target": N, "close": {"type": "boolean"}, "lots": N}}},
     {"name": "trading_settings", "description": (
-        "His trading limits: max_lots, max_risk_pct (per trade), auto_risk_pct, auto_daily_loss_pct, auto_max_trades, "
-        "auto_symbols; live / auto_live to switch real-money trading on (needs his click on a HUD card) or off. "
-        "Call with nothing to see the current limits."),
+        "His trading limits (also in Settings > Trading): trade_account_size ($, what % limits are taken of; 0 = "
+        "live balance), trade_size + trade_size_unit (%, $ or lots: the size he wants per trade), trade_daily_loss + "
+        "unit (% or $), trade_equity_floor ($ equity must never go below), trade_daily_target + unit (profit target; "
+        "the autopilot stops for the day at it), trade_max_lots, trade_max_risk_pct, auto_max_trades, auto_min_rr, "
+        "auto_symbols; live / auto_live to switch real money on (needs his click on a HUD card) or off. Call with "
+        "nothing to see them."),
      "input_schema": {"type": "object", "properties": {
-         "live": {"type": "boolean"}, "auto_live": {"type": "boolean"}, "max_lots": N, "max_risk_pct": N,
-         "auto_risk_pct": N, "auto_daily_loss_pct": N, "auto_max_trades": N, "auto_symbols": {"type": "array", "items": S}}}},
+         "live": {"type": "boolean"}, "auto_live": {"type": "boolean"}, "trade_account_size": N, "trade_size": N,
+         "trade_size_unit": {"type": "string", "enum": ["%", "$", "lots"]}, "trade_daily_loss": N,
+         "trade_daily_loss_unit": {"type": "string", "enum": ["%", "$"]}, "trade_equity_floor": N,
+         "trade_daily_target": N, "trade_daily_target_unit": {"type": "string", "enum": ["%", "$"]},
+         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N,
+         "auto_symbols": {"type": "array", "items": S}}}},
     {"name": "autopilot", "description": (
         "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "
         "brains separately; it trades only when both pick the same trade, within his limits (risk per trade, daily "
