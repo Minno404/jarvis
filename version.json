@@ -1,4 +1,4 @@
 {
- "version": "1.73.1",
- "notes": "Roster email: pick the day Jarvis checks; he loads a new roster by himself."
+ "version": "1.73.2",
+ "notes": "Phone: no more zooming in when you tap to type."
 }

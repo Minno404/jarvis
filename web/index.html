@@ -243,6 +243,7 @@ html.pinmode,html.pinmode body{height:100%;overflow:hidden;background:var(--void
 /* The message bar: there when you need it, quiet when you don't. Enter sends; + adds a photo */
 form{opacity:.55;transition:opacity .3s}form:hover,form:focus-within{opacity:1}
 .qwrap{position:relative;flex:1;min-width:0;display:flex}
+@media (pointer:coarse){input,textarea,select{font-size:max(16px,1em)!important}}  /* iPhone zooms the page in on any box under 16px when you tap it */
 #q{flex:1;background:rgba(3,7,12,.35);border:0;border-bottom:1px solid rgba(var(--line-rgb),.8);padding-right:calc(40px*var(--s))}
 #q::placeholder{color:var(--mute);opacity:.7}
 #q:focus{border-color:var(--cyan);box-shadow:none;background:rgba(3,7,12,.55)}
