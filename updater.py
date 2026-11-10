@@ -1,7 +1,6 @@
 """Updates from GitHub: the HUD checks for a newer version and offers an Update button.
 
-Updating downloads the repo's latest code, copies it over the Jarvis folder and restarts through Jarvis.bat
-(which also installs any new components). Personal files (settings, memory, journal, TV pairing...) are
+Updating downloads the repo's latest code, copies it over the Jarvis folder and restarts Jarvis directly (see restart()). Personal files (settings, memory, journal, TV pairing...) are
 never in the repo, so they're left alone.
 """
 import io
@@ -9,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -65,10 +65,25 @@ def install(data=None, dest=HERE):
 
 
 def restart():
-    """Start Jarvis again through Jarvis.bat once this copy has closed, then close this one."""
-    # ping is a 2 s wait that works without a console; the new copy then gets the port
-    subprocess.Popen('cmd /c "ping -n 3 127.0.0.1 >nul & call Jarvis.bat"', cwd=HERE,
-                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    """Start a fresh Jarvis straight away and close this one. It skips Jarvis.bat's component checks (a few seconds
+    each, and they can wait forever on an install), starts detached so nothing closing this copy takes it down, and
+    waits for this copy to close before it opens the port (--after)."""
+    exe = HERE / "Jarvis.exe"
+    if os.name == "nt" and exe.exists() and (HERE / "jarvis_exe.json").exists():
+        run = [str(exe)]
+    else:
+        w = Path(sys.executable).with_name("pythonw.exe")
+        run = [str(w if w.exists() else sys.executable)]
+    args = run + ["server.py", "--after", str(os.getpid())] + [a for a in sys.argv[1:] if a == "--browser"]
+    flags = 0x8 | 0x200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+    try:
+        subprocess.Popen(args, cwd=HERE, creationflags=(flags | 0x01000000) if os.name == "nt" else 0, close_fds=True)
+    except OSError:  # not allowed to leave its job: start it inside
+        try:
+            subprocess.Popen(args, cwd=HERE, creationflags=flags if os.name == "nt" else 0, close_fds=True)
+        except OSError:  # last resort: the old way, through Jarvis.bat
+            subprocess.Popen('cmd /c "ping -n 3 127.0.0.1 >nul & call Jarvis.bat"', cwd=HERE,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     os._exit(0)
 
 

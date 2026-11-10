@@ -19,8 +19,9 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.60.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.60.2"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
+STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
 JOURNAL = HERE / "journal.json"
@@ -1960,6 +1961,8 @@ class Handler(SimpleHTTPRequestHandler):
             from urllib.parse import parse_qs, urlsplit
             after = int(parse_qs(urlsplit(self.path).query).get("after", ["0"])[0] or 0)
             with EVENTS_LOCK:
+                if EVENTS and after > EVENTS[-1]["seq"]:
+                    after = 0  # the page is from before a restart (numbering started again): send what's new since
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
         if self.path == "/api/usage":  # the token usage panel's Refresh button
             return self.send_json(usage.report())
@@ -2460,6 +2463,16 @@ if __name__ == "__main__":
         print("Brain: Claude Code on your Claude plan")
     else:
         print("Warning: Claude Code isn't installed and there's no API key, so Jarvis can't think yet. See README.md.")
+    if "--after" in sys.argv:  # a restart: the old copy is closing; wait for it so the port is free
+        try:
+            import psutil
+            old = int(sys.argv[sys.argv.index("--after") + 1])
+            for _ in range(60):
+                if not psutil.pid_exists(old):
+                    break
+                time.sleep(0.25)
+        except (ImportError, ValueError, IndexError):
+            time.sleep(2)
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
     server_bridge.IN_SERVER = True  # this is the running Jarvis: the autopilot lives here
     server_bridge._say = lambda text: LIVE.get("say", print)(text)
@@ -2487,7 +2500,7 @@ if __name__ == "__main__":
             if attempt or not take_over(url):
                 print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
                 sys.exit()
-    print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url}")
+    print(datetime.datetime.now(), f"JARVIS v{VERSION} online at {url} ({time.time() - STARTED:.1f} s after starting)")
     threading.Thread(target=lambda: LIVE.update(ts_https=tailscale_https()), daemon=True).start()
     if features.settings().get("brain") == "local":  # he starts online; "offline mode" switches to the local AI
         features._save("settings.json", {**features.settings(), "brain": "auto"})

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.60.1** (shown at the bottom right of the HUD)
+**Version 1.60.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.60.2** (10 Nov 2026): faster, reliable restarts. Restarting (from the phone, the tray, an update) starts the
+  new Jarvis directly, skipping Jarvis.bat's component checks, which took several seconds and could hang forever on an
+  install. The new copy waits for the old one to close, then opens the port. jarvis.log shows how many seconds
+  each start took. The phone keeps a copy of the page, so opening Jarvis mid-restart shows it (not a white
+  screen) and it reloads as soon as Jarvis answers. Panels sent right after a restart now reach an open page.
 - **1.60.1** (10 Nov 2026): the trading autopilot asks ChatGPT first on every check, and only asks Claude to
   confirm when ChatGPT sees a trade. Most checks end at "no trade", so Claude's plan limit is barely touched.
 - **1.60.0** (10 Nov 2026): token usage panel, shown only when asked ("token usage", "how many tokens have I got

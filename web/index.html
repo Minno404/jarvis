@@ -2876,4 +2876,11 @@ window.JarvisHUD={
     else{const sc=document.createElement('script');sc.src='/custom/'+f;sc.onerror=()=>console.warn('custom add-on failed',f);document.body.append(sc)}}
   for(const [f,e] of Object.entries(c.errors||{}))console.warn('custom add-on skipped',f,e);
 })();
+// Phone: keep a copy of this page (sw.js) so opening Jarvis mid-restart shows it, not a white screen; then wait for
+// Jarvis to answer and reload.
+if(!LOCAL&&location.protocol==='https:'&&navigator.serviceWorker)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+(async()=>{if(LOCAL)return;let down=false;
+  for(;;){try{const r=await fetch('/api/alive',{cache:'no-store'});if(r.ok){if(down)location.reload();return}}catch(e){}
+    if(!down){down=true;try{add('j','Jarvis is restarting on your PC. This page reconnects the moment he is back.')}catch(e){}}
+    await new Promise(r=>setTimeout(r,2000))}})();
 </script>

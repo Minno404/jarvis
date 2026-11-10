@@ -1,4 +1,4 @@
 {
- "version": "1.60.1",
- "notes": "Autopilot: ChatGPT screens every check, Claude is only asked to confirm a trade (saves your Claude limit)."
+ "version": "1.60.2",
+ "notes": "Restarts are quicker and can't hang; the phone no longer goes white while Jarvis restarts."
 }
