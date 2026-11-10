@@ -946,8 +946,8 @@ function draw3d(h,c,pulse){
   for(const g of h.rings){const b=bootK(g.i),s=(.55+.45*b)*(1+level*(g.i<3?.15:.04));
     g.tilt.visible=b>0;g.tilt.scale.setScalar(s);g.spin.rotation.z=t*g.spd;g.m.opacity=(g.m.userData.base+level*.3)*b;
     g.tilt.position.z=(2.5-g.i)*.04*level}  // the voice lifts the inner rings a touch off the plane
-  // the ring plane: tilted like Saturn's (seen from a little above), flatter to face you while listening, steeper while thinking
-  h.plane.rotation.x=-Math.min(1.25,1.05*h.open);h.plane.rotation.z=-.22+Math.sin(t*.2)*.04;
+  // the ring plane faces you, like Saturn seen from above its pole: square on while listening, a slight lean while thinking
+  h.plane.rotation.x=-Math.max(0,.12+(h.open-1)*.2);h.plane.rotation.z=Math.sin(t*.2)*.04;
   const bt=bootK(6);h.ticks.rotation.z=-t*.1;h.tm.opacity=.55*bt;
   for(const m of h.mats)m.color.setRGB(R,G,B);h.glowM.color.setRGB(R,G,B);h.pm.color.setRGB(R,G,B);h.heartM.uniforms.c.value.setRGB(.4+R*.6,.4+G*.6,.4+B*.6);h.heartM.uniforms.a.value.setRGB(R,G,B);
   const k=1+pulse/80;h.heart.scale.setScalar(k);h.glow.scale.setScalar((3.4+pulse/40)*bootK(0));h.glowM.opacity=.75;

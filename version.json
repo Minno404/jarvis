@@ -1,4 +1,4 @@
 {
- "version": "1.70.1",
- "notes": "Saturn-style rings around the core, no more clipped edges."
+ "version": "1.70.2",
+ "notes": "Core rings face you, top-down Saturn view."
 }
