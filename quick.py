@@ -101,8 +101,20 @@ def quick(text):
     if re.fullmatch(r"(?:put |send )?(?:the |my )?(?:pc|computer) to sleep|sleep (?:the |my )?(?:pc|computer)|"
                     r"good ?night jarvis", t) and "sleep_pc" in R:
         import threading
+        import mt5trade
         threading.Timer(4, R["sleep_pc"]).start()  # after the goodnight is said
+        if mt5trade.trading_now():
+            return "Goodnight, {TITLE}. The autopilot's trading, so I'll keep the PC awake and turn the screens off."
         return "Goodnight, {TITLE}. Putting the PC to sleep."
+    if re.fullmatch(r"(?:turn |switch )?(?:off )?(?:the |my )?(?:screens?|monitors?|displays?)(?: off)?", t) \
+            and re.search(r"\boff\b", t) and "screens_off" in R:
+        import threading
+        threading.Timer(1.5, R["screens_off"]).start()
+        return "Screens off, {TITLE}."
+    if re.fullmatch(r"(?:do |run |place |make )?(?:a )?test trade|test (?:the )?(?:trading|autopilot)", t) and "test_trade" in R:
+        import threading
+        threading.Thread(target=R["test_trade"], daemon=True).start()
+        return "Running a test trade, {TITLE}: the smallest size, opened and closed again in a few seconds. Watch the HUD."
     if re.fullmatch(r"(?:pull up|bring up|open|show(?: me)?|load)? ?(?:the |my )?(?:spending|spend) (?:report|breakdown)|"
                     r"spend breakdown", t) and "spending_report" in R:
         R["spending_report"](True)

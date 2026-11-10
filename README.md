@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.58.0** (shown at the bottom right of the HUD)
+**Version 1.59.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.59.0** (10 Nov 2026): trading with the screens off. While the autopilot runs, the PC can't fall asleep (a
+  sleeping PC can't trade) but the screens can turn off: "screens off", and "goodnight" turns the screens off instead
+  of sleeping while it's trading. A Test trade button (on the autopilot card and in Settings > Trading, or say "test
+  trade"): on a demo account it opens the smallest buy with a stop and target, closes it 5 seconds later, and shows
+  each step, or what's wrong (MT5 not open, Algo Trading off, a read-only login, market closed). The autopilot now
+  checks Algo Trading is on before it starts.
 - **1.58.0** (10 Nov 2026): a Trading section in Settings: account size (what % limits are taken of), the size you
   want per trade (% or $ risked, or fixed lots), a daily loss limit, an equity floor, a daily profit target, max lots,
   max risk a trade, the autopilot's trades a day, minimum reward:risk and symbols. Every trade (yours through Jarvis

@@ -67,7 +67,7 @@ COMMANDS = {
                            "*Free up space"],
     "Trading": ["Bring up my trading journal", "Give me a report", "Market briefing", "Show the gold chart",
                 "Buy 0.1 gold, stop 2310, target 2350 (you click Confirm)", "Move my stop to break-even", "Close my gold trade",
-                "*Make me money (trading autopilot)", "*Stop trading", "How's the autopilot doing?", "Set my risk per trade to 1%",
+                "*Make me money (trading autopilot)", "*Stop trading", "*Test trade", "*Screens off", "How's the autopilot doing?", "Set my risk per trade to 1%",
                 "Replay my last loss", "Pre-trade check", "Am I on tilt?", "Session debrief",
                 "Alert me when gold hits 2400", "Log a trade: long gold at 2380, closed +$40",
                 "Set my trading rules: no trades after 11pm"],

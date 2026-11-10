@@ -1,4 +1,4 @@
 {
- "version": "1.58.0",
- "notes": "Trading settings: account size, size per trade, daily loss limit, equity floor, profit target."
+ "version": "1.59.0",
+ "notes": "Trading with the screens off, and a Test trade button."
 }

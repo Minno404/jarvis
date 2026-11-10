@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.58.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.59.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -2090,6 +2090,10 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
+        if self.path == "/api/trade_test":  # the Test trade button
+            if not self.local():
+                return self.send_error(403)
+            return self.send_json(mt5trade.test_trade())
         if self.path in ("/api/trade_confirm", "/api/autopilot"):  # trade tickets and the autopilot: this PC only
             if not self.local():
                 return self.send_error(403)
@@ -2894,7 +2898,7 @@ if __name__ == "__main__":
                 try:
                     sit = awareness.situation()
                     if sit:
-                        if WAKER.tick(sit["idle_s"]) == "sleep":
+                        if WAKER.tick(sit["idle_s"]) == "sleep" and not mt5trade.AUTO.on:
                             print(datetime.datetime.now(), "the phone's done: back to sleep")
                             power.sleep_pc()
                         LIVE["quiet_wake"] = WAKER.quiet(sit["idle_s"])

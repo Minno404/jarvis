@@ -32,7 +32,7 @@ PENDING = HERE / "trade_tickets.json"   # tickets waiting for his click
 AUTO_STATE = HERE / "autopilot_state.json"
 AUTO_LOG = HERE / "autopilot_log.json"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-MAGIC_MANUAL, MAGIC_AUTO = 404, 405  # marks Jarvis's trades in MT5 (his own trades are left alone by the autopilot)
+MAGIC_MANUAL, MAGIC_AUTO, MAGIC_TEST = 404, 405, 406  # marks Jarvis's trades in MT5 (his own trades are left alone by the autopilot)
 TICKET_SECONDS = 120  # a ticket not confirmed within 2 minutes expires (the price will have moved)
 CLAUDE = None  # set by server.py (the Claude Code CLI)
 IS_OUT = lambda name: False  # set by server.py: is that brain out of allowance right now?
@@ -519,6 +519,14 @@ def agree(a, b, side_entry, digits):
 
 
 # ---------- The autopilot ----------
+def awake(on):
+    """Keep Windows from sleeping (ES_CONTINUOUS | ES_SYSTEM_REQUIRED) while the autopilot's thread runs; the
+    displays may still turn off. Off again when it stops."""
+    if os.name == "nt":
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | (0x1 if on else 0))
+
+
 class Autopilot:
     def __init__(self):
         self.on, self.thread, self.last = False, None, {}
@@ -532,6 +540,9 @@ class Autopilot:
         if self.on:
             return {"already": True, **self.status()}
         mt5 = _mt5()  # fails here (and says why) if MT5 isn't open
+        why = ready(mt5)
+        if why:
+            return {"error": why + "."}
         lim = limits()
         if not is_demo(mt5) and not lim["auto_live"]:
             return {"error": "This is a real-money account and the autopilot is set to demo only. Open a demo "
@@ -560,6 +571,13 @@ class Autopilot:
 
     def loop(self):
         next_look = 0.0
+        awake(True)  # asleep, it couldn't trade: the PC stays on (the screens can still turn off)
+        try:
+            self._loop(next_look)
+        finally:
+            awake(False)
+
+    def _loop(self, next_look):
         while self.on:
             try:
                 self.manage()
@@ -711,6 +729,102 @@ class Autopilot:
 AUTO = Autopilot()
 
 
+def trading_now():
+    """Is the autopilot running (in the running Jarvis)?"""
+    import server_bridge
+    if server_bridge.IN_SERVER:
+        return AUTO.on
+    try:
+        return bool(server_bridge.post("/api/autopilot", {"status": True}, timeout=5).get("on"))
+    except OSError:
+        return False
+
+
+def ready(mt5):
+    """Why MT5 can't take trades from Jarvis right now (or None)."""
+    term, acc = mt5.terminal_info(), mt5.account_info()
+    if term is not None and not getattr(term, "connected", True):
+        return "MT5 isn't connected to the broker"
+    if term is not None and not term.trade_allowed:
+        return "Algo Trading is off in MT5: click the Algo Trading button on MT5's toolbar so it turns green"
+    if acc is not None and not getattr(acc, "trade_allowed", True):
+        return "this account doesn't allow trading (an investor or read-only login?)"
+    return None
+
+
+def test_trade(symbol=None):
+    """Prove Jarvis can trade: the smallest buy on a demo account, with a stop and target, closed again after a few
+    seconds. Each step is shown on the HUD and the result spoken."""
+    steps = []
+
+    def step(text, ok=True):
+        steps.append({"text": text, "ok": ok})
+        _panel({"type": "trade_test", "steps": steps})
+    try:
+        mt5 = _mt5()
+        step("MT5 is open and logged in")
+        why = ready(mt5)
+        if why:
+            step(why, False)
+            return _test_end(steps, False)
+        if not is_demo(mt5):
+            step("This is a real-money account: the test only runs on a demo account", False)
+            return _test_end(steps, False)
+        s = _symbol(mt5, symbol or limits()["auto_symbols"][0])
+        info, tick = mt5.symbol_info(s), mt5.symbol_info_tick(s)
+        if time.time() - tick.time > 600:
+            step(f"{s} has no fresh prices: the market looks closed", False)
+            return _test_end(steps, False)
+        gap = max(tick.ask * 0.003, (getattr(info, "trade_stops_level", 0) or 0) * info.point * 3)
+        t = {"kind": "open", "symbol": s, "side": "buy", "order": "market", "entry": tick.ask,
+             "stop": round(tick.ask - gap, info.digits), "target": round(tick.ask + gap, info.digits),
+             "lots": info.volume_min}
+        r = send(mt5, t, MAGIC_TEST)
+        if not r.get("done"):
+            step("Opening failed: " + r.get("error", "?"), False)
+            return _test_end(steps, False)
+        step(f"Opened: buy {t['lots']} {s}{r['text'].split(s, 1)[1][:-1]}, stop {t['stop']}, target {t['target']}")
+        pos = None
+        for _ in range(10):
+            pos = next((p for p in mt5.positions_get(symbol=s) or [] if p.magic == MAGIC_TEST), None) \
+                if _takes_symbol(mt5) else next((p for p in mt5.positions_get() or [] if p.magic == MAGIC_TEST), None)
+            if pos:
+                break
+            time.sleep(0.5)
+        if not pos:
+            step("The trade didn't show up in open positions", False)
+            return _test_end(steps, False)
+        step(f"In MT5 as #{pos.ticket}; it'll close in 5 seconds")
+        time.sleep(5)
+        pos = next((p for p in mt5.positions_get(ticket=pos.ticket) or []), pos)
+        r = send(mt5, {"kind": "close", "position": pos.ticket, "symbol": s, "side": "buy", "lots": pos.volume}, MAGIC_TEST)
+        if not r.get("done"):
+            step("Closing failed: " + r.get("error", "?") + f" (close #{pos.ticket} yourself in MT5)", False)
+            return _test_end(steps, False)
+        step(f"Closed #{pos.ticket}: about ${pos.profit:+.2f} (the spread)")
+        return _test_end(steps, True)
+    except Exception as e:
+        step(f"{type(e).__name__}: {e}", False)
+        return _test_end(steps, False)
+
+
+def _takes_symbol(mt5):
+    import inspect
+    try:
+        return "symbol" in inspect.signature(mt5.positions_get).parameters
+    except (TypeError, ValueError):
+        return True  # the real MetaTrader5 functions are built in: they take symbol=
+
+
+def _test_end(steps, ok):
+    import server_bridge
+    text = ("Test trade worked, {t}: I opened and closed a trade on MT5." if ok else
+            "The test trade didn't work, {t}: " + steps[-1]["text"] + ".").replace("{t}", features.settings().get("title", "sir"))
+    _panel({"type": "trade_test", "steps": steps, "done": True, "ok": ok})
+    server_bridge.say(text)
+    return {"ok": ok, "steps": [s["text"] for s in steps]}
+
+
 def floor_watch():
     """Every 30 seconds while MT5 is open (server.py runs it): if equity reaches his floor, close every trade Jarvis
     opened (his own manual ones are left alone, and he's told), stop the autopilot, and say so."""
@@ -756,10 +870,13 @@ def autopilot_status():
     return server_bridge.post("/api/autopilot", {"status": True})
 
 
-FUNCS = {"propose_trade": propose_trade, "propose_change": propose_change, "trading_settings": trading_settings,
+FUNCS = {"test_trade": lambda symbol=None: test_trade(symbol), "propose_trade": propose_trade, "propose_change": propose_change, "trading_settings": trading_settings,
          "autopilot": autopilot, "autopilot_status": autopilot_status}
 S, N = {"type": "string"}, {"type": "number"}
 TOOLS = [
+    {"name": "test_trade", "description": "Check that Jarvis can trade on MT5 ('test trade'): on a demo account, opens "
+     "the smallest buy with a stop and target and closes it a few seconds later, showing each step on the HUD (and "
+     "what's wrong if it can't, e.g. Algo Trading off).", "input_schema": {"type": "object", "properties": {"symbol": S}}},
     {"name": "propose_trade", "description": (
         "Place a trade on MT5 when he asks ('buy 0.1 gold, stop 2310, target 2350'): shows a ticket on the HUD with "
         "the chart, entry, stop and target lines and the dollar risk; it's only sent when he clicks Confirm on it "

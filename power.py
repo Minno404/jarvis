@@ -24,10 +24,27 @@ def _blockers():
     return [b.lower().removesuffix(".exe") for b in (features.settings().get("sleep_close") or SLEEP_BLOCKERS)]
 
 
-def sleep_pc(reopen=True):
-    """Put the PC to real sleep, closing the apps that block it first (reopened when it wakes)."""
+def screens_off():
+    """Turn the screens off (any key or mouse move turns them back on). The PC keeps running."""
     if os.name != "nt":
         return {"error": "Only on Windows."}
+    import ctypes
+    # WM_SYSCOMMAND / SC_MONITORPOWER / 2 (off), posted to every window: Windows switches the displays off
+    ctypes.windll.user32.PostMessageW(0xFFFF, 0x0112, 0xF170, 2)
+    return {"screens_off": True}
+
+
+def sleep_pc(reopen=True):
+    """Put the PC to real sleep, closing the apps that block it first (reopened when it wakes). While the trading
+    autopilot is running the PC stays awake (asleep, it couldn't trade): the screens go off instead."""
+    if os.name != "nt":
+        return {"error": "Only on Windows."}
+    import mt5trade
+    if mt5trade.trading_now():
+        screens_off()
+        return {"sleeping": False, "screens_off": True,
+                "note": "The trading autopilot is running, so the PC stays awake with the screens off. Say 'stop "
+                        "trading' first to really sleep it."}
     import psutil
     try:
         import leftoff
@@ -111,11 +128,14 @@ class Waker:
         return None
 
 
-FUNCS = {"sleep_pc": sleep_pc, "set_sleep_blockers": set_sleep_blockers}
+FUNCS = {"sleep_pc": sleep_pc, "set_sleep_blockers": set_sleep_blockers, "screens_off": screens_off}
 TOOLS = [
     {"name": "sleep_pc", "description": "Put his PC to sleep ('sleep the PC', 'go to sleep', 'goodnight'). Closes the "
      "apps that stop real sleep first (SteelSeries GG by default) and reopens them when it wakes; his phone can "
      "wake it again. Say goodnight briefly first: it sleeps a couple of seconds later.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "screens_off", "description": "Turn the screens off ('screens off', 'turn off the monitors'); the PC "
+     "keeps running (the trading autopilot, downloads...). Any key or mouse move turns them back on.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "set_sleep_blockers", "description": "Change which apps get closed before the PC sleeps (they stop real "
      "sleep), e.g. ['steelseriesgg']. Empty list = close none.",
