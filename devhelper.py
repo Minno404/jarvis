@@ -140,6 +140,44 @@ def _self_rule(job):
     return SELF_RULE.replace("{HERE}", here) if touches else ""
 
 
+def rea_entry():
+    """REA (Reverse Engineer Anything, github.com/morluto/rea) when it's installed with npm: its entry script."""
+    try:
+        root = subprocess.run("npm root -g", shell=True, capture_output=True, text=True, timeout=20,
+                              creationflags=NO_WINDOW).stdout.strip()
+    except Exception:
+        return None
+    p = Path(root) / "rea-agents" / "scripts" / "rea.mjs"
+    return p if root and p.exists() else None
+
+
+def install_rea():
+    """Install REA for Jarvis's coding and PC jobs: it takes apart app files, games' data, programs and databases
+    (what's inside, how they're built). Needs Node.js 22.23 or newer."""
+    node = shutil.which("node")
+    if not node:
+        return {"error": "Node.js isn't installed. Install it (nodejs.org, version 22 or newer), then ask again."}
+    v = subprocess.run([node, "-v"], capture_output=True, text=True, creationflags=NO_WINDOW).stdout.strip().lstrip("v")
+    major, minor = (int(x) for x in (v.split(".") + ["0", "0"])[:2])
+    if (major, minor) < (22, 23):
+        return {"error": f"REA needs Node.js 22.23 or newer; this PC has {v}. Update Node.js, then ask again."}
+    r = subprocess.run("npm install -g rea-agents@latest", shell=True, capture_output=True, text=True, timeout=900,
+                       creationflags=NO_WINDOW)
+    if r.returncode or not rea_entry():
+        return {"error": "The install didn't finish: " + (r.stderr or r.stdout)[-300:]}
+    return {"installed": True, "note": "Coding and PC jobs can now use REA to look inside apps, game files and programs."}
+
+
+def _rea_config():
+    """An MCP config for Claude Code with REA in it, or None when REA isn't installed."""
+    entry, node = rea_entry(), shutil.which("node")
+    if not (entry and node):
+        return None
+    f = features.HERE / "rea_mcp.json"
+    f.write_text(json.dumps({"mcpServers": {"rea": {"command": node, "args": [str(entry), "mcp"]}}}), encoding="utf-8")
+    return str(f)
+
+
 def run_job(job, claude, brain="claude"):
     """Run one background job and return the spoken summary. brain: "claude" or "chatgpt" (whichever Jarvis is
     thinking with). A Claude job that hits the plan's limit is handed to ChatGPT when it's set up.
@@ -156,10 +194,13 @@ def run_job(job, claude, brain="claude"):
         skills = Path(__file__).resolve().parent / "jobskills"  # Ponytail, debugging, design, Office/PDF (see its plugin.json)
         if skills.is_dir():
             base += ["--plugin-dir", str(skills)]
+        rea = _rea_config()
+        if rea:
+            base += ["--mcp-config", rea]
         if job.get("kind") == "pc":
             cmd = base + ["--permission-mode", "auto", "--permission-prompts", "none"]
         else:
-            cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep",
+            cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep" + (",mcp__rea" if rea else ""),
                           "--disallowedTools", "Bash,PowerShell,WebFetch,WebSearch"]
         try:
             import deepseek
@@ -279,9 +320,12 @@ def pc_errors(hours=24):
 
 
 FUNCS = {f.__name__: f for f in (screenshot, list_projects, add_project, dev_task, dev_status, pc_task, pc_errors,
-                                  check_coding)}
+                                  check_coding, install_rea)}
 S = {"type": "string"}
 TOOLS = [
+    {"name": "install_rea", "description": "Install REA (Reverse Engineer Anything) when he asks: after that his coding "
+     "and PC jobs can look inside app files, game data (Unity, Godot), programs and databases to see how they're "
+     "built (for modding, say). Takes a few minutes.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "check_coding", "description": "Test whether ChatGPT (or the local AI: brain 'local') can really do coding "
      "and PC jobs on this PC ('why can't ChatGPT code?', 'test ChatGPT coding'): finds add-ons or settings in the way "
      "and runs a real test (create a file, run a command) in a scratch folder. Takes up to a few minutes.",

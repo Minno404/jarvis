@@ -98,6 +98,13 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    if re.fullmatch(r"(?:go |turn on |start |enter )?incognito(?: mode)?(?: on)?", t) and "incognito" in R:
+        R["incognito"](on=True)
+        return "Incognito, {TITLE}. Nothing from here on is logged, learned or remembered, and it's wiped when you leave."
+    if re.fullmatch(r"(?:leave|exit|end|stop|turn off) incognito(?: mode)?|incognito(?: mode)? off", t) and "incognito" in R:
+        r = R["incognito"](on=False)
+        return "Out of incognito, {TITLE}. That conversation is gone" + (
+            f" ({r['deleted_session_files']} saved copies deleted)." if r.get("deleted_session_files") else ".")
     if re.fullmatch(r"(?:show |open )?(?:my |the )?(?:token|tokens|ai) usage(?: panel)?|how many (?:tokens|tasks|messages|jobs) "
                     r"(?:have i got|do i have|can you do|are) left|how many more (?:tasks|messages|jobs) (?:can you )?do|"
                     r"what does (?:the )?(?:auto ?pilot|auto ?trading|trading autopilot) use", t) and "token_usage" in R:

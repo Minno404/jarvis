@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.67.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.68.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -759,6 +759,18 @@ TOOLS.append({"name": "quiet_mode", "description": "Quiet mode when he asks ('qu
               "hold routine announcements (reviews, briefs, job reports, budget notes) until he turns it off; "
               "reminders, price alerts and trade warnings still come through. Same as what happens during a game.",
               "input_schema": {"type": "object", "properties": {"on": {"type": "boolean"}}}})
+def incognito_tool(on=True):
+    import server_bridge
+    if server_bridge.IN_SERVER:
+        return set_incognito(on)
+    return server_bridge.post("/api/incognito", {"on": bool(on)})
+
+
+FUNCS["incognito"] = incognito_tool
+TOOLS.append({"name": "incognito", "description": "Incognito mode when he asks ('go incognito', 'leave incognito'): "
+              "nothing he says is logged, learned or remembered, the chat starts fresh, and when he leaves it the "
+              "brains' saved copies of those chats are deleted. on: true to start, false to end.",
+              "input_schema": {"type": "object", "properties": {"on": {"type": "boolean"}}}})
 for _n in set(undo.FILE_TOOLS) | set(undo.LIVE_TOOLS):  # changes Jarvis makes get an undo step
     if _n in FUNCS:
         FUNCS[_n] = undo.wrap(_n, FUNCS[_n])
@@ -948,6 +960,20 @@ def save_prefs(d):
         s = features.settings()
     if isinstance(d.get("features"), dict):
         s["features"] = {k: bool(d["features"].get(k, features.feature(k))) for k in features.FEATURES}
+    if "incognito_model" in d:  # an Ollama model of his choosing for incognito chats (downloaded in the background)
+        m = str(d["incognito_model"] or "").strip()
+        if m and not re.fullmatch(r"[\w./:-]{1,100}", m):
+            raise ValueError("That isn't an Ollama model name (like name:tag)")
+        s["incognito_model"] = m
+        if m and local_brain.ollama_exe():
+            def fetch():
+                try:
+                    local_brain.ensure_running()
+                    if m not in (local_brain.models() or []):
+                        local_brain._pull(m)
+                except Exception as e:
+                    print(datetime.datetime.now(), "incognito model download:", repr(e))
+            threading.Thread(target=fetch, daemon=True).start()
     if d.get("local_on") in ("gpu", "ram"):
         s["local_on"] = d["local_on"]  # where the local AI runs (local_brain.model)
         def move():  # let go of where it was loaded, get RAM mode's model ready, and have it read up
@@ -978,7 +1004,7 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
-                                                            "local_voice", "local_on", "split_claude_voice",
+                                                            "local_voice", "local_on", "incognito_model", "split_claude_voice",
                                                             "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -1431,7 +1457,41 @@ def reset_time(msg, now=None):
     return when.timestamp() if when > now else None
 
 
+INCOG = {"since": 0.0, "claude": set(), "codex": set()}  # the conversations to wipe when incognito ends
+
+
+def set_incognito(on=True):
+    """Incognito mode: nothing he says is logged, learned or remembered, the chat starts fresh, and when it ends the
+    brains' own saved copies of those chats (Claude Code's and Codex's session files on this PC) are deleted.
+    Settings 'incognito_model' (an Ollama model he picked) answers incognito chats on this PC instead."""
+    global session
+    on = bool(on)
+    if on == features.incognito():
+        return {"incognito": on, "already": True}
+    if on:
+        features.INCOGNITO.write_text(str(time.time()), encoding="utf-8")
+        INCOG.update(since=time.time(), claude=set(), codex=set())
+    else:
+        features.INCOGNITO.unlink(missing_ok=True)
+        home = Path.home()
+        gone = 0
+        for sid in INCOG["claude"]:
+            for p in (home / ".claude" / "projects").glob(f"*/{sid}.jsonl"):
+                p.unlink(missing_ok=True)
+                gone += 1
+        for tid in INCOG["codex"]:
+            for p in (Path(os.environ.get("CODEX_HOME") or home / ".codex") / "sessions").rglob(f"rollout-*{tid}.jsonl"):
+                p.unlink(missing_ok=True)
+                gone += 1
+        INCOG.update(claude=set(), codex=set())
+    session, gpt_brain.thread["id"], local_convo["history"] = None, None, []  # fresh either way: nothing carries over
+    push_event({"type": "incognito", "on": on})
+    return {"incognito": on} if on else {"incognito": False, "deleted_session_files": gone}
+
+
 def brain_reply(using, text, photo=None):
+    if features.incognito() and features.settings().get("incognito_model") and local_brain.ollama_exe():
+        return chat_local(text, photo)  # his own pick for incognito, run on this PC
     if using == "Local":
         return chat_local(text, photo)
     if using == "ChatGPT":
@@ -1706,7 +1766,8 @@ def local_system():
 def local_body(messages, **extra):
     import local_brain
     ram = features.settings().get("local_on") == "ram"
-    return {"model": local_brain.model(), "messages": [{"role": "system", "content": local_system()}] + messages,
+    pick = features.incognito() and features.settings().get("incognito_model")
+    return {"model": pick or local_brain.model(), "messages": [{"role": "system", "content": local_system()}] + messages,
             "tools": [LOCAL_TOOL], "think": False, "keep_alive": "30m",
             # on the processor a smaller memory window is quicker (and Jarvis's chats are short)
             **({"options": {"num_ctx": 8192}} if ram else {}), **extra}
@@ -2026,6 +2087,8 @@ class Handler(SimpleHTTPRequestHandler):
                 if EVENTS and after > EVENTS[-1]["seq"]:
                     after = 0  # the page is from before a restart (numbering started again): send what's new since
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
+        if self.path == "/api/incognito":  # a page opening mid-incognito shows the badge
+            return self.send_json({"on": features.incognito()})
         if self.path == "/api/usage":  # the token usage panel's Refresh button
             return self.send_json(usage.report())
         if self.path == "/api/trading":  # the Trading section of Settings
@@ -2191,6 +2254,9 @@ class Handler(SimpleHTTPRequestHandler):
             if LIVE.get("show_window"):
                 threading.Thread(target=LIVE["show_window"], daemon=True).start()
             return self.send_json({"shown": bool(LIVE.get("show_window"))})
+        if self.path == "/api/incognito":  # incognito mode on or off (a tool call, or the HUD's badge)
+            on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
+            return self.send_json(set_incognito(bool(on)))
         if self.path == "/api/quiet":  # the Activity panel's quiet mode switch
             on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
             return self.send_json(FUNCS["quiet_mode"](on=bool(on)))
@@ -2406,7 +2472,10 @@ class Handler(SimpleHTTPRequestHandler):
             finally:
                 done.set()
                 pieces.close()  # stops Claude Code if the window closed mid-reply
-                if reply and not text.startswith("[Automatic"):
+                if features.incognito():
+                    INCOG["claude"].add(session) if session else None
+                    INCOG["codex"].add(gpt_brain.thread.get("id")) if gpt_brain.thread.get("id") else None
+                elif reply and not text.startswith("[Automatic"):
                     learn.log_exchange(text, "".join(reply).strip())
             try:
                 return send({"done": True})
@@ -2537,6 +2606,7 @@ if __name__ == "__main__":
             time.sleep(2)
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
     server_bridge.IN_SERVER = True  # this is the running Jarvis: the autopilot lives here
+    features.INCOGNITO.unlink(missing_ok=True)  # a restart ends incognito mode
     server_bridge._say = lambda text: LIVE.get("say", print)(text)
 
     def watch_floor():  # his equity floor, every 30 seconds while MT5 is open (mt5trade.floor_watch)

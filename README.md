@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.67.0** (shown at the bottom right of the HUD)
+**Version 1.68.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,14 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.68.0** (11 Nov 2026): incognito mode and REA.
+  - "Go incognito": nothing is logged, learned or remembered, the chat starts fresh, and a badge shows at the top.
+    "Leave incognito" (or click the badge) ends it, starts fresh again, and deletes the brains' saved copies of those
+    chats (Claude Code's and Codex's session files on this PC). Restarting Jarvis ends it too.
+  - Settings, Brain, "Incognito model": an Ollama model of his choosing that answers incognito chats on this PC
+    (downloaded when saved). Claude and ChatGPT keep their own rules in incognito.
+  - "Install REA": installs REA (Reverse Engineer Anything, morluto/rea) with npm; coding and PC jobs then get its
+    tools for looking inside apps, game files (Unity, Godot), programs and databases. Needs Node.js 22.23+.
 - **1.67.0** (11 Nov 2026): skills for Jarvis's background jobs (jobskills/, loaded by Claude Code with
   --plugin-dir; chat isn't affected, so it costs no extra tokens per message). Coding jobs: Ponytail (the least code
   that works, from DietrichGebert/ponytail), systematic debugging and checking before saying "done" (from

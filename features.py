@@ -61,8 +61,17 @@ def address(text):
 
 
 # ---------- Memory ----------
+INCOGNITO = HERE / "incognito.flag"  # there while incognito mode is on (tool calls are separate processes)
+
+
+def incognito():
+    return INCOGNITO.exists()
+
+
 def remember(fact, source="asked"):
     """source: 'asked' (he told Jarvis to remember it) or 'learned' (picked up from conversation)."""
+    if incognito():
+        return {"error": "Incognito mode is on: nothing is remembered. He can say 'leave incognito' first."}
     mem = _load("memory.json", [])
     mem.append({"id": _next_id(mem), "fact": fact.strip(), "saved": _now().strftime("%Y-%m-%d"), "source": source})
     _save("memory.json", mem)

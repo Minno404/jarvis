@@ -520,6 +520,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
 .htext{line-height:1.6;white-space:pre-wrap;max-height:300px;overflow:auto}.free .htext{max-height:none}
 .legend{display:grid;grid-template-columns:auto 1fr auto;gap:3px 8px;font-size:calc(11px*var(--fs));margin-top:6px}.legend i{width:9px;height:9px;margin-top:3px;display:block}
 .legend span:nth-child(3n){text-align:right;color:var(--text)}.legend span{color:var(--mute)}
+#incogBadge{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;background:rgba(10,10,14,.85);color:#c9b8ff;border:1px solid #8a6bff;border-radius:14px;padding:4px 14px;font:600 11px/1.4 inherit;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}html.incognito body{--incog:1}
 </style>
 
 <div class="dragbar" id="dragbar" hidden title="Drag to move (to the top of the screen to maximise) · double-click to maximise"></div>
@@ -695,6 +696,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI voice</span><select id="localVoice" style="flex:1"></select><button type="button" id="localVoiceTest">Test</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI model</span><select id="localModel" style="flex:1"></select></div>
+      <div class="keyrow"><span class="hint" style="min-width:110px">Incognito model</span><input id="incogModel" type="text" placeholder="optional: an Ollama model (name:tag) that answers in incognito" autocomplete="off" style="flex:1"><button type="button" id="incogSave">Save</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI runs on</span><select id="localOn" style="flex:1"><option value="gpu">Graphics card (fast)</option><option value="ram">RAM and processor (slower, keeps the graphics card free)</option></select></div>
     </fieldset>
     <fieldset><legend>Features</legend>
@@ -1390,7 +1392,7 @@ async function events(){
     for(const ev of list){evSeq=ev.seq;keepTrack(ev,()=>dispatch(ev))}
   }catch(e){}
 }
-function dispatch(ev){if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+function dispatch(ev){if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel')setPanel(ev.panel,ev.show);else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='incognito'){showIncognito(ev.on)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
 // Phone: panels that come up stay up the next time the app opens, until closed with their x (the side panels
 // already remember being closed). The trading autopilot's panel is the exception: it's at the bottom when the
 // autopilot is running, and not there when it isn't.
@@ -2830,7 +2832,15 @@ addEventListener('pywebviewready',()=>{
 let prefs={listen_mode:'wake',ptt_key:'',avatar:'',avatar_style:'hologram'},capturing=false;
 const KEYNAME={Mouse4:'Mouse back button',Mouse5:'Mouse forward button',MouseMiddle:'Middle mouse button',Backquote:'` (backtick)',CapsLock:'Caps Lock',AltRight:'Right Alt',ControlRight:'Right Ctrl'};
 const keyName=c=>!c?'Not set':KEYNAME[c]||c.replace(/^Key|^Digit/,'').replace('Numpad','Numpad ');
+// Incognito mode: a badge at the top while it's on (click it to leave); nothing is logged or remembered
+function showIncognito(on){document.documentElement.classList.toggle('incognito',!!on);let b=$('incogBadge');
+  if(on&&!b){b=document.createElement('button');b.id='incogBadge';b.type='button';b.textContent='Incognito';b.title='Nothing is logged or remembered. Click to leave';
+    b.onclick=()=>fetch('/api/incognito',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"on":false}'});document.body.append(b)}
+  if(!on&&b)b.remove()}
+fetch('/api/incognito').then(r=>r.json()).then(r=>showIncognito(r.on)).catch(()=>{});
+$('incogSave').onclick=()=>savePref({incognito_model:$('incogModel').value.trim()});
 function showPrefs(p){
+  if('incognito_model' in p&&document.activeElement!==$('incogModel'))$('incogModel').value=p.incognito_model||'';
   prefs={...prefs,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&v!==null))};
   if(p.depth_mode&&(p.depth_mode==='standard')!==depthStd)applyDepth(p.depth_mode);  // the saved pref wins over this device's copy
   document.querySelectorAll('input[name=lm]').forEach(r=>r.checked=r.value===(prefs.listen_mode||'wake'));
