@@ -1,4 +1,4 @@
 {
- "version": "1.62.0",
- "notes": "Phone panels stay until closed; autopilot panel at the bottom while it runs; MT5 journal per account."
+ "version": "1.62.1",
+ "notes": "Phone voice works straight away: the plain Tailscale address now goes to the secure link by itself."
 }

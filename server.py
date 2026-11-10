@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.62.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.62.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1893,8 +1893,8 @@ def phone_urls():
     # Tailscale: no key needed (only his own devices can reach this address), so this one link works anywhere
     out = [{"where": "Anywhere (Tailscale): no pairing needed", "url": f"http://{name or ts[0]}:{PORT}/"}] if ts else []
     sec = LIVE.get("ts_https") or {}
-    if sec.get("url"):  # the secure link: the same, plus the phone's microphone works
-        out.insert(0, {"where": "Anywhere, with voice (Tailscale, secure)", "url": sec["url"]})
+    if sec.get("url"):  # the secure link replaces it: the same, plus the phone's microphone works
+        out = [{"where": "Anywhere, with voice (Tailscale, secure)", "url": sec["url"]}]
     out += [{"where": "Home Wi-Fi", "url": f"http://{ip}:{PORT}/?key={phone_key()}"} for ip in sorted(ips) if lan(ip)]
     try:
         import segno  # pip install segno: draws QR codes, no other dependencies
@@ -1978,6 +1978,13 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/phone":
             return self.send_json(phone_urls() if self.local() else [])
+        secure = (LIVE.get("ts_https") or {}).get("url")
+        if secure and self.path.split("?")[0] in ("/", "/index.html") and self.tailnet() and not self.via_tailscale_https():
+            # the phone opened the plain Tailscale address: send it to the secure one, where its microphone works
+            self.send_response(302)
+            self.send_header("Location", secure.rstrip("/") + self.path)
+            self.end_headers()
+            return
         if self.path.startswith("/api/events"):  # the page asks for anything new since the last one it saw
             from urllib.parse import parse_qs, urlsplit
             after = int(parse_qs(urlsplit(self.path).query).get("after", ["0"])[0] or 0)
