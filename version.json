@@ -1,4 +1,4 @@
 {
- "version": "1.71.0",
- "notes": "Pin panels in place: the pin next to the close button."
+ "version": "1.71.1",
+ "notes": "Panels open only on the screen you asked from (phone or PC)."
 }

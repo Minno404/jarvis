@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.71.0** (shown at the bottom right of the HUD)
+**Version 1.71.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.71.1** (11 Nov 2026): "show the …" / "close the …" opens or closes a panel only on the screen he asked from:
+  asked on the phone (the roleplay panel, say), it doesn't appear on the PC, and the other way round.
 - **1.71.0** (11 Nov 2026): a pin button next to each panel's close button (on the PC). A pinned panel can't be
   dragged or resized. Pinned in its side column, it stays in the column. Pinned somewhere he moved it, it keeps its
   distance from the nearest window edges (left/right/centre, top/bottom/middle), so when the window is enlarged it

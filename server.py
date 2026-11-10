@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.71.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.71.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1952,6 +1952,9 @@ EVENTS, EVENTS_LOCK = [], threading.Lock()
 
 
 def push_event(ev):
+    asker = LIVE.get("asker") or ("", 0)
+    if ev.get("type") == "hud_panel" and "to" not in ev and time.time() - asker[1] < 180:
+        ev = {**ev, "to": asker[0]}  # opening or closing a panel: only on the screen he asked from (phone or PC)
     with EVENTS_LOCK:
         seq = EVENTS[-1]["seq"] + 1 if EVENTS else 1
         EVENTS.append(dict(ev, seq=seq, at=time.time()))
@@ -2529,6 +2532,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(r, 400 if r.get("error") else 200)
         if self.path == "/api/chat-stream":  # one JSON line per piece: {"t": text} / {"flush": true} / {"done": true}
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            LIVE["asker"] = ("pc" if self.local() else "phone", time.time())
             text, photo = body.get("text", ""), body.get("photo")
             self.send_response(200)
             self.send_header("Content-Type", "application/x-ndjson")
