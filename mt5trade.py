@@ -214,25 +214,28 @@ def _mt5():
     import MetaTrader5 as mt5  # pip install MetaTrader5 (Windows only)
     # MetaTrader's initialize() starts the terminal when it isn't running: Jarvis only ever uses an MT5 that's
     # already open, and opens it himself only when asked (open_app)
-    if os.name == "nt" and "terminal64.exe" not in features.running():
+    if os.name == "nt" and not mt5_pids():
         raise RuntimeError("MetaTrader 5 isn't open, and Jarvis doesn't open it by himself. If he wants live MT5 "
                            "data, ask whether to open it (open_app 'MetaTrader 5'); his journal still works without it.")
-    if not mt5.initialize():
+    exe = _mt5_exe() if os.name == "nt" else None
+    if not (mt5.initialize(path=exe) if exe else mt5.initialize()):  # that MT5, when a broker's copy is open too
         raise RuntimeError(f"Can't reach MetaTrader 5 ({mt5.last_error()}). Is it open and logged in?")
     return mt5
 
 
 def _mt5_exe():
-    """Where terminal64.exe is: remembered from when it last ran, else the usual install folders."""
+    """Which MT5 to use: the plain "MetaTrader 5" install (not a broker's own copy like "EightCap MetaTrader 5"),
+    else the one remembered from when MT5 last ran, else any install."""
     import glob
+    hits = [p for root in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", ""))
+            if root for p in glob.glob(os.path.join(root, "*", "terminal64.exe"))]
+    plain = [p for p in hits if os.path.basename(os.path.dirname(p)).lower() == "metatrader 5"]
+    if plain:
+        return plain[0]
     seen = features._load("state.json", {}).get("mt5_exe")
     if seen and os.path.exists(seen):
         return seen
-    for root in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", "")):
-        hits = sorted(glob.glob(os.path.join(root, "*", "terminal64.exe")) if root else [], key=lambda p: "MetaTrader 5" not in p)
-        if hits:
-            return hits[0]
-    return None
+    return hits[0] if hits else None
 
 
 def remember_mt5_exe():
@@ -270,9 +273,23 @@ def _minimise(name="terminal64.exe"):
     return bool(found)
 
 
+def mt5_pids(exe=None):
+    """Running copies of that MT5 (by its install path; any MT5 when none is known)."""
+    try:
+        import psutil
+    except ImportError:
+        return []
+    exe = os.path.normcase(exe or _mt5_exe() or "")
+    out = []
+    for p in psutil.process_iter(["name", "exe"]):
+        if (p.info["name"] or "").lower() == "terminal64.exe" and (not exe or os.path.normcase(p.info["exe"] or "") == exe):
+            out.append(p.pid)
+    return out
+
+
 def open_mt5(wait=90):
     """Open MT5 minimised (for the autopilot) and wait until it's logged in. -> True if Jarvis opened it."""
-    if os.name != "nt" or "terminal64.exe" in features.running():
+    if os.name != "nt" or mt5_pids():
         return False
     exe = _mt5_exe()
     if not exe:
@@ -289,7 +306,7 @@ def open_mt5(wait=90):
             _minimise()  # MT5 sometimes restores its window while it loads
         except Exception:
             pass
-        if "terminal64.exe" in features.running() and mt5.initialize() and mt5.account_info():
+        if mt5_pids(exe) and mt5.initialize(path=exe) and mt5.account_info():
             time.sleep(2)
             try:
                 _minimise()
@@ -306,8 +323,9 @@ def close_mt5():
         mt5.shutdown()
     except Exception:
         pass
-    if os.name == "nt":
-        subprocess.run(["taskkill", "/IM", "terminal64.exe"], capture_output=True, creationflags=NO_WINDOW)
+    if os.name == "nt":  # only that MT5: a broker's own copy that's open stays open
+        for pid in mt5_pids():
+            subprocess.run(["taskkill", "/PID", str(pid)], capture_output=True, creationflags=NO_WINDOW)
 
 
 def _symbol(mt5, name):
@@ -729,7 +747,7 @@ class Autopilot:
     def _loop(self, next_look):
         while self.on:
             try:
-                if os.name == "nt" and "terminal64.exe" not in features.running():
+                if os.name == "nt" and not mt5_pids():
                     open_mt5()  # MT5 was closed while the autopilot runs: open it again (minimised)
                 self.manage()  # trades already open keep being looked after, quiet hours or not
                 until = quiet_until()

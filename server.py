@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.69.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.69.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -466,8 +466,12 @@ def _shortcuts():
         for f in glob.glob(str(r / "**" / "*.lnk"), recursive=True) + glob.glob(str(r / "**" / "*.url"), recursive=True):
             name = Path(f).stem
             if not any(w in name.lower() for w in ("uninstall", "readme", "help", "website")):
-                found.setdefault(name, f)
-    return found
+                found.setdefault(name, []).append(f)
+    # Two shortcuts with one name (a broker's "MetaTrader 5" next to the real one): the one in a folder of that
+    # exact name, or loose in the Start Menu, beats one in a folder named after something else ("EightCap ...")
+    pick = lambda name, fs: min(fs, key=lambda f: (Path(f).parent.name.lower() not in (name.lower(), "programs", "desktop"),
+                                                   len(Path(f).parent.name)))
+    return {n: pick(n, fs) for n, fs in found.items()}
 
 
 def list_apps(query=""):

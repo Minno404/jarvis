@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.69.0** (shown at the bottom right of the HUD)
+**Version 1.69.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.69.1** (11 Nov 2026): the plain MetaTrader 5, never a broker's copy. With both "MetaTrader 5" and a broker's
+  own (like "EightCap MetaTrader 5") installed, opening MT5, the autopilot, trades and live data all use the plain one,
+  and "stop trading" closes only that one. Start Menu shortcuts with the same name prefer the one in its own folder.
 - **1.69.0** (11 Nov 2026): uses far less of the Claude plan.
   - Everyday requests (apps, weather, timers, the TV) go to Claude Haiku; trading, writing, explaining, planning,
     photos and long messages go to Sonnet; making a blueprint to Fable. Settings, Brain, "Claude model" switches to
