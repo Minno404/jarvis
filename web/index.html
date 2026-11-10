@@ -905,18 +905,20 @@ function build3d(){
   try{
     const c3=$('core3d'),r=new THREE.WebGLRenderer({canvas:c3,alpha:true,antialias:true});
     r.setPixelRatio(Math.min(devicePixelRatio||1,2));
-    const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(38,1,.1,100);cam.position.set(0,0,9.8);
+    const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(38,1,.1,100);cam.position.set(0,0,12);  // far enough that the outer ring never touches the edge
     const u=3.4/420,add=THREE.AdditiveBlending,mats=[],world=new THREE.Group();scene.add(world);
-    scene.fog=new THREE.Fog(0,7.9,13.8);  // additive colours fade to nothing with distance: the far side of every ring is dimmer
+    scene.fog=new THREE.Fog(0,10.1,16);  // additive colours fade to nothing with distance: the far side of every ring is dimmer
     const mat=o=>{const m=new THREE.MeshBasicMaterial({color:0x5fe3ff,transparent:true,opacity:o,side:THREE.DoubleSide,blending:add,depthWrite:false});m.userData.base=o;mats.push(m);return m};
+    // Saturn style: every ring lies in one plane through the heart, tilted toward the viewer, and turns with it
+    const plane=new THREE.Group();world.add(plane);
     const rings=RINGS.map(([rad,w,n,spd,f],i)=>{
-      const tilt=new THREE.Group(),spin=new THREE.Group();tilt.add(spin);world.add(tilt);
-      const tx=[.25,.6,-.45,.8,-.3,0][i],ty=[-.2,.35,.6,-.45,.2,0][i];  // each ring in its own plane
+      const tilt=new THREE.Group(),spin=new THREE.Group();tilt.add(spin);plane.add(tilt);
+      const tx=0,ty=0;
       const m=mat(.35+i%2*.35),inner=(rad-Math.max(w,1.5)/2)*u,outer=(rad+Math.max(w,1.5)/2)*u;
       for(let k=0;k<n;k++){const a=k*Math.PI*2/n,len=Math.PI*2/n*f,sg=Math.max(8,Math.round(64*f/n*6));spin.add(new THREE.Mesh(new THREE.RingGeometry(inner,outer,sg,1,a,len),m));
         if(w>=10)spin.add(new THREE.Mesh(new THREE.CylinderGeometry(outer,outer,w*u*1.5,sg,1,true,a+Math.PI/2,len).rotateX(Math.PI/2),m))}  // thick rings get a wall, so they read as bands
       return{tilt,spin,spd,i,m,tx,ty}});
-    const ticks=new THREE.Group(),tm=mat(.55);world.add(ticks);
+    const ticks=new THREE.Group(),tm=mat(.55);plane.add(ticks);
     for(let k=0;k<72;k++){const l=(k%6?8:20)*u,a=k/72*Math.PI*2;const g=new THREE.PlaneGeometry(l,1.6*u),me=new THREE.Mesh(g,tm);
       me.position.set(Math.cos(a)*(410*u-l/2),Math.sin(a)*(410*u-l/2),0);me.rotation.z=a;ticks.add(me)}
     const glowTex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);
@@ -934,8 +936,7 @@ function build3d(){
     const pm=new THREE.PointsMaterial({color:0x5fe3ff,size:.045,transparent:true,opacity:.8,blending:add,depthWrite:false}),pts=new THREE.Points(pg,pm);world.add(pts);
     const fit=()=>{const w=$('coreWrap').clientWidth||420;r.setSize(w,w,false)};fit();addEventListener('resize',fit);
     $('core3d').hidden=false;cv.style.visibility='hidden';
-    ticks.position.z=-.75;
-    return{r,scene,cam,world,rings,ticks,glow,glowM,heart,heartM,shell,shellM,open:1,pts,pg,pos,seed,mats,pm,tm};
+    return{r,scene,cam,world,plane,rings,ticks,glow,glowM,heart,heartM,shell,shellM,open:1,pts,pg,pos,seed,mats,pm,tm};
   }catch(e){console.warn('3D core unavailable',e);return null}
 }
 function draw3d(h,c,pulse){
@@ -944,8 +945,9 @@ function draw3d(h,c,pulse){
   h.world.rotation.y=Math.sin(t*.35)*.35+par.x*.3;h.world.rotation.x=Math.sin(t*.22)*.18+par.y*.22;
   for(const g of h.rings){const b=bootK(g.i),s=(.55+.45*b)*(1+level*(g.i<3?.15:.04));
     g.tilt.visible=b>0;g.tilt.scale.setScalar(s);g.spin.rotation.z=t*g.spd;g.m.opacity=(g.m.userData.base+level*.3)*b;
-    const wob=g.i<5?.2:0;g.tilt.rotation.x=g.tx*h.open+Math.sin(t*.3+g.i*1.7)*wob;g.tilt.rotation.y=g.ty*h.open+Math.cos(t*.24+g.i)*wob;
-    g.tilt.position.z=(2.5-g.i)*.22*(1+level*1.6)}  // inner rings sit nearer the eye; the voice pushes the stack apart
+    g.tilt.position.z=(2.5-g.i)*.04*level}  // the voice lifts the inner rings a touch off the plane
+  // the ring plane: tilted like Saturn's (seen from a little above), flatter to face you while listening, steeper while thinking
+  h.plane.rotation.x=-Math.min(1.25,1.05*h.open);h.plane.rotation.z=-.22+Math.sin(t*.2)*.04;
   const bt=bootK(6);h.ticks.rotation.z=-t*.1;h.tm.opacity=.55*bt;
   for(const m of h.mats)m.color.setRGB(R,G,B);h.glowM.color.setRGB(R,G,B);h.pm.color.setRGB(R,G,B);h.heartM.uniforms.c.value.setRGB(.4+R*.6,.4+G*.6,.4+B*.6);h.heartM.uniforms.a.value.setRGB(R,G,B);
   const k=1+pulse/80;h.heart.scale.setScalar(k);h.glow.scale.setScalar((3.4+pulse/40)*bootK(0));h.glowM.opacity=.75;
