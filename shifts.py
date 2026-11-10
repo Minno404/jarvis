@@ -12,6 +12,8 @@ def _load():
 
 
 def _hours(s):
+    if s.get("paid") is not None:  # the roster's paid hours, when it gives them
+        return float(s["paid"])
     a, b = (datetime.datetime.strptime(x, "%H:%M") for x in (s["start"], s["end"]))
     h = (b - a).total_seconds() / 3600
     return h + 24 if h <= 0 else h  # past midnight
@@ -28,7 +30,8 @@ def save_shifts(shifts, replace=True):
         except (KeyError, ValueError):
             return {"error": f"Every shift needs date (YYYY-MM-DD), start and end (24-hour HH:MM); this one didn't: {s}"}
         clean.append({"date": d.isoformat(), "start": st, "end": en, "where": str(s.get("where", ""))[:60],
-                      "note": str(s.get("note", ""))[:120]})
+                      "note": str(s.get("note", ""))[:120],
+                      **({"paid": round(float(s["paid"]), 2)} if s.get("paid") not in (None, "") else {})})
     if not clean:
         return {"error": "No shifts given."}
     dates = {s["date"] for s in clean}

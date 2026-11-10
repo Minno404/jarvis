@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.73.6"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.74.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -853,17 +853,20 @@ arguments or rules you aren't sure of, read its full description: python server.
 
 
 UPLOADS = HERE / "uploads"  # photos he sends Jarvis
-PHOTO = re.compile(r"[0-9a-f]{16}\.(jpg|png|webp)")
+PHOTO = re.compile(r"[0-9a-f]{16}\.(jpg|png|webp|pdf)")
 
 
 def save_upload(data, kind):
     """Keep a photo he sent (shrunk to 1600 px, which is plenty to see and far fewer tokens). Returns its name."""
     import hashlib
-    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}.get(kind)
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "application/pdf": "pdf"}.get(kind)
     if not ext or not 100 < len(data) < 20_000_000:
-        raise ValueError("Send a JPEG, PNG or WebP photo under 20 MB")
+        raise ValueError("Send a JPEG, PNG or WebP photo, or a PDF, under 20 MB")
     UPLOADS.mkdir(exist_ok=True)
     name = hashlib.sha1(data).hexdigest()[:16]
+    if ext == "pdf":  # a document (a roster, say): kept as it is
+        (UPLOADS / f"{name}.pdf").write_bytes(data)
+        return f"{name}.pdf"
     try:
         import io
         from PIL import Image, ImageOps
@@ -1391,6 +1394,10 @@ def chat_stream(text, photo=None):
                               "what's on it in plain English: what it means and what to do.]"), None
         if brain_status()["using"] == "ChatGPT":
             photo = shot  # ChatGPT gets it attached
+    elif photo and photo.endswith(".pdf") and PHOTO.fullmatch(photo) and (UPLOADS / photo).exists():
+        text = (text or "What's this?") + (f"\n[He sent you a PDF: uploads/{photo}. If it's his roster, call "
+                                            f"load_roster_file with name {photo}. Otherwise read it with the Read tool.]")
+        photo = None
     elif photo and PHOTO.fullmatch(photo) and (UPLOADS / photo).exists():
         text = (text or "What's in this photo?") + (f"\n[He sent you a photo: uploads/{photo}. Look at it "
                                                      "before you answer.]")

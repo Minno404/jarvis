@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.73.6** (shown at the bottom right of the HUD)
+**Version 1.74.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.74.0** (11 Nov 2026): rosters read exactly. A grid roster PDF (one row per person, one column per day, cells like
+  "3SHTQ / 22:00 - 29:30 / 7:30") is read by position, so each shift lands on the right day: hours past 24 become the
+  next morning, the paid hours are kept, and days off (BOD, leave, rest, Not Avail.) are skipped. Works for the
+  Gmail roster and for a PDF sent through the + button (PDFs can now be attached). On the phone, the clock panel
+  can't be squashed any more (that cut its title off) and the boot-up lines no longer sit over the chat.
 - **1.73.6** (11 Nov 2026): a roleplay panel only shows in incognito ("roleplay" outside incognito says to go
   incognito first). The phone's "On this phone" sound choice is now always visible in Settings, Voice (it was inside
   the Kokoro options, hidden when the online voice is picked).

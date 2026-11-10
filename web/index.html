@@ -169,6 +169,7 @@ td{padding:5px 10px 5px 0;white-space:nowrap;border-top:1px dashed rgba(var(--li
 .holo-x:hover{color:var(--text);background:none}
 .holo-rows .row span:last-child{color:var(--text)}
 /* Boot sequence */
+@media (max-width:700px){html:not(.holo-mode) .boot{display:none!important}}  /* phone: the boot lines would sit on top of the chat */
 .boot{position:absolute;left:50%;top:calc(520px*var(--s));transform:translateX(-50%);width:min(calc(340px*var(--s)),90%);font-size:calc(11px*var(--s)*var(--fs));letter-spacing:.12em;color:var(--cyan);
   text-transform:uppercase;line-height:1.9;pointer-events:none;z-index:6;text-shadow:0 0 8px rgba(var(--rgb),.6);transition:opacity .6s}
 .boot .ok{color:var(--text)}.boot .dim{color:var(--mute)}
@@ -573,7 +574,7 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
     <div class="state" id="state">Standing by</div>
     <div class="log" id="log" aria-live="polite"></div>
     <div class="attach" id="attach" hidden><img id="attImg" alt="Photo to send"><span>Photo ready · ask about it</span><button type="button" class="holo-x" id="attX" aria-label="Remove photo">\u00d7</button></div>
-    <form id="f"><div class="qwrap"><input id="q" placeholder="Say something, sir…" autocomplete="off" enterkeyhint="send" aria-label="Message Jarvis (Enter to send)"><button type="button" id="photoBtn" title="Send Jarvis a photo (or paste / drop one)" aria-label="Add a photo">+</button></div><input type="file" id="file" accept="image/*" hidden><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button></form>
+    <form id="f"><div class="qwrap"><input id="q" placeholder="Say something, sir…" autocomplete="off" enterkeyhint="send" aria-label="Message Jarvis (Enter to send)"><button type="button" id="photoBtn" title="Send Jarvis a photo (or paste / drop one)" aria-label="Add a photo">+</button></div><input type="file" id="file" accept="image/*,application/pdf" hidden><button type="button" id="mic" title="Talk to Jarvis (or say &quot;Hey Jarvis&quot;)" hidden>Mic</button></form>
     <div class="chips">
       <button class="chip" type="button">Bring up my trading journal</button>
       <button class="chip" type="button">Give me a report</button>
@@ -1097,6 +1098,7 @@ function stopSpeaking(){  // "Hey Jarvis" while he talks, Esc, or clicking the c
 // ---- Phone: resize panels and the chat by height (drag the bar under them; double-tap it to reset) ----
 if(matchMedia('(pointer:coarse)').matches&&!PIN){
   const KEY='jarvis.phoneHeights';let hs={};try{hs=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+  delete hs.time;  // the clock always shows in full (a squashed one cut its title off)
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(hs))}catch(e){}};
   const grip=(el,id,after)=>{
     if(!el||el.dataset.grip)return;el.dataset.grip=1;
@@ -1111,7 +1113,7 @@ if(matchMedia('(pointer:coarse)').matches&&!PIN){
       const up=()=>{removeEventListener('touchmove',mv);removeEventListener('touchend',up);save()};
       addEventListener('touchmove',mv,{passive:false});addEventListener('touchend',up)},{passive:true});
   };
-  const scan=()=>{document.querySelectorAll('.panel[data-id]').forEach(p=>grip(p,p.dataset.id));grip($('log'),'log',true)};
+  const scan=()=>{document.querySelectorAll('.panel[data-id]:not([data-id=time])').forEach(p=>grip(p,p.dataset.id));grip($('log'),'log',true)};
   scan();[1000,3000,8000].forEach(t=>setTimeout(scan,t));  // add-on panels arrive a little later
 }
 let voiceGain=null,voiceVol=1;  // Settings > Voice > Volume (the core still pulses with the real voice)
@@ -1178,7 +1180,7 @@ async function announce(text){
 let photo=null;
 async function attach(file){
   if(!file||!file.type.startsWith('image/'))return;
-  $('attach').hidden=false;$('attach').classList.add('busy');$('attImg').src=URL.createObjectURL(file);photo=null;
+  $('attach').hidden=false;$('attach').classList.add('busy');$('attImg').src=file.type==='application/pdf'?'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 50"><rect width="40" height="50" rx="4" fill="%23222"/><text x="20" y="30" font-size="11" fill="%23fff" text-anchor="middle" font-family="sans-serif">PDF</text></svg>'):URL.createObjectURL(file);photo=null;
   try{const r=await (await fetch('/api/upload',{method:'POST',headers:{'Content-Type':file.type},body:file})).json();
     if(r.error)throw new Error(r.error);photo=r.name;sfx('panel');$('q').focus()}
   catch(e){$('attach').hidden=true;add('j',"I couldn't take that photo, sir. "+(e.message||''))}

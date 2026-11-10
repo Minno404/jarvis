@@ -86,6 +86,100 @@ def _sheet_text(data):
     return "\n".join(out)
 
 
+OFF = re.compile(r"\b(?:off|leave|not avail|rest|bod|barracks|work ?cover)\b", re.I)  # days that aren't shifts
+
+
+TIME = re.compile(r"^(\d{1,2}):(\d\d)\s*-\s*(\d{1,2}):(\d\d)$")
+
+
+def grid_shifts(data, name):
+    """Shifts for `name` from a grid roster PDF (one row per person, one column per day, cells like
+    '3SHTQ:24 HOUR / 22:00 - 29:30 / 7:30', hours past 24 meaning the next morning). [] if not this kind."""
+    from pypdf import PdfReader
+    want = " ".join(name.lower().split())
+    for page in PdfReader(io.BytesIO(data)).pages:
+        items = []
+
+        def v(text, cm, tm, fd, fs):
+            if text.strip():
+                items.append((cm[4] + tm[4] * cm[0], cm[5] + tm[5] * cm[3], text.strip()))
+        page.extract_text(visitor_text=v)
+        full = " ".join(t for _, _, t in items)
+        valid = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})\s*-\s*\d{1,2}/\d{1,2}/\d{4}", full)
+        me = next((it for it in items if " ".join(it[2].lower().split()).startswith(want)), None)
+        if not (valid and me):
+            continue
+        # the header row: day numbers, left to right
+        head_y = max((y for x, y, t in items if t == "Employee"), default=None)
+        if head_y is None:
+            continue
+        days = sorted((x, int(t)) for x, y, t in items if abs(y - head_y) < 3 and re.fullmatch(r"\d{1,2}", t))
+        if not days:
+            continue
+        start = datetime.date(int(valid.group(3)), int(valid.group(2)), int(valid.group(1)))
+        dates, d, prev = {}, start, None
+        for x, n in days:  # day numbers to dates (the month rolls over when the number drops)
+            if prev is not None and n < prev:
+                d = (d.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
+            dates[x] = d.replace(day=n)
+            prev = n
+        cols = sorted(dates)
+        name_x = me[0]
+        below = sorted((y for x, y, t in items if abs(x - name_x) < 2 and y < me[1] - 3 and not re.fullmatch(r"[\d.:]+", t)), reverse=True)
+        bottom = below[0] if below else 0
+        row = [(x, y, t) for x, y, t in items if bottom + 2 < y <= me[1] + 3]
+        cells = [it for it in row if it[0] >= cols[0] - 5]
+        out = []
+        for x, y, t in cells:
+            m = TIME.match(t)
+            if not m:
+                continue
+            col = min(cols, key=lambda c: abs(c - x))
+            if abs(col - x) > 40:
+                continue  # the Time / FAID totals columns
+            h1, m1, h2, m2 = map(int, m.groups())
+            if (h1, m1) == (h2, m2):
+                continue  # Not Avail. 00:00 - 00:00
+            above = [tt for xx, yy, tt in sorted(row) if 0 < yy - y < 20 and not TIME.match(tt) and (abs(xx - x) < 2 or xx < x)]
+            same = [tt for xx, yy, tt in cells if abs(xx - x) < 2 and 0 < yy - y < 20 and not TIME.match(tt)]
+            label = same or [re.sub(r"^(?:\S{1,3}\s+)*(?:BOD\s+)*", "", above[-1])] if (same or above) else []
+            paid = next((tt for xx, yy, tt in cells if abs(xx - x) < 2 and 0 < y - yy < 12 and re.fullmatch(r"\d{1,2}:\d\d", tt)), None)
+            day = dates[col] + datetime.timedelta(days=h1 // 24)
+            out.append({"date": day.isoformat(), "start": f"{h1 % 24:02d}:{m1:02d}", "end": f"{h2 % 24:02d}:{m2:02d}",
+                        "where": "", "note": " ".join(label).strip()[:60],
+                        **({"paid": int(paid.split(":")[0]) + int(paid.split(":")[1]) / 60} if paid else {})})
+        out = [s for s in out if not OFF.search(s["note"])]
+        if out:
+            return sorted(out, key=lambda s: (s["date"], s["start"]))
+    return []
+
+
+
+def load_roster_file(name):
+    """A roster PDF he sent (uploads/<name>) or one downloaded from Gmail (rosters/<name>): his shifts, saved."""
+    c = conf()
+    if not c.get("name"):
+        return {"error": "His name on the roster isn't set: Settings > Roster email > Your name on it."}
+    f = next((p for p in (HERE / "uploads" / name, KEEP / name) if re.fullmatch(r"[\w.\- ]+", name) and p.is_file()), None)
+    if not f:
+        return {"error": f"No roster file called {name}"}
+    return _grid_save(f.read_bytes(), c["name"]) or {"error": "Couldn't find a day-by-day grid with his name in that PDF.",
+                                                     "text": _pdf_text(f.read_bytes())[:15000]}
+
+
+def _grid_save(data, name):
+    try:
+        found = grid_shifts(data, name)
+    except Exception:
+        return None
+    if not found:
+        return None
+    import shifts
+    r = shifts.save_shifts(found)
+    return {**r, "shifts": found, "done": "Already saved: call my_shifts to show them, and tell him how many shifts "
+                                          "and paid hours, and when the first one is."}
+
+
 def _name(s):
     parts = []
     for b, enc in decode_header(s or ""):
@@ -159,6 +253,11 @@ def get_roster():
             low = fn.lower()
             try:
                 if low.endswith(".pdf"):
+                    saved = _grid_save(data, c["name"])  # a day-by-day grid: read exactly, no guessing
+                    if saved:
+                        c["last_uid"] = uid
+                        features._save(CONF, c)
+                        return {"subject": _name(msg.get("Subject")), "file": fn, **saved}
                     texts.append(f"[attachment {fn}]\n" + _pdf_text(data))
                 elif low.endswith((".xlsx", ".xlsm")):
                     texts.append(f"[attachment {fn}]\n" + _sheet_text(data))
@@ -184,13 +283,16 @@ def get_roster():
                      "roster's week and the email's date. Pictures: read them with the Read tool first.")}
 
 
-FUNCS = {"get_roster": get_roster, "roster_email_settings": roster_email_settings}
+FUNCS = {"get_roster": get_roster, "roster_email_settings": roster_email_settings, "load_roster_file": load_roster_file}
 S = {"type": "string"}
 TOOLS = [{"name": "get_roster", "description": (
     "Get his newest roster from his Gmail ('get my roster', 'check my roster email', 'load the new roster'): downloads "
     "the latest email from the roster sender he set up and returns its text and attachments (PDF/Excel read as text, "
     "pictures as files to Read). Then find his name's shifts and save them with save_shifts."),
-    "input_schema": {"type": "object", "properties": {}}}]
+    "input_schema": {"type": "object", "properties": {}}},
+    {"name": "load_roster_file", "description": "Load his shifts from a roster PDF he sent you (the name after "
+     "uploads/): reads the day-by-day grid for his name and saves the shifts. Then my_shifts.",
+     "input_schema": {"type": "object", "required": ["name"], "properties": {"name": S}}}]
 
 
 def selftest():
