@@ -98,6 +98,12 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    if re.fullmatch(r"(?:bring up|show(?: me)?|open|what are|whats|pull up|get) (?:my |the )?(?:work )?(?:shifts|roster)|"
+                    r"my (?:work )?(?:shifts|roster)|when do i (?:work|start)(?: next)?|work shifts", t) and "my_shifts" in R:
+        r = R["my_shifts"]()
+        if not r["count"]:
+            return "No shifts saved for the next two weeks, {TITLE}. Send me a photo or screenshot of your roster."
+        return f"{r['count']} shift{'s' if r['count'] > 1 else ''}, {r['hours']:g} hours over the next two weeks, {{TITLE}}. Next: {r['next']}."
     if "rp_chat" in R and "hud_panel" in R:  # the roleplay add-on (custom/roleplay.py) is installed
         if re.fullmatch(r"(?:go |start |open |enter |show |bring up )?(?:the )?role ?play(?: mode| panel)?(?: on)?|let'?s role ?play", t):
             R["hud_panel"]("roleplay", True)

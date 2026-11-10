@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.71.3** (shown at the bottom right of the HUD)
+**Version 1.72.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,10 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.72.0** (11 Nov 2026): work shifts. Send a photo or screenshot of the roster ("here's my roster") and Jarvis
+  reads it and saves every shift (date, start, end, where); a new roster replaces the old one for its dates. "Bring up
+  my work shifts", "my roster" or "when do I work next?" shows the next two weeks as a panel (with hours) instantly,
+  no AI needed. Shifts are kept in shifts.json on the PC.
 - **1.71.3** (11 Nov 2026): on the phone, a panel he asks for ("roleplay", "show the MT5 journal") scrolls into view,
   since phone panels stack below the chat.
 - **1.71.2** (11 Nov 2026): "roleplay", "roleplay mode" or "show the roleplay" opens a roleplay add-on's panel straight

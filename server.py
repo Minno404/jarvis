@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.71.3"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.72.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -621,12 +621,13 @@ import workshop   # the hologram workshop: 3D models from his projects (see work
 import blueprint  # blueprint mode: something held up to the camera, drawn as a blueprint (see blueprint.py)
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
 import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
+import shifts     # work shifts from his roster (see shifts.py)
 import usage      # tokens each brain used and how much is left (see usage.py)
 import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
 import mt5trade   # trades he confirms on the HUD, and the trading autopilot (see mt5trade.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
