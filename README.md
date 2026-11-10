@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.65.0** (shown at the bottom right of the HUD)
+**Version 1.66.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,12 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.66.0** (11 Nov 2026): void mode. The HUD floats inside a huge empty sphere: its lines curve away on every side,
+  brightest level with the core and fading to black above and below, turning a little as the mouse moves and
+  drifting slowly. A light pool behind the core, dust at three distances, and panels hanging in the space with
+  shadows falling away under them. Every background style sits inside the sphere. Settings, Background, Depth
+  switches between "Void sphere" (default) and "Standard floor" (the 1.65 look); the choice is saved. On phones the
+  sphere holds still.
 - **1.65.0** (11 Nov 2026): a more 3D core and a deeper HUD (designed with Claude Fable 5.2). The core is a lit
   sphere in a turning wire shell, with banded rings at their own tilts and depths that spread apart as Jarvis talks,
   fog on their far side, and a slight lean toward the mouse. Behind it: a dot field, a perspective floor grid and a

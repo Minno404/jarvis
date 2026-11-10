@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.65.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.66.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -965,6 +965,8 @@ def save_prefs(d):
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
     if "voice_volume" in d:
         s["voice_volume"] = max(0.0, min(1.5, float(d["voice_volume"])))
+    if d.get("depth_mode") in ("void", "standard"):  # the HUD's look: inside a huge sphere, or the flat floor
+        s["depth_mode"] = d["depth_mode"]
     features._save("settings.json", s)
     if isinstance(d.get("background"), dict):  # from Settings: a style, the last photo, or how dark a picture is
         b = {k: v for k, v in d["background"].items() if k in ("style", "photo", "dim")}
@@ -977,7 +979,7 @@ def save_prefs(d):
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
                                                             "local_voice", "local_on", "split_claude_voice",
-                                                            "split_gpt_voice")}, "autostart": autostart_on()})
+                                                            "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
 

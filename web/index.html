@@ -17,7 +17,7 @@ body{background:radial-gradient(ellipse at 50% 40%,var(--bg-glow) 0%,var(--void)
 body::after{content:"";position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(var(--rgb),.03) 0 1px,transparent 1px 3px)}
 .wrap{min-height:100%;box-sizing:border-box;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:calc(260px*var(--s)) 1fr calc(300px*var(--s));gap:calc(16px*var(--s));max-width:none;margin:0 auto}
 .col{display:flex;flex-direction:column;gap:calc(16px*var(--s));min-width:0}
-.panel{background:var(--panel);border:1px solid var(--line);padding:calc(14px*var(--s));position:relative;clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 60px),100% 100%,calc(100% - 12px) 100%,100% calc(100% - 12px),100% 100%,calc(100% + 50px) calc(100% + 60px),-50px calc(100% + 60px));backdrop-filter:blur(4px);box-shadow:var(--float)}
+.panel{background:var(--panel);border:1px solid var(--line);padding:calc(14px*var(--s));position:relative;clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 96px),100% 100%,calc(100% - 12px) 100%,100% calc(100% - 12px),100% 100%,calc(100% + 50px) calc(100% + 96px),-50px calc(100% + 96px));backdrop-filter:blur(4px);box-shadow:var(--float)}
 .panel::before{content:"";position:absolute;top:0;left:12px;width:40px;height:2px;background:var(--cyan)}
 h2{font-family:var(--display);font-size:calc(11px*var(--s)*var(--fs));letter-spacing:.25em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px;font-weight:600}
 .clock{font-family:var(--display);font-size:calc(44px*var(--s)*var(--fs));font-weight:700;color:var(--cyan);text-shadow:0 0 18px rgba(var(--rgb),.5);font-variant-numeric:tabular-nums;line-height:1}
@@ -191,7 +191,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 /* Movable, resizable panels: drag by the title, resize from the bottom-right corner */
 .grip{cursor:grab;user-select:none;touch-action:none}.grip:active{cursor:grabbing}
 .free{position:fixed!important;margin:0!important;resize:both;overflow:auto;z-index:8;max-width:none!important;box-sizing:border-box;
-  clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 60px),-50px calc(100% + 60px))!important;animation:none!important}
+  clip-path:polygon(evenodd,-50px -50px,0 0,12px 0,0 12px,0 0,-50px -50px,calc(100% + 50px) -50px,calc(100% + 50px) calc(100% + 96px),-50px calc(100% + 96px))!important;animation:none!important}
 .free::-webkit-resizer{background:linear-gradient(135deg,transparent 50%,var(--cyan) 50%,var(--cyan) 60%,transparent 60%,transparent 72%,var(--cyan) 72%,var(--cyan) 82%,transparent 82%)}
 .free.lifted{box-shadow:var(--float),0 0 36px rgba(var(--rgb),.35);border-color:var(--cyan)}
 .holo-panel.free{display:flex;flex-direction:column}
@@ -257,18 +257,38 @@ form{opacity:.55;transition:opacity .3s}form:hover,form:focus-within{opacity:1}
 #bgimg{background-size:cover;background-position:center;inset:-12px}
 #bgfx{width:100%!important;height:100%!important;max-width:none;aspect-ratio:auto}
 #bgimg::after{content:"";position:absolute;inset:0;background:rgba(3,7,12,var(--bg-dim,.55))}
-/* Depth: far dots, a perspective floor and a vignette sit behind everything and slide under the pointer (see parallax);
-   panels keep still above them with a lit top edge, a dark drop shadow and an accent glow underneath. */
-:root{--float:inset 0 1px 0 rgba(var(--rgb),.16),inset 0 0 26px rgba(var(--rgb),.04),0 14px 24px -10px rgba(0,0,0,.85),0 26px 40px -20px rgba(var(--rgb),.34)}
-#depth{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-#depth i,#depth b{position:absolute;display:block}
+/* The void: every background sits inside a huge sphere seen from within (see drawSphere). Bottom to top: a pool of
+   light behind the core, far dust, the sphere's lines, nearer dust, and a vignette that takes the poles and edges to black.
+   Panels hang in the same space: a lit top edge, a shadow that falls away below without touching anything, a glow
+   underneath whose strength differs per panel (--g), and the edge that faces the core picks up its light (--lit). */
+.panel,.holo-panel{--g:.3;--float:inset 0 1px 0 rgba(var(--rgb),.16),inset 0 0 26px rgba(var(--rgb),.04),var(--lit,0 0 transparent),0 36px 44px -30px rgba(0,0,0,.9),0 50px 56px -36px rgba(var(--rgb),var(--g))}
+.col>.panel:nth-child(3n+1){--g:.22}.col>.panel:nth-child(3n+2){--g:.42}
+.holo>.holo-panel{--lit:inset 18px 0 24px -18px rgba(var(--rgb),.24)}
+@media (min-width:1001px){html:not(.depth-std) .wrap>.col:first-child>.panel{--lit:inset -18px 0 24px -18px rgba(var(--rgb),.3);border-right-color:rgba(var(--rgb),.5)}
+  html:not(.depth-std) .center~.col>.panel{--lit:inset 18px 0 24px -18px rgba(var(--rgb),.3);border-left-color:rgba(var(--rgb),.5)}}
+#depth{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;--cx:50%;--cy:36%;--la:1}
+#depth i,#sphere{position:absolute;display:block}
+#depth .pool{inset:0;opacity:var(--la);background:radial-gradient(ellipse 44% 46% at var(--cx) var(--cy),rgba(var(--rgb),.2),transparent),radial-gradient(ellipse 120% 13% at var(--cx) var(--cy),rgba(var(--rgb),.08),transparent)}
+#sphere{inset:0;width:100%!important;height:100%!important;max-width:none;aspect-ratio:auto}
+#depth .dust{left:0;top:0;width:1px;height:1px;border-radius:50%}
+#depth .vig{inset:0;background:radial-gradient(ellipse 86% 78% at var(--cx) var(--cy),transparent 28%,rgba(0,0,0,.5) 68%,rgba(0,0,0,.93) 100%)}
+html:not(.depth-std) body:not([data-bg=hex])::before{display:none}  /* the flat grid is gone: the sphere's lines are the grid now */
+body[data-bg=dark] #depth{--la:.2}body[data-bg=dark] #depth .dust{opacity:.4}
+body[data-bg=image] #depth,body[data-bg=rain] #depth,body[data-bg=hex] #depth{--la:.5}
+body[data-bg=stars] #depth .d1,body[data-bg=rain] #depth .dust{display:none}
+html.pc-holo #depth>:not(.vig),html.pinmode #depth{display:none}
+/* Standard depth (Settings > Background > Depth): the v1.65 look. A dot field, a perspective floor and a plain vignette
+   replace the sphere's layers; panels get the earlier, closer shadow. html.depth-std is set by applyDepth(). */
+html:not(.depth-std) #depth>.far,html:not(.depth-std) #depth>.floor,html.depth-std #depth>:not(.far):not(.floor):not(.vig){display:none}
+#depth b{position:absolute;display:block}
+html.depth-std .panel,html.depth-std .holo-panel{--float:inset 0 1px 0 rgba(var(--rgb),.16),inset 0 0 26px rgba(var(--rgb),.04),0 14px 24px -10px rgba(0,0,0,.85),0 26px 40px -20px rgba(var(--rgb),.34)}
 #depth .far{inset:-30px;opacity:.55;background:radial-gradient(circle,rgba(var(--rgb),.6) 0 1px,transparent 1.6px) 0 0/140px 120px,radial-gradient(circle,rgba(200,230,255,.4) 0 1px,transparent 1.6px) 70px 50px/190px 170px}
 #depth .floor{left:-40px;right:-40px;bottom:-30px;height:44%;perspective:560px;perspective-origin:50% 0;-webkit-mask-image:linear-gradient(transparent 4%,#000 90%);mask-image:linear-gradient(transparent 4%,#000 90%)}
 #depth .floor i{left:-60%;right:-60%;top:0;height:300%;transform-origin:50% 0;transform:rotateX(66deg);overflow:hidden}
 #depth .floor b{inset:0;background:linear-gradient(rgba(var(--rgb),.2) 1.5px,transparent 1.5px) 0 0/56px 56px,linear-gradient(90deg,rgba(var(--rgb),.2) 1.5px,transparent 1.5px) 50% 0/56px 56px}
-#depth .vig{inset:0;background:radial-gradient(ellipse at 50% 42%,transparent 40%,rgba(0,0,0,.6) 100%)}
-body[data-bg=image] #depth>:not(.vig),body[data-bg=stars] #depth>:not(.vig),body[data-bg=rain] #depth>:not(.vig),body[data-bg=hex] #depth .far,html.pc-holo #depth>:not(.vig),html.pinmode #depth{display:none}
-body[data-bg=dark] #depth>:not(.vig){opacity:.3}body[data-bg=nebula] #depth .floor{opacity:.5}
+html.depth-std #depth .vig{inset:0;background:radial-gradient(ellipse at 50% 42%,transparent 40%,rgba(0,0,0,.6) 100%)}
+html.depth-std body[data-bg=image] #depth>:not(.vig),html.depth-std body[data-bg=stars] #depth>:not(.vig),html.depth-std body[data-bg=rain] #depth>:not(.vig),html.depth-std body[data-bg=hex] #depth .far{display:none}
+html.depth-std body[data-bg=dark] #depth>:not(.vig){opacity:.3}html.depth-std body[data-bg=nebula] #depth .floor{opacity:.5}
 @keyframes bob{0%{transform:none}17%,83%{transform:translate3d(0,-1px,0)}33%,67%{transform:translate3d(0,-2px,0)}50%{transform:translate3d(0,-3px,0)}}
 @media (min-width:601px){.col>.panel{animation:bob 9s steps(1) infinite}.col>.panel:nth-child(2n){animation-delay:-3s}.col>.panel:nth-child(3n){animation-delay:-6s}
   html.pinmode .panel{animation:none}}
@@ -508,7 +528,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
 <div class="wingrip" id="wingrip" hidden></div>
 <div id="winedges" hidden><i class="rz n" data-e="n"></i><i class="rz s" data-e="s"></i><i class="rz e" data-e="e"></i><i class="rz w" data-e="w"></i><i class="rz ne" data-e="ne"></i><i class="rz nw" data-e="nw"></i><i class="rz se" data-e="se"></i><i class="rz sw" data-e="sw"></i></div>
 <div id="bgimg" hidden></div><canvas id="bgfx" hidden aria-hidden="true"></canvas>
-<div id="depth" aria-hidden="true"><i class="far"></i><i class="floor"><i><b></b></i></i><i class="vig"></i></div>
+<div id="depth" aria-hidden="true"><i class="pool"></i><i class="dust d1"></i><canvas id="sphere"></canvas><i class="dust d2"></i><i class="far"></i><i class="floor"><i><b></b></i></i><i class="vig"></i><i class="dust d3"></i></div>
 <div id="amb" aria-hidden="true"><i class="rainfx"></i></div>
 <div class="sweep" aria-hidden="true"></div>
 <div class="wrap">
@@ -711,6 +731,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <select id="bgSel"><option value="default">Glow (default)</option><option value="dark">Plain dark</option><option value="grid">Holographic grid</option>
         <option value="stars">Starfield (moving)</option><option value="nebula">Nebula</option><option value="hex">Hexagon mesh</option>
         <option value="rain">Falling code</option><option value="photo">My last photo</option><option value="image" hidden>Picture (set by Jarvis)</option></select>
+      <div class="keyrow"><span class="hint">Depth</span><select id="depthSel" style="flex:1"><option value="void">Void sphere</option><option value="standard">Standard floor</option></select></div>
       <div class="keyrow" id="dimRow" hidden><span class="hint">Darken</span><input type="range" id="bgDim" min="0" max="0.9" step="0.05" style="flex:1"></div>
       <p class="hint">Or ask: "make the background a picture of a city at night".</p>
     </fieldset>
@@ -967,13 +988,62 @@ function paint2d(c,pulse){
   for(let k=0;k<72;k++){const a=k/72*Math.PI*2-t*.1,l=k%6?8:20;cx.beginPath();cx.moveTo(C+Math.cos(a)*(410),C+Math.sin(a)*410);cx.lineTo(C+Math.cos(a)*(410-l),C+Math.sin(a)*(410-l));cx.stroke()}
 }
 if(!PIN){holo3d=build3d();draw()}  // a pinned panel's window skips the core
-// Parallax (PC pointer only): far dots, effects, picture and floor slide by different amounts; the loop stops once it settles
-if(!PIN&&!calm&&matchMedia('(hover:hover) and (pointer:fine)').matches){
-  const L=[[$('bgimg'),5],[document.querySelector('#depth .far'),8],[$('bgfx'),12],[document.querySelector('#depth .floor'),24]];
-  const step=()=>{par.x+=(par.tx-par.x)*.07;par.y+=(par.ty-par.y)*.07;
-    for(const[el,k]of L)el.style.transform=`translate3d(${(-par.x*k).toFixed(1)}px,${(-par.y*k*.6).toFixed(1)}px,0)`;
-    par.on=Math.abs(par.tx-par.x)+Math.abs(par.ty-par.y)>.003;if(par.on)requestAnimationFrame(step)};
-  addEventListener('mousemove',e=>{par.tx=e.clientX/innerWidth*2-1;par.ty=e.clientY/innerHeight*2-1;if(!par.on){par.on=true;requestAnimationFrame(step)}},{passive:true})}
+// ---------- The void: the inside of a huge sphere, the core at its centre ----------
+// Latitude and longitude lines are cached unit vectors. Each draw turns them a little (pointer + a slow drift, like
+// turning your head), projects them from a camera inside the sphere and strokes three depth bands: the far wall
+// thin and dim, the wall beside you thick. Brightness peaks on the horizon through the core and dies at the poles.
+// PCs redraw about 10 times a second; phones and reduced motion draw it once (and on resize, theme or background).
+const SPH={default:[1.25,15],dark:[.6,15],grid:[1.6,7.5],stars:[.8,15],nebula:[1.1,15],hex:[.8,30],rain:[.8,15],image:[1,15]};  // per style: [brightness, degrees between lines]
+let sphGeo=null,sphDeg=0,sphYaw=0,sphRaf=0,depthStd=false;
+function drawSphere(){
+  const c=$('sphere');if(!c||PIN||depthStd||document.documentElement.classList.contains('pc-holo'))return;
+  const [al,deg]=SPH[document.body.dataset.bg]||SPH.default,W=innerWidth,H=innerHeight,k=W<700?2:1,g=c.getContext('2d'),D=Math.PI/180;
+  if(c.width!==W*k||c.height!==H*k){c.width=W*k;c.height=H*k}
+  if(sphDeg!==deg){sphDeg=deg;sphGeo=[];const line=f=>{const a=[];for(let v=-88;v<=268;v+=4)a.push(...f(v*D));sphGeo.push(a)};
+    for(let lo=0;lo<180;lo+=deg)line(v=>[Math.cos(v)*Math.sin(lo*D),Math.sin(v),Math.cos(v)*Math.cos(lo*D)]);  // great circles through the poles
+    for(let la=-75;la<=75;la+=deg)line(v=>[Math.cos(la*D)*Math.sin(v),Math.sin(la*D),Math.cos(la*D)*Math.cos(v)])}
+  // centre on the core while it sits in its usual place (it shrinks into a corner in some views)
+  const r=$('coreWrap').getBoundingClientRect(),big=r.width>150,cx=big?r.left+r.width/2:W/2,cy=big?r.top+scrollY+r.height/2:H*.4;
+  $('depth').style.setProperty('--cx',cx+'px');$('depth').style.setProperty('--cy',cy+'px');
+  const f=.62*Math.max(W,H),cam=.9,ya=sphYaw+par.x*.16,pi=par.y*.08,cy_=Math.cos(ya),sy_=Math.sin(ya),cp=Math.cos(pi),sp=Math.sin(pi);
+  g.setTransform(k,0,0,k,0,0);g.clearRect(0,0,W,H);g.lineCap='round';
+  const P=sphGeo.map(a=>{const o=new Float32Array(a.length);for(let i=0;i<a.length;i+=3){const x=a[i]*cy_+a[i+2]*sy_,z0=a[i+2]*cy_-a[i]*sy_,y=a[i+1]*cp-z0*sp,z=a[i+1]*sp+z0*cp+cam;
+    o[i]=cx+f*x/z;o[i+1]=cy-f*y/z;o[i+2]=z<.14?-1:z>1.4?0:z>.85?1:2}return o});  // third slot: depth band, or -1 behind the eye
+  for(let b=0;b<3;b++){const gr=g.createLinearGradient(0,cy-f*.7,0,cy+f*.7),a=[.26,.44,.6][b]*al;
+    gr.addColorStop(0,`rgba(${accent},0)`);gr.addColorStop(.5,`rgba(${accent},${Math.min(1,a)})`);gr.addColorStop(1,`rgba(${accent},0)`);
+    g.strokeStyle=gr;g.lineWidth=[1,1.4,2.4][b];g.beginPath();
+    for(const o of P)for(let i=3,pen=false;i<o.length;i+=3){if(o[i+2]!==b||o[i-1]<0){pen=false;continue}
+      if(!pen){g.moveTo(o[i-3],o[i-2]);pen=true}g.lineTo(o[i],o[i+1])}
+    g.stroke()}
+}
+// Depth mode: 'void' (the sphere) or 'standard' (the v1.65 floor). Sets html.depth-std, which swaps the layers and the
+// panel shadows in CSS, and starts or stops the one sphere redraw loop. Remembered on this device so the right look is
+// there on load; the server's saved pref (showPrefs) then wins.
+function applyDepth(mode){
+  if(PIN)return;depthStd=mode==='standard';document.documentElement.classList.toggle('depth-std',depthStd);
+  if($('depthSel'))$('depthSel').value=depthStd?'standard':'void';
+  try{localStorage.setItem('depth_mode',depthStd?'standard':'void')}catch(e){}
+  cancelAnimationFrame(sphRaf);sphRaf=0;if(depthStd)return;
+  drawSphere();
+  if(!calm&&matchMedia('(hover:hover) and (pointer:fine)').matches){  // PCs only: the slow turn
+    let last=0;const turn=ts=>{sphRaf=requestAnimationFrame(turn);const dt=ts-last;if(dt<100||document.hidden)return;last=ts;sphYaw+=Math.min(dt,200)*3e-6;drawSphere()};sphRaf=requestAnimationFrame(turn)}
+}
+if(!PIN){
+  // dust at three distances: far specks, nearer motes, a few big soft ones close to the eye
+  document.querySelectorAll('#depth .dust').forEach((el,i)=>{const s=[];for(let n=[80,34,12][i];n--;)
+    s.push(`${(Math.random()*108-4).toFixed(1)}vw ${(Math.random()*108-4).toFixed(1)}vh ${[0,1,4][i]}px ${[0,.5,1.5][i]}px rgba(${i?'var(--rgb)':'200,230,255'},${([.5,.45,.28][i]*(.4+Math.random()*.6)).toFixed(2)})`);
+    el.style.boxShadow=s.join(',')});
+  let saved='void';try{saved=localStorage.getItem('depth_mode')||'void'}catch(e){}
+  applyDepth(saved);addEventListener('resize',drawSphere);
+  if(!calm&&matchMedia('(hover:hover) and (pointer:fine)').matches){
+    // pointer parallax: each layer slides by its own amount [layer, px in void, px in standard]; in void the sphere turns as well
+    const q=x=>document.querySelector('#depth '+x),L=[[$('bgimg'),5,5],[$('bgfx'),10,12],[q('.d1'),7,0],[q('.d2'),18,0],[q('.d3'),42,0],[q('.far'),0,8],[q('.floor'),0,24]];
+    const step=()=>{par.x+=(par.tx-par.x)*.07;par.y+=(par.ty-par.y)*.07;
+      for(const[el,v,st]of L){const k=depthStd?st:v;el.style.transform=`translate3d(${(-par.x*k).toFixed(1)}px,${(-par.y*k*.6).toFixed(1)}px,0)`}
+      par.on=Math.abs(par.tx-par.x)+Math.abs(par.ty-par.y)>.003;if(par.on)requestAnimationFrame(step)};
+    addEventListener('mousemove',e=>{par.tx=e.clientX/innerWidth*2-1;par.ty=e.clientY/innerHeight*2-1;if(!par.on){par.on=true;requestAnimationFrame(step)}},{passive:true})}
+  $('depthSel').onchange=()=>{const v=$('depthSel').value;applyDepth(v);savePref({depth_mode:v})};
+}
 
 // Chat
 const states={idle:'Standing by',listening:'Listening',thinking:'Processing',speaking:'Responding',hold:'On hold'};
@@ -1243,7 +1313,7 @@ function setTheme(hex){
   r.setProperty('--bg-glow',h(mix(.12)));r.setProperty('--text',h(rgb.map(v=>Math.round(205+(v-205)*.25))));
   r.setProperty('--win',rgb[0]>180&&rgb[1]<130&&rgb[2]<140?'#4dff9a':'#'+m[1]);  // wins stay readable against red losses
   try{api()?.theme('#'+m[1])}catch(e){}  // the floating mini core follows
-  accent=rgb.join(',');document.querySelector('meta[name=theme-color]')?.setAttribute('content',h(mix(.04)));
+  accent=rgb.join(',');drawSphere();document.querySelector('meta[name=theme-color]')?.setAttribute('content',h(mix(.04)));
 }
 // Movable panels (on the PC): drag a panel by its title, resize it from the bottom-right corner. Where you put
 // each one is remembered on this screen; "Layout: Reset" puts everything back.
@@ -2652,6 +2722,7 @@ function setBackground(bg){
   cancelAnimationFrame(bgAnim);bgAnim=null;fx.hidden=true;img.hidden=true;
   if(bgNow.kind==='image'){img.style.backgroundImage=`url(/api/background?v=${bgNow.v||0})`;img.style.setProperty('--bg-dim',bgNow.dim??.55);img.hidden=false;document.body.dataset.bg='image'}
   else{document.body.dataset.bg=bgNow.style||'default';if(['stars','rain'].includes(bgNow.style))startFx(bgNow.style)}
+  drawSphere();
   if($('bgSel')){$('bgSel').value=bgNow.kind==='image'?'image':bgNow.style;$('bgSel').querySelector('[value=image]').hidden=bgNow.kind!=='image';
     $('dimRow').hidden=bgNow.kind!=='image';$('bgDim').value=bgNow.dim??.55}
 }
@@ -2761,6 +2832,7 @@ const KEYNAME={Mouse4:'Mouse back button',Mouse5:'Mouse forward button',MouseMid
 const keyName=c=>!c?'Not set':KEYNAME[c]||c.replace(/^Key|^Digit/,'').replace('Numpad','Numpad ');
 function showPrefs(p){
   prefs={...prefs,...Object.fromEntries(Object.entries(p).filter(([k,v])=>v!==undefined&&v!==null))};
+  if(p.depth_mode&&(p.depth_mode==='standard')!==depthStd)applyDepth(p.depth_mode);  // the saved pref wins over this device's copy
   document.querySelectorAll('input[name=lm]').forEach(r=>r.checked=r.value===(prefs.listen_mode||'wake'));
   document.querySelectorAll('input[name=as]').forEach(r=>r.checked=r.value===(prefs.avatar_style||'hologram'));
   document.querySelectorAll('input[name=ve]').forEach(r=>r.checked=r.value===(prefs.voice_engine||'edge'));
