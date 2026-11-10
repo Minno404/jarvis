@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.66.0** (shown at the bottom right of the HUD)
+**Version 1.67.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.67.0** (11 Nov 2026): skills for Jarvis's background jobs (jobskills/, loaded by Claude Code with
+  --plugin-dir; chat isn't affected, so it costs no extra tokens per message). Coding jobs: Ponytail (the least code
+  that works, from DietrichGebert/ponytail), systematic debugging and checking before saying "done" (from
+  obra/superpowers), Impeccable for front-end design (pbakaus/impeccable). PC jobs: Word, Excel, PowerPoint, PDF and
+  web app testing (anthropics/skills). Each folder keeps its MIT or Apache 2.0 licence.
 - **1.66.0** (11 Nov 2026): void mode. The HUD floats inside a huge empty sphere: its lines curve away on every side,
   brightest level with the core and fading to black above and below, turning a little as the mouse moves and
   drifting slowly. A light pool behind the core, dust at three distances, and panels hanging in the space with

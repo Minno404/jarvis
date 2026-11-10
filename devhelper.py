@@ -153,6 +153,9 @@ def run_job(job, claude, brain="claude"):
     if brain not in ("chatgpt", "local") and claude:
         base = [claude, "-p", "--output-format", "json", "--model", os.environ.get("JARVIS_DEV_MODEL", "sonnet"),
                 "--strict-mcp-config"]
+        skills = Path(__file__).resolve().parent / "jobskills"  # Ponytail, debugging, design, Office/PDF (see its plugin.json)
+        if skills.is_dir():
+            base += ["--plugin-dir", str(skills)]
         if job.get("kind") == "pc":
             cmd = base + ["--permission-mode", "auto", "--permission-prompts", "none"]
         else:
