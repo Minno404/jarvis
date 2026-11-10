@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.63.0** (shown at the bottom right of the HUD)
+**Version 1.64.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.64.0** (11 Nov 2026): blueprints think with Claude Fable 5.2. Asking for a blueprint, pulling it apart, more
+  detail, and anything said within 10 minutes of the last blueprint goes to Fable; everything else stays on Sonnet.
+  If his plan can't use Fable, Jarvis notes it and does blueprints on Sonnet. (Change with JARVIS_BLUEPRINT_MODEL.)
 - **1.63.0** (11 Nov 2026): the autopilot opens MetaTrader 5 itself. "Make me money" opens MT5 minimised when it's
   closed and waits for it to log in; if MT5 gets closed while the autopilot runs, it opens it again. "Stop trading"
   (or the Stop button) closes MT5. Stops and targets stay on the broker's server. The autopilot stopping itself (at

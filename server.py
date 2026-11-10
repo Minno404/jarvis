@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.63.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.64.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1583,13 +1583,42 @@ def system_prompt_file():
     return str(f)
 
 
+CHAT_MODEL = os.environ.get("JARVIS_CLI_MODEL", "sonnet")
+BLUEPRINT_MODEL = os.environ.get("JARVIS_BLUEPRINT_MODEL", "claude-fable-5-2")  # the strongest at shapes and parts
+BLUEPRINT_TALK = re.compile(r"blue ?print|(?:pull|take|tear|break) (?:it|this|that) (?:apart|open)|dissect|"
+                            r"what'?s inside|tear ?down|exploded? view|(?:more|finer|fine) detail|1:1|to scale", re.I)
+
+
+def chat_model(text, ds=False):
+    """Blueprint work (asking for one, or anything said within 10 minutes of the last one) goes to Fable; the rest
+    stays on the everyday model."""
+    if ds or LIVE.get("no_blueprint_model"):
+        return CHAT_MODEL
+    try:
+        recent = time.time() - (HERE / "blueprint_state.json").stat().st_mtime < 600
+    except OSError:
+        recent = False
+    return BLUEPRINT_MODEL if recent or BLUEPRINT_TALK.search(text or "") else CHAT_MODEL
+
+
+class NoModel(Exception):
+    """Claude Code can't use the blueprint model on his plan."""
+
+
 def chat_cli(text, ds=False):
     """Talk through Claude Code, which runs on the user's Claude plan instead of API credits. ds: on DeepSeek's
     servers instead (deepseek.py)."""
+    try:
+        yield from _chat_cli(text, ds, chat_model(text, ds))
+    except NoModel:
+        yield from _chat_cli(text, ds, CHAT_MODEL)
+
+
+def _chat_cli(text, ds, model):
     global session
     now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
     cmd = [CLAUDE, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-           "--model", os.environ.get("JARVIS_CLI_MODEL", "sonnet"),
+           "--model", model,
            # Fewer tokens per message: Jarvis's own prompt replaces Claude Code's long coding one, only the two
            # tools he uses are loaded, and none of the user's own Claude Code settings or MCP servers.
            # (read from a file: as a command-line argument it outgrew Windows' 32,767-character limit)
@@ -1644,6 +1673,11 @@ def chat_cli(text, ds=False):
                 session = result["session_id"]
             if not wrote:
                 msg = (result or {}).get("result") or " ".join(other)[-300:]
+                if model == BLUEPRINT_MODEL != CHAT_MODEL and re.search(r"model", msg or "", re.I) and (
+                        not result or result.get("is_error")):
+                    LIVE["no_blueprint_model"] = True  # his plan can't use it: the everyday model does blueprints
+                    print(datetime.datetime.now(), f"blueprint model {model} unavailable: {msg[:200]}")
+                    raise NoModel(msg)
                 if not msg or (result or {}).get("is_error"):
                     raise RuntimeError(msg or "Claude Code gave no output")
                 yield msg

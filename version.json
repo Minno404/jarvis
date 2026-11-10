@@ -1,4 +1,4 @@
 {
- "version": "1.63.0",
- "notes": "\"Make me money\" opens MT5 minimised; \"stop trading\" closes it."
+ "version": "1.64.0",
+ "notes": "Blueprints now use Claude Fable 5.2; everything else stays on Sonnet."
 }
