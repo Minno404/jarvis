@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.56.2** (shown at the bottom right of the HUD)
+**Version 1.57.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,16 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.57.0** (10 Nov 2026): trading on MT5. Trades you ask for ("buy 0.1 gold, stop 2310, target 2350", "move my
+  stop to break-even", "close my gold trade") come up as a ticket on the HUD with the chart and the entry, stop and
+  take-profit lines and the dollar risk; nothing is sent until you click Confirm (voice can't), and a stop loss is
+  required. The trading autopilot ("make me money", "stop trading"): every 15 minutes it reads the M15, H1 and H4
+  charts, your account, the news calendar and how you trade (from your journal), asks Claude and ChatGPT separately
+  (DeepSeek stands in if one is out), and trades only when both pick the same symbol and direction, with the wider
+  stop and nearer target, at least 1.5 reward to risk. Its limits: 0.5% risk a trade, a 2% daily loss limit (then it
+  stops for the day), 3 trades a day, one trade open at a time, nothing within 30 minutes of high-impact news, and
+  break-even at 1R. Demo accounts only, until you switch real money on (separately for your own trades and for the
+  autopilot) with a click on a HUD card. Limits are changed by voice ("set my risk per trade to 1%").
 - **1.56.2** (9 Nov 2026): "Test ChatGPT coding" now tests with exactly the instructions a real project job gets,
   so it catches the same problems a real job would hit.
 - **1.56.1** (9 Nov 2026): ChatGPT coding jobs work. ChatGPT (Codex) reads and edits files by running shell

@@ -1,4 +1,4 @@
 {
- "version": "1.56.2",
- "notes": "Test ChatGPT coding uses a real project job's instructions."
+ "version": "1.57.0",
+ "notes": "MT5 trading: confirm-by-click trade tickets, and the two-brain trading autopilot."
 }

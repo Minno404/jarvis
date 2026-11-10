@@ -74,6 +74,19 @@ def quick(text):
                     r"wake up(?: jarvis| daddy s home)?|daddy s home", t) and "boot_up" in R:
         R["boot_up"]()
         return "Initiating boot sequence."
+    if re.fullmatch(r"(?:jarvis )?make (?:me )?(?:some )?money|(?:start|turn on|switch on|engage) (?:the )?(?:trading )?autopilot|"
+                    r"(?:start|go) (?:auto ?)?trading for me|trade for me", t) and "autopilot" in R:
+        r = R["autopilot"](on=True)
+        if r.get("error"):
+            return "I can't start the autopilot, {TITLE}. " + r["error"]
+        lim = r.get("limits", {})
+        return ("Autopilot engaged, {TITLE}. I'll check the charts every 15 minutes and only trade when both brains "
+                f"agree, risking {lim.get('auto_risk_pct')}% a trade, with a {lim.get('auto_daily_loss_pct')}% daily "
+                "loss limit. Say stop trading to stop me.") if r.get("started") else "The autopilot's already running, {TITLE}."
+    if re.fullmatch(r"(?:stop|end|kill|halt|disengage) (?:the )?(?:trading|autopilot|trading autopilot|making money|auto ?trading)|"
+                    r"turn off (?:the )?(?:trading )?autopilot", t) and "autopilot" in R:
+        R["autopilot"](on=False)
+        return "Autopilot off, {TITLE}. Any open trades keep their stops and targets."
     if re.fullmatch(r"(?:run |open |start )?(?:the |a )?disk doctor|what s (?:filling|taking up|using) (?:up )?(?:all )?(?:my |the )?"
                     r"(?:drive|disk|storage|space|c drive|hard drive)|free up (?:some )?(?:disk |drive )?space|"
                     r"(?:clean up|scan) (?:my |the )?(?:drive|disk|c drive|storage)", t) and "disk_doctor" in R:

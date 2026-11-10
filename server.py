@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.56.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.57.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -231,31 +231,11 @@ def _merge_positions(rows, source, replace=False):
 
 
 # ---------- Live MT5 (MetaQuotes' MetaTrader5 package talks to the running terminal) ----------
-def _mt5():
-    import MetaTrader5 as mt5  # pip install MetaTrader5 (Windows only)
-    # MetaTrader's initialize() starts the terminal when it isn't running: Jarvis only ever uses an MT5 that's
-    # already open, and opens it himself only when asked (open_app)
-    if os.name == "nt" and "terminal64.exe" not in features.running():
-        raise RuntimeError("MetaTrader 5 isn't open, and Jarvis doesn't open it by himself. If he wants live MT5 "
-                           "data, ask whether to open it (open_app 'MetaTrader 5'); his journal still works without it.")
-    if not mt5.initialize():
-        raise RuntimeError(f"Can't reach MetaTrader 5 ({mt5.last_error()}). Is it open and logged in?")
-    return mt5
+from mt5trade import _mt5, _symbol  # (shared with trading: mt5trade.py)
 
 
 def _ts(epoch):  # MT5 times are the broker's server clock, stored as if UTC
     return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _symbol(mt5, name):
-    s = name.upper().replace("/", "")
-    if mt5.symbol_info(s) is None:  # brokers sometimes add suffixes, e.g. XAUUSD.a
-        names = sorted((x.name for x in mt5.symbols_get() if s in x.name.upper()), key=len)
-        if not names:
-            raise ValueError(f"Your broker has no symbol like {name}")
-        s = names[0]
-    mt5.symbol_select(s, True)
-    return s
 
 
 def market_snapshot(symbols=None):
@@ -610,8 +590,10 @@ import blueprint  # blueprint mode: something held up to the camera, drawn as a 
 import simulate   # "run a simulation": what-if projections with exact maths, animated on the HUD (see simulate.py)
 import research   # research an object before drawing it: iFixit teardowns, specs, how it works (see research.py)
 import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
+import mt5trade   # trades he confirms on the HUD, and the trading autopilot (see mt5trade.py)
+import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -763,6 +745,8 @@ features.REGISTRY = FUNCS
 history, lock, client, session = [], threading.Lock(), None, None
 convo = {"last": 0.0, "turns": 0}  # a fresh conversation after a quiet spell keeps every reply quick
 CLAUDE = shutil.which("claude") or shutil.which("claude", path=str(Path.home() / ".local" / "bin"))  # installer's default spot
+mt5trade.CLAUDE = CLAUDE
+mt5trade.IS_OUT = lambda name: time.time() < OUT[name]["until"]
 gamecoach.CLAUDE = CLAUDE
 learn.CLAUDE = CLAUDE
 
@@ -2102,6 +2086,22 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
+        if self.path in ("/api/trade_confirm", "/api/autopilot"):  # trade tickets and the autopilot: this PC only
+            if not self.local():
+                return self.send_error(403)
+            n = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(n)) if n else {}
+            try:
+                if self.path == "/api/trade_confirm":
+                    r = mt5trade.confirm(str(body.get("id", "")), cancel=bool(body.get("cancel")))
+                    if r.get("done") or r.get("error"):
+                        LIVE.get("say", print)(r.get("text") or r["error"])
+                    return self.send_json(r)
+                if body.get("status"):
+                    return self.send_json(mt5trade.AUTO.status())
+                return self.send_json(mt5trade.AUTO.start() if body.get("on", True) else mt5trade.AUTO.stop())
+            except Exception as e:
+                return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path in ("/api/disk_clean", "/api/disk_scan"):  # the disk doctor panel's buttons, from this PC only
             if not self.local():
                 return self.send_error(403)
@@ -2347,6 +2347,8 @@ if __name__ == "__main__":
     else:
         print("Warning: Claude Code isn't installed and there's no API key, so Jarvis can't think yet. See README.md.")
     url = f"http://127.0.0.1:{PORT}"  # this PC's own address (HOST 0.0.0.0 just means "listen on every network")
+    server_bridge.IN_SERVER = True  # this is the running Jarvis: the autopilot lives here
+    server_bridge._say = lambda text: LIVE.get("say", print)(text)
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # on Windows this would let two copies share the port
     httpd = None
     for attempt in range(2):
