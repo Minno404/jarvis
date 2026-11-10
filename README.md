@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.73.5** (shown at the bottom right of the HUD)
+**Version 1.73.6** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,9 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.73.6** (11 Nov 2026): a roleplay panel only shows in incognito ("roleplay" outside incognito says to go
+  incognito first). The phone's "On this phone" sound choice is now always visible in Settings, Voice (it was inside
+  the Kokoro options, hidden when the online voice is picked).
 - **1.73.5** (11 Nov 2026): "check rosters", "check my roster", "get my roster" or "check my email for my roster" makes
   Jarvis look in Gmail now, load the newest roster's shifts and say how many (or that it's already loaded).
 - **1.73.4** (11 Nov 2026): Settings, Voice, "On this phone" (phone only, remembered on that phone): play alongside

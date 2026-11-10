@@ -1,4 +1,4 @@
 {
- "version": "1.73.5",
- "notes": "\"Check rosters\" looks in your Gmail for the roster right now."
+ "version": "1.73.6",
+ "notes": "Roleplay only in incognito; the phone sound choice shows in Settings > Voice."
 }

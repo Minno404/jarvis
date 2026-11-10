@@ -106,6 +106,8 @@ def quick(text):
         return f"{r['count']} shift{'s' if r['count'] > 1 else ''}, {r['hours']:g} hours over the next two weeks, {{TITLE}}. Next: {r['next']}."
     if "rp_chat" in R and "hud_panel" in R:  # the roleplay add-on (custom/roleplay.py) is installed
         if re.fullmatch(r"(?:go |start |open |enter |show |bring up )?(?:the )?role ?play(?: mode| panel)?(?: on)?|let'?s role ?play", t):
+            if not features.incognito():
+                return "Roleplay only opens in incognito, {TITLE}. Say 'go incognito' first."
             R["hud_panel"]("roleplay", True)
             return "Roleplay is open, {TITLE}. Pick a character or make one, and choose the AI in its dropdown."
         if re.fullmatch(r"(?:close|end|stop|exit|leave|hide) (?:the )?role ?play(?: mode| panel)?|role ?play(?: mode)? off", t):

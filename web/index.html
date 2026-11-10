@@ -526,6 +526,7 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
 .legend{display:grid;grid-template-columns:auto 1fr auto;gap:3px 8px;font-size:calc(11px*var(--fs));margin-top:6px}.legend i{width:9px;height:9px;margin-top:3px;display:block}
 .legend span:nth-child(3n){text-align:right;color:var(--text)}.legend span{color:var(--mute)}
 #incogBadge{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;background:rgba(10,10,14,.85);color:#c9b8ff;border:1px solid #8a6bff;border-radius:14px;padding:4px 14px;font:600 11px/1.4 inherit;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}html.incognito body{--incog:1}
+html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* roleplay only in incognito */
 </style>
 
 <div class="dragbar" id="dragbar" hidden title="Drag to move (to the top of the screen to maximise) · double-click to maximise"></div>
@@ -677,9 +678,9 @@ html.bigmode form{position:fixed;left:calc(min(112px,22vw) + 26px);right:16px;bo
       <div id="kokoroOpts"><select id="kokoroVoice"></select>
         <div class="keyrow"><span class="hint">Speed</span><input type="range" id="voiceSpeed" min="0.8" max="1.2" step="0.05" style="flex:1">
           <span class="hint" id="speedVal"></span></div>
-        <div class="keyrow phoneonly"><span class="hint">On this phone</span><select id="phoneSound" style="flex:1"><option value="mix">Play alongside YouTube and music (Silent switch mutes him)</option><option value="duck">Lower YouTube and music while he talks (try in Silent)</option><option value="take">Take over like a music app (heard in Silent, pauses others)</option></select></div>
         <div class="keyrow"><span class="hint">Volume</span><input type="range" id="voiceVol" min="0" max="1.5" step="0.05" style="flex:1">
           <span class="hint" id="volVal"></span></div></div>
+      <div class="keyrow phoneonly"><span class="hint">On this phone</span><select id="phoneSound" style="flex:1"><option value="mix">Play alongside YouTube and music (Silent switch mutes him)</option><option value="duck">Lower YouTube and music while he talks (try in Silent)</option><option value="take">Take over like a music app (heard in Silent, pauses others)</option></select></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
     <fieldset><legend>Split mode voices</legend>
