@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.59.2** (shown at the bottom right of the HUD)
+**Version 1.59.3** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,11 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.59.3** (10 Nov 2026): a frozen Jarvis no longer blocks a new one. Opening Jarvis while another copy is
+  running replaces it if that copy is an older version, its window has frozen (its page stopped checking in for 30
+  seconds), or it has stopped answering but still holds Jarvis's port (it's ended: only a Jarvis, or a program
+  Jarvis started, is ever ended). What happened goes in takeover.log. Before, a frozen Jarvis kept every new copy
+  from starting until it was ended in Task Manager.
 - **1.59.2** (10 Nov 2026): update Jarvis from your phone. The Update button works on the phone too (it used to work
   on the PC only), and you can say "update yourself" or "install the update" from either: Jarvis installs the latest
   version, restarts on the PC, and the page reloads by itself once he's back on the new version.

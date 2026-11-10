@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.59.2"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.59.3"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
     sys.stdout = sys.stderr = open(HERE / "jarvis.log", "a", buffering=1, encoding="utf-8")
@@ -1123,11 +1123,46 @@ def jarvis_power(action):
         return json.loads(r.read())
 
 
+def takeover_note(msg):  # straight to takeover.log (the main log is only written as Jarvis closes)
+    try:
+        with open(HERE / "takeover.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.datetime.now()} {msg}\n")
+    except OSError:
+        pass
+
+
+LEFTOVER = re.compile(r"\b(claude|codex|node|python|pythonw|jarvis|cmd|powershell|ollama)(\.exe)?$", re.I)
+
+
+def free_port_from_leftovers():
+    """Jarvis's port is taken but nothing answers on it: a frozen Jarvis, or a program it started (a brain, a
+    job) that kept hold of it after Jarvis closed. End that, if it's one of those (never anything else)."""
+    try:
+        import psutil
+        ended = False
+        for c in psutil.net_connections("tcp"):
+            if not (c.laddr and c.laddr.port == PORT and c.pid) or c.pid == os.getpid():
+                continue
+            p = psutil.Process(c.pid)
+            name, cmd = p.name(), " ".join(p.cmdline())[:200]
+            takeover_note(f"pid {c.pid} ({name}) holds port {PORT} [{c.status}]: {cmd}")
+            if LEFTOVER.search(name):
+                p.kill()
+                ended = True
+                takeover_note(f"ended pid {c.pid} ({name})")
+        return ended
+    except Exception as e:
+        takeover_note(f"couldn't free the port: {e!r}")
+        return False
+
+
 def take_over(url):
     """Launched while a Jarvis is already running. If it has its window open, bring that to the front and
     let this copy close (returns False). If it has no window (left running in the background, or an older
     version), ask it to shut down and wait for the port (returns True: this copy carries on starting)."""
     import urllib.request
+
+    note = takeover_note
 
     def call(path, data=None):
         req = urllib.request.Request(url + path, data=None if data is None else json.dumps(data).encode(),
@@ -1135,22 +1170,47 @@ def take_over(url):
         with urllib.request.urlopen(req, timeout=3) as r:
             return json.loads(r.read() or b"{}")
     try:
-        if call("/api/alive").get("window"):
+        alive = call("/api/alive")
+        note(f"running copy answered: {alive}")
+        # its window is open and working, and it's this same version: show it, and this copy closes.
+        # An older version (this is an update) or a frozen window (its page stopped checking in): replace it.
+        if alive.get("window") and alive.get("version") == VERSION and alive.get("responsive", True):
             call("/api/show", {})
             return False
-    except Exception:
-        pass  # no /api/alive (an older version) or no answer: replace it
+    except Exception as e:
+        note(f"running copy didn't answer /api/alive: {e!r}")  # an older version, or frozen: replace it
     try:
-        call("/api/power", {"action": "shutdown", "now": True})
-    except Exception:
-        pass
+        note(f"asked it to close: {call('/api/power', {'action': 'shutdown', 'now': True})}")
+    except Exception as e:
+        note(f"it didn't answer the request to close: {e!r}")
     import socket
-    for _ in range(40):  # up to ~12 s for it to let go of the port
-        time.sleep(0.3)
-        with socket.socket() as sk:
-            if sk.connect_ex(("127.0.0.1", PORT)):
-                return True
-    return False
+
+    def port_free(tries):
+        for _ in range(tries):
+            time.sleep(0.3)
+            with socket.socket() as sk:
+                if sk.connect_ex(("127.0.0.1", PORT)):
+                    return True
+        return False
+    if port_free(40):  # up to ~12 s for it to let go of the port
+        note("it closed: starting")
+        return True
+    # It didn't answer at all (frozen): end the Jarvis process that holds the port, and only a Jarvis
+    try:
+        import psutil
+        for c in psutil.net_connections("tcp"):
+            if c.laddr and c.laddr.port == PORT and c.status == psutil.CONN_LISTEN and c.pid and c.pid != os.getpid():
+                p = psutil.Process(c.pid)
+                cmd = " ".join(p.cmdline()).lower()
+                note(f"pid {c.pid} holds the port: {cmd[:200]} (in {p.cwd()})")
+                if "server.py" in cmd and str(HERE).lower() in (cmd + " " + p.cwd().lower()):
+                    note(f"the running Jarvis (pid {c.pid}) wasn't answering: ending it")
+                    p.kill()
+    except Exception as e:
+        note(f"couldn't end the frozen Jarvis: {e!r}")
+    ok = port_free(30)
+    note("port free: starting" if ok else "port still taken: this copy closes")
+    return ok
 
 
 def tool_args(name, argv):
@@ -1945,7 +2005,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             return self.wfile.write(data)
         if self.path == "/api/alive":  # for a second launch: is this Jarvis's window open?
-            return self.send_json({"window": bool(LIVE.get("window_open")), "version": VERSION})
+            return self.send_json({"window": bool(LIVE.get("window_open")), "version": VERSION,
+                                   "responsive": time.time() - LIVE.get("page_seen", time.time()) < 30})
         if self.path == "/api/status":  # the Activity panel
             return self.send_json(activity())
         if self.path.startswith("/api/spend"):  # the spending report's data (spendview.py)
@@ -1996,6 +2057,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/update":  # is there a newer version on GitHub?
             return self.send_json(updater.check(VERSION) if self.local() else {"update": False})
         if self.path == "/api/stats":
+            if self.local():
+                LIVE["page_seen"] = time.time()  # his window's page asks every 2 s: it's not frozen
             try:
                 return self.send_json({**features.pc_stats(), **custom_loader.stats()})
             except ImportError:
@@ -2405,11 +2468,15 @@ if __name__ == "__main__":
     threading.Thread(target=watch_floor, daemon=True).start()
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # on Windows this would let two copies share the port
     httpd = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             httpd = ThreadingHTTPServer((HOST, PORT), Handler)
             break
-        except OSError:
+        except OSError as e:
+            takeover_note(f"couldn't open port {PORT}: {e!r}")
+            if attempt == 1 and free_port_from_leftovers():  # no Jarvis answers, but something still holds the port
+                time.sleep(1)
+                continue
             if attempt or not take_over(url):
                 print(datetime.datetime.now(), "Jarvis is already running, so this copy is closing.")
                 sys.exit()
