@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.68.0** (shown at the bottom right of the HUD)
+**Version 1.68.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,8 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.68.1** (11 Nov 2026): custom add-on panels can call their own add-on's functions (POST /api/custom_call; only
+  custom/*.py FUNCS, never the core tools). See CUSTOM.md.
 - **1.68.0** (11 Nov 2026): incognito mode and REA.
   - "Go incognito": nothing is logged, learned or remembered, the chat starts fresh, and a badge shows at the top.
     "Leave incognito" (or click the badge) ends it, starts fresh again, and deletes the brains' saved copies of those

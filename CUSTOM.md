@@ -57,6 +57,13 @@ TOOLS = [{"name": "battery", "description": "The laptop battery level.",
           "input_schema": {"type": "object", "properties": {}}}]
 ```
 
+A custom panel can call its own add-on's functions (only custom/*.py FUNCS, never Jarvis's core tools):
+
+```js
+const r = await fetch('/api/custom_call', {method: 'POST', headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({name: 'battery', args: {}})}).then(r => r.json());
+```
+
 Add `COMMANDS = {"My stuff": ["Show the task manager", "*Instant phrase"]}` to list your add-on's phrases in
 Jarvis's "what can you do?" panel (a leading `*` marks an instant one).
 

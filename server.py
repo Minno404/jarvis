@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.68.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.68.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2254,6 +2254,16 @@ class Handler(SimpleHTTPRequestHandler):
             if LIVE.get("show_window"):
                 threading.Thread(target=LIVE["show_window"], daemon=True).start()
             return self.send_json({"shown": bool(LIVE.get("show_window"))})
+        if self.path == "/api/custom_call":  # a custom add-on's own panel calling its own functions (custom/*.py)
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            fn = next((m.FUNCS[body.get("name")] for m in custom_loader.modules
+                       if body.get("name") in getattr(m, "FUNCS", {})), None)
+            if not fn:
+                return self.send_json({"error": "no such add-on function"}, 404)
+            try:
+                return self.send_json(fn(**(body.get("args") or {})))
+            except Exception as e:
+                return self.send_json({"error": f"{type(e).__name__}: {e}"})
         if self.path == "/api/incognito":  # incognito mode on or off (a tool call, or the HUD's badge)
             on = json.loads(self.rfile.read(int(self.headers["Content-Length"]))).get("on", True)
             return self.send_json(set_incognito(bool(on)))

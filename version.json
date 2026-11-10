@@ -1,4 +1,4 @@
 {
- "version": "1.68.0",
- "notes": "Incognito mode (\"go incognito\"), an optional incognito model, and \"install REA\" for jobs."
+ "version": "1.68.1",
+ "notes": "Custom add-on panels can call their own functions."
 }
