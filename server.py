@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.78.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.79.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -613,6 +613,7 @@ import gamecoach  # watches his gameplay: live tips and a review of his mistakes
 import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
 import spendview  # the full-screen spending report: Spend Breakdown inside Jarvis (see spendview.py)
 import deepseek  # DeepSeek as a brain: cheap, online, through Claude Code (see deepseek.py)
+import gemini_brain  # Gemini as a brain: Google's API with a free key (see gemini_brain.py)
 import local_brain  # the free AI that runs on this PC: Jarvis's third brain (see local_brain.py)
 import web        # free web search and page reading (see web.py)
 import inventory  # what the desk camera has seen: "where did I leave my phone?" (see inventory.py)
@@ -766,9 +767,9 @@ TOOLS.append({"name": "jarvis_power", "description": "Restart yourself (Jarvis) 
               "input_schema": {"type": "object", "required": ["action"], "properties": {
                   "action": {"type": "string", "enum": ["restart", "shutdown"]}}}})
 TOOLS.append({"name": "set_brain", "description": "Switch which AI you think with when he asks: auto (Claude, "
-              "switching to ChatGPT by itself when the Claude plan's limit is used up), claude, or chatgpt.",
+              "switching to the next brain by itself when one's limit is used up), claude, chatgpt, gemini, deepseek or local.",
               "input_schema": {"type": "object", "required": ["brain"], "properties": {
-                  "brain": {"type": "string", "enum": ["auto", "claude", "chatgpt"]}}}})
+                  "brain": {"type": "string", "enum": ["auto", "claude", "chatgpt", "gemini", "deepseek", "local"]}}}})
 FUNCS["quiet_mode"] = lambda on=True: quiet_mode(on)
 TOOLS.append({"name": "quiet_mode", "description": "Quiet mode when he asks ('quiet mode', 'hold my messages'): you "
               "hold routine announcements (reviews, briefs, job reports, budget notes) until he turns it off; "
@@ -1428,13 +1429,14 @@ def chat_stream(text, photo=None):
     global session
     if convo.get("persona") != personas.current():  # new personality: fresh conversations in its own voice
         session, gpt_brain.thread["id"], convo["persona"] = None, None, personas.current()
+        gemini_brain.history.clear()
     brain = features.settings().get("brain", "auto")
     using = brain_status()["using"]
     handed = None
     if using == "Local" and (photo or shot or NEEDS_ONLINE.search(text or "")) and features.settings().get("local_hands_off", True):
-        handed = next((n for n in ("Claude", "ChatGPT", "DeepSeek") if time.time() >= OUT[n]["until"] and
+        handed = next((n for n in ("Claude", "ChatGPT", "Gemini", "DeepSeek") if time.time() >= OUT[n]["until"] and
                        {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt_brain.available(),
-                        "DeepSeek": deepseek.available()}[n]), None)  # the small local AI chats; jobs and pictures go online
+                        "Gemini": gemini_brain.available(), "DeepSeek": deepseek.available()}[n]), None)  # the small local AI chats; jobs and pictures go online
         if handed:
             using = handed
     if brain not in ("auto", "local") and time.time() < OUT[using]["until"]:  # his pick is out of allowance: skip it
@@ -1483,8 +1485,8 @@ def brain_error(e):
 def next_brain(skip):
     """The first other brain that's set up and not out of allowance (Local last)."""
     have = {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt_brain.available(),
-            "DeepSeek": deepseek.available(), "Local": local_brain.ready()}
-    return next((n for n in ("Claude", "ChatGPT", "DeepSeek", "Local")
+            "Gemini": gemini_brain.available(), "DeepSeek": deepseek.available(), "Local": local_brain.ready()}
+    return next((n for n in ("Claude", "ChatGPT", "Gemini", "DeepSeek", "Local")
                  if n != skip and have[n] and time.time() >= OUT[n]["until"]), None)
 
 
@@ -1541,6 +1543,7 @@ def set_incognito(on=True):
                 gone += 1
         INCOG.update(claude=set(), codex=set())
     session, gpt_brain.thread["id"], local_convo["history"] = None, None, []  # fresh either way: nothing carries over
+    gemini_brain.history.clear()
     push_event({"type": "incognito", "on": on})
     return {"incognito": on} if on else {"incognito": False, "deleted_session_files": gone}
 
@@ -1554,7 +1557,19 @@ def brain_reply(using, text, photo=None):
         return chat_gpt(text, photo)
     if using == "DeepSeek":
         return chat_cli(text, ds=True)
+    if using == "Gemini":
+        return chat_gemini(text, photo)
     return _chat_claude(text)
+
+
+def chat_gemini(text, photo=None):
+    """Gemini with all of Jarvis's tools through one function (see gemini_brain.py)."""
+    now = datetime.datetime.now().strftime("%A %d %B %Y, %H:%M")
+    system = (persona(f"{SYSTEM}\nCurrent local time: {now}.") + features.memory_prompt() + features.feature_prompt()
+              + "\n\nYour tools: call them with jarvis_tool(name, args). Use tool_help(name) for a tool's full "
+              "arguments before using one you're unsure of.\n" + persona(gemini_brain.tool_list(TOOLS, short_desc)))
+    with lock:
+        yield from gemini_brain.chat(system, persona(text), FUNCS, UPLOADS / photo if photo else None)
 
 
 DEBATE = ("[Split mode, not a normal reply: {{USER}} triple-clicked you into two avatars to weigh something up. You are "
@@ -1643,28 +1658,32 @@ def brain_status():
     local AI (whichever of them this PC has)."""
     b = features.settings().get("brain", "auto")
     gpt, local, ds, now = gpt_brain.available(), local_brain.ready(), deepseek.available(), time.time()
-    have = {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt, "DeepSeek": ds,
-            "Local": local}
-    chosen = {"claude": "Claude", "chatgpt": "ChatGPT", "deepseek": "DeepSeek", "local": "Local"}.get(b)
+    gem = gemini_brain.available()
+    have = {"Claude": bool(CLAUDE or os.environ.get("ANTHROPIC_API_KEY")), "ChatGPT": gpt, "Gemini": gem,
+            "DeepSeek": ds, "Local": local}
+    chosen = {"claude": "Claude", "chatgpt": "ChatGPT", "gemini": "Gemini", "deepseek": "DeepSeek", "local": "Local"}.get(b)
     if chosen and (have[chosen] or chosen == "Claude"):
         using = chosen
     else:  # auto: the first one set up whose limit hasn't been hit, else the first one set up
         fresh = [n for n in have if have[n] and now >= OUT[n]["until"]]
         using = (fresh or [n for n in have if have[n]] or ["Claude"])[0]
-    return {"setting": b, "using": using, "chatgpt_ready": gpt, "local_ready": local, "deepseek_ready": ds}
+    return {"setting": b, "using": using, "chatgpt_ready": gpt, "local_ready": local, "deepseek_ready": ds,
+            "gemini_ready": gem}
 
 
 gpt_out = {"until": 0.0}  # ChatGPT's limit was hit: the next brain fills in for an hour
 ds_out = {"until": 0.0}   # DeepSeek's credit ran out
-OUT = {"Claude": claude_out, "ChatGPT": gpt_out, "DeepSeek": ds_out, "Local": {"until": 0.0}}
+OUT = {"Claude": claude_out, "ChatGPT": gpt_out, "Gemini": {"until": 0.0}, "DeepSeek": ds_out, "Local": {"until": 0.0}}
 
 
 def set_brain(brain):
     """Which AI Jarvis thinks with: auto (Claude, ChatGPT when the Claude limit is hit), claude or chatgpt."""
     b = {"gpt": "chatgpt", "openai": "chatgpt", "codex": "chatgpt", "anthropic": "claude", "ollama": "local",
-         "offline": "local", "deep seek": "deepseek"}.get(brain.lower(), brain.lower())
-    if b not in ("auto", "claude", "chatgpt", "deepseek", "local"):
-        return {"error": "brain must be auto, claude, chatgpt, deepseek or local"}
+         "offline": "local", "deep seek": "deepseek", "google": "gemini", "bard": "gemini"}.get(brain.lower(), brain.lower())
+    if b not in ("auto", "claude", "chatgpt", "gemini", "deepseek", "local"):
+        return {"error": "brain must be auto, claude, chatgpt, gemini, deepseek or local"}
+    if b == "gemini" and not gemini_brain.available():
+        return {"error": "Gemini isn't set up yet: paste a free API key from aistudio.google.com in Settings > Brain."}
     if b == "deepseek" and not deepseek.available():
         return {"error": "DeepSeek isn't set up yet: paste your API key in Settings > Brain."}
     if b == "local" and not local_brain.ready():
@@ -2271,6 +2290,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(handoff())
         if self.path == "/api/secure":  # Tailscale's secure link for the phone (its microphone needs https)
             return self.send_json(LIVE.get("ts_https") or {})
+        if self.path == "/api/gemini":  # whether a Gemini key is saved (never the key itself)
+            return self.send_json({"ready": gemini_brain.available(), "model": gemini_brain.model()})
         if self.path == "/api/deepseek":  # whether a DeepSeek key is saved (never the key itself)
             return self.send_json({"ready": deepseek.available()})
         if self.path == "/api/ambient":
@@ -2534,6 +2555,17 @@ class Handler(SimpleHTTPRequestHandler):
             if not re.match(r"https?://", url) or not LIVE.get("page_price"):
                 return self.send_json({"error": "Needs a web link, and the Jarvis app window (not browser mode)."})
             return self.send_json(LIVE["page_price"](url))
+        if self.path == "/api/gemini":  # save or remove the Gemini key, or pick its model: only from this PC
+            if not self.local():
+                return self.send_error(403)
+            d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            if d.get("model"):
+                features._save("settings.json", {**features.settings(), "gemini_model": str(d["model"])[:60]})
+            r = gemini_brain.set_key(d["key"]) if "key" in d else {"ready": gemini_brain.available()}
+            if not r.get("ready") and features.settings().get("brain") == "gemini":
+                set_brain("auto")
+            push_event({"type": "brain", "name": brain_status()["using"]})
+            return self.send_json(r)
         if self.path == "/api/deepseek":  # save or remove the DeepSeek key: only from this PC
             if not self.local():
                 return self.send_error(403)

@@ -53,6 +53,7 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_max_trades": 3,           # autopilot trades a day
     "auto_min_rr": 1.5,             # reward to risk at least this
     "auto_order_hours": 2.0,        # a planned entry (limit or stop order) not reached within this is cancelled
+    "auto_min_stop_atr": 1.0,       # the stop is at least this many M15 ATRs from the entry (tighter: widened)
     "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
     "auto_quiet_from": "04:00",     # every day from ...
@@ -690,6 +691,9 @@ def brains():
         out.append(("Claude", lambda p: ask_claude(p)))
     if gpt_brain.available() and not IS_OUT("ChatGPT"):
         out.append(("ChatGPT", ask_chatgpt))
+    import gemini_brain
+    if len(out) < 2 and gemini_brain.available() and not IS_OUT("Gemini"):
+        out.append(("Gemini", gemini_brain.ask))
     if len(out) < 2 and CLAUDE and deepseek.available() and not IS_OUT("DeepSeek"):
         out.append(("DeepSeek", lambda p: ask_claude(p, ds=True)))
     return sorted(out, key=lambda b: b[0] != "ChatGPT")[:2]  # ChatGPT first: it screens every check
@@ -712,10 +716,10 @@ def plan_entry(pick, side, bid, ask):
     return (order, price) if not below and price != now else ("market", now) if order == "stop" else (None, None)
 
 
-def agree(a, b, side_entry, digits, bid=None, ask=None):
-    """Both brains' picks -> the trade (or None). Same symbol and direction; the first brain's entry (now, or its
-    planned limit/stop price); the wider stop (size is set by risk, so a wider stop means fewer lots, not more risk)
-    and the nearer target."""
+def agree(a, b, side_entry, digits, bid=None, ask=None, min_stop=0.0):
+    """Both brains' picks -> the trade (or None). Same symbol and direction (the second brain confirms it), and the
+    first brain's whole plan: its entry (now, or a limit/stop price), stop and target. A stop closer than min_stop
+    (price distance) is widened to it; the reward:risk is then measured with the wider stop."""
     if not a or not b or a.get("action") not in ("buy", "sell") or a.get("action") != b.get("action"):
         return None
     if str(a.get("symbol", "")).upper() != str(b.get("symbol", "")).upper():
@@ -724,13 +728,12 @@ def agree(a, b, side_entry, digits, bid=None, ask=None):
     order, entry = plan_entry(a, side, side_entry if bid is None else bid, side_entry if ask is None else ask)
     if order is None:
         return None
-    try:
-        stops = [float(a["stop"]), float(b["stop"])]
-        targets = [float(a["target"]), float(b["target"])]
+    try:  # the first brain's own plan, kept whole (mixing one brain's stop with the other's entry breaks both)
+        stop, target = float(a["stop"]), float(a["target"])
     except (KeyError, TypeError, ValueError):
         return None
-    stop = min(stops) if side == "buy" else max(stops)
-    target = min(targets) if side == "buy" else max(targets)
+    if min_stop and abs(entry - stop) < min_stop:  # too tight for the market's normal moves: widen it
+        stop = entry - min_stop if side == "buy" else entry + min_stop
     if check_levels(side, entry, stop, target):
         return None
     return {"symbol": a["symbol"], "side": side, "order": order, "entry": round(entry, digits),
@@ -739,11 +742,19 @@ def agree(a, b, side_entry, digits, bid=None, ask=None):
             "why": [str(a.get("reason", ""))[:200], str(b.get("reason", ""))[:200]]}
 
 
+def atr(candles, n=14):
+    """Average true range of [open, high, low, close] candles (the last n)."""
+    trs = [max(h - lo, abs(h - p[3]), abs(lo - p[3])) for p, (_o, h, lo, _c) in zip(candles, candles[1:])][-n:]
+    return sum(trs) / len(trs) if trs else 0.0
+
+
 def snapshot(mt5, s, info, bid, ask, acc, lim, at=None):
-    """What the brains see of one symbol: prices, spread, the lot size calculator and the M15, H1 and H4 candles."""
+    """What the brains see of one symbol: prices, spread, the M15 ATR, the lot size calculator and the M15, H1 and
+    H4 candles."""
+    m15 = _chart(mt5, s, "M15", 48, at)
     return {"bid": bid, "ask": ask, "spread": round(ask - bid, info.digits), "digits": info.digits,
-            "sizing": sizing(info, bid, acc, lim),
-            "M15": _chart(mt5, s, "M15", 48, at), "H1": _chart(mt5, s, "H1", 48, at), "H4": _chart(mt5, s, "H4", 30, at)}
+            "atr_m15": round(atr(m15), info.digits), "sizing": sizing(info, bid, acc, lim),
+            "M15": m15, "H1": _chart(mt5, s, "H1", 48, at), "H4": _chart(mt5, s, "H4", 30, at)}
 
 
 def build_prompt(market, acc, lim):
@@ -754,6 +765,9 @@ def build_prompt(market, acc, lim):
         f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
         + risk_rules(lim) +
         f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance, measured from the entry).\n"
+        f"Stop: at least {lim['auto_min_stop_atr']:g} x atr_m15 from the entry, beyond the level that proves the idea "
+        "wrong; tighter stops get hit by normal noise (the system widens them). Trade with the H1/H4 trend unless "
+        "there is a clear reversal, and put the target before the next opposing level.\n"
         "Entry: 'market' enters now. When the setup needs a trigger (a breakout, or a pullback to a level), plan it "
         "instead of waiting: 'stop' enters when price reaches your entry price moving your way (a buy stop above "
         "resistance, a sell stop below support), 'limit' enters when price comes back to it (a buy limit at support, a "
@@ -976,7 +990,7 @@ class Autopilot:
             return
         tick, info = mt5.symbol_info_tick(s), mt5.symbol_info(s)
         deal = agree({**a, "symbol": s}, {**picks[1], "symbol": s if str(picks[1].get("symbol", "")).upper()[:6] == s.upper()[:6] else picks[1].get("symbol")},
-                     None, info.digits, tick.bid, tick.ask)
+                     None, info.digits, tick.bid, tick.ask, market[s]["atr_m15"] * lim["auto_min_stop_atr"])
         if not deal:
             self.show(self.no_trade(names, picks))
             return
@@ -1202,7 +1216,7 @@ TOOLS = [
          "trade_size_unit": {"type": "string", "enum": ["%", "$", "lots"]}, "trade_daily_loss": N,
          "trade_daily_loss_unit": {"type": "string", "enum": ["%", "$"]}, "trade_equity_floor": N,
          "trade_daily_target": N, "trade_daily_target_unit": {"type": "string", "enum": ["%", "$"]},
-         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N,
+         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N, "auto_min_stop_atr": N,
          "auto_symbols": {"type": "array", "items": S}}}},
     {"name": "autopilot", "description": (
         "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "
@@ -1227,7 +1241,9 @@ def selftest():
     a = {"action": "buy", "symbol": "XAUUSD", "stop": 2340, "target": 2380, "confidence": 70, "reason": "x"}
     b = {"action": "buy", "symbol": "XAUUSD", "stop": 2335, "target": 2370, "confidence": 60, "reason": "y"}
     d = agree(a, b, 2350.0, 2)
-    assert d and d["stop"] == 2335 and d["target"] == 2370 and d["confidence"] == 60  # wider stop, nearer target
+    assert d and d["stop"] == 2340 and d["target"] == 2380 and d["confidence"] == 60  # the first brain's plan
+    d = agree(a, b, 2350.0, 2, min_stop=15)
+    assert d["stop"] == 2335 and round(d["rr"], 2) == 2.0  # too tight: widened to 15
     assert agree(a, {**b, "action": "sell"}, 2350.0, 2) is None and agree(a, {**b, "action": "none"}, 2350, 2) is None
     assert agree(a, {**b, "symbol": "EURUSD"}, 2350.0, 2) is None and agree(a, None, 2350, 2) is None
     p = {"order": "stop", "entry": 2360}
@@ -1237,7 +1253,8 @@ def selftest():
     assert plan_entry({"order": "stop", "entry": 2340}, "sell", 2350, 2350.3) == ("stop", 2340)
     assert plan_entry({"order": "limit", "entry": 2340}, "sell", 2350, 2350.3) == (None, None)  # wrong side
     d = agree({**a, "order": "stop", "entry": 2355}, b, None, 2, 2350, 2350.3)
-    assert d["order"] == "stop" and d["entry"] == 2355 and round(d["rr"], 2) == 0.75
+    assert d["order"] == "stop" and d["entry"] == 2355 and round(d["rr"], 2) == 1.67
+    assert round(atr([[1, 2, 0, 1], [1, 3, 1, 2], [2, 2, 1, 1]]), 2) == 1.5
     assert _json_in('Sure: {"action": "none"} done') == {"action": "none"} and _json_in("no") is None
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "pos.csv"

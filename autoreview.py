@@ -165,7 +165,7 @@ def moments(n, days, lim, now=None):
     return sorted(out)
 
 
-def test_autopilot(samples=30, days=60):
+def test_autopilot(samples=60, days=60):
     """Start the test run in the background (results on a panel and said when done)."""
     if RUN["on"]:
         return {"running": True, "done": RUN["done"], "of": RUN["of"]}
@@ -220,7 +220,8 @@ def _replay(samples, days):
         RUN["fails"] = 0
         row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks))}
         if len(picks) == 2 and all(picks):
-            deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, None, info.digits, bid, snap["ask"])
+            deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, None, info.digits, bid, snap["ask"],
+                           snap["atr_m15"] * lim["auto_min_stop_atr"])
             if deal and deal["rr"] >= lim["auto_min_rr"]:
                 after = [b[1:] for b in _bars(mt5, s, at, at + 86400) if b[0] >= at]
                 trade = {k: deal[k] for k in ("side", "order", "entry", "stop", "target")}
@@ -273,7 +274,7 @@ def last_test():
 FUNCS = {"test_autopilot": test_autopilot, "autopilot_test_result": last_test, "autopilot_trades": show_trades}
 TOOLS = [
     {"name": "test_autopilot", "description": "Test the trading autopilot on past charts before risking money ('test the "
-     "autopilot', 'backtest it'): replays `samples` random past moments (default 30, last `days` days, default 60) "
+     "autopilot', 'backtest it'): replays `samples` random past moments (default 60, last `days` days, default 60) "
      "through both brains and checks whether each trade would have hit its stop or target. Runs in the background "
      "and reports when done.", "input_schema": {"type": "object", "properties": {
          "samples": {"type": "integer"}, "days": {"type": "integer"}}}},

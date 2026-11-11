@@ -711,11 +711,13 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
       <p class="hint">Pin up to 3 panels with the + beside a panel's x: they float over other windows while Jarvis is in the background.</p>
     </fieldset>
     <fieldset><legend>Brain</legend>
-      <label><input type="radio" name="br" value="auto"> Automatic: Claude, then ChatGPT when Claude's limit runs out, then DeepSeek, then the local AI</label>
+      <label><input type="radio" name="br" value="auto"> Automatic: Claude, then ChatGPT when Claude's limit runs out, then Gemini, then DeepSeek, then the local AI</label>
       <label><input type="radio" name="br" value="claude"> Claude only</label>
       <label><input type="radio" name="br" value="chatgpt"> ChatGPT only</label>
+      <label><input type="radio" name="br" value="gemini"> Gemini only: Google's AI, free key with a daily limit</label>
       <label><input type="radio" name="br" value="deepseek"> DeepSeek only: online, a fraction of a cent a message</label>
       <label><input type="radio" name="br" value="local"> Local AI only: free, offline, not as clever</label>
+      <div class="keyrow"><span class="hint" id="gmSt" style="min-width:110px">Gemini key</span><input id="gmKey" type="password" placeholder="AIza… free from aistudio.google.com (Get API key)" autocomplete="off" style="flex:1"><select id="gmModel" title="Gemini model"><option value="gemini-flash-latest">Flash (quick, more free messages)</option><option value="gemini-pro-latest">Pro (smarter, fewer free messages)</option></select><button type="button" id="gmSave">Save</button></div>
       <div class="keyrow"><span class="hint" id="dsSt" style="min-width:110px">DeepSeek key</span><input id="dsKey" type="password" placeholder="sk-… from platform.deepseek.com" autocomplete="off" style="flex:1"><button type="button" id="dsSave">Save</button></div>
       <div class="keyrow"><span class="hint" id="localSt">Local AI: checking…</span><button type="button" id="localBtn">Install</button></div>
       <div class="keyrow"><span class="hint" style="min-width:110px">Local AI voice</span><select id="localVoice" style="flex:1"></select><button type="button" id="localVoiceTest">Test</button></div>
@@ -1561,11 +1563,18 @@ async function refreshLocal(){let l={};try{l=await (await fetch('/api/local')).j
   try{const d=await (await fetch('/api/deepseek')).json();$('dsSt').textContent=d.ready?'DeepSeek ✓ set up':'DeepSeek key';
     $('dsKey').placeholder=d.ready?'Saved. Paste a new key to replace it, or leave empty and Save to remove':'sk-… from platform.deepseek.com';
     document.querySelector('input[name=br][value=deepseek]').disabled=!d.ready}catch(e){}
+  try{const g=await (await fetch('/api/gemini')).json();$('gmSt').textContent=g.ready?'Gemini ✓ set up':'Gemini key';$('gmModel').value=g.model;
+    $('gmKey').placeholder=g.ready?'Saved. Paste a new key to replace it, or leave empty and Save to remove':'AIza… free from aistudio.google.com (Get API key)';
+    document.querySelector('input[name=br][value=gemini]').disabled=!g.ready}catch(e){}
   document.querySelector('input[name=br][value=local]').disabled=!l.ready;
   if(p.running&&!$('settingsModal').hidden)setTimeout(refreshLocal,2000)}
 $('localModel').onchange=async()=>{const m=$('localModel').value;$('localModel').disabled=true;
   const r=await (await fetch('/api/local',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:m})})).json();
   $('setMsg').textContent=r.error||'Getting that model ready (a one-time download): progress shows in Activity.';setTimeout(refreshLocal,800)};
+$('gmSave').onclick=async()=>{const b={model:$('gmModel').value};if($('gmKey').value||confirm('Remove the saved Gemini key?'))b.key=$('gmKey').value;
+  const r=await (await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json();
+  $('gmKey').value='';$('setMsg').textContent=r.error||(r.ready?'Gemini is set up. Pick it above; it also steps in when Claude and ChatGPT run out, and votes on autopilot trades.':'Gemini key removed.');refreshLocal()};
+$('gmModel').onchange=()=>fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:$('gmModel').value})});
 $('dsSave').onclick=async()=>{const r=await (await fetch('/api/deepseek',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:$('dsKey').value})})).json();
   $('dsKey').value='';$('setMsg').textContent=r.error||(r.ready?'DeepSeek is set up. Pick it above, or it steps in when the others run out.':'DeepSeek key removed.');refreshLocal()};
 $('localBtn').onclick=async()=>{$('localBtn').disabled=true;

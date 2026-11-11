@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.78.0** (shown at the bottom right of the HUD)
+**Version 1.79.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.79.0**: Gemini as a brain (free API key from aistudio.google.com, Settings > Brain): chat with all of Jarvis's tools, a fallback after ChatGPT, and a trading brain. Autopilot: each trade keeps one brain's whole plan (no more mixing one brain's stop with the other's entry), stops at least 1 M15 ATR away (tighter ones are widened), and trades with the H1/H4 trend. The test run checks 60 moments by default.
 - **1.78.0**: Autopilot: the brains can plan an entry (a buy or sell stop for a breakout, a limit for a pullback) instead of saying 'none' while they wait for confirmation. Planned entries not reached within 2 hours are cancelled (trading setting auto_order_hours). The test run simulates them too.
 - **1.77.4**: ChatGPT: Jarvis now starts Codex with node.exe directly (no cmd.exe in between), and fixes a missing PATHEXT, so '"node" is not recognized' can't stop it.
 - **1.77.3**: ChatGPT works again when Jarvis was started without Node.js on its PATH ('"node" is not recognized'): Jarvis finds node.exe itself.

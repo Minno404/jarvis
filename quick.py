@@ -290,17 +290,17 @@ def quick(text):
                  "edith": "EDITH online. Standing by.", "mate": "G'day mate, Jarvo here. What are we up to?"}
         return _ok(r, hello.get(r.get("now"), "Done."))
     # --- which AI Jarvis thinks with ---
-    m = re.fullmatch(r"(?:switch to|use|swap to|change to|go) (chat ?gpt|gpt|claude|deep ?seek|auto(?:matic)?|local(?: ai)?|"
-                     r"offline|online|cloud)(?: brain| mode| ai)?|(chat ?gpt|claude|deep ?seek|auto|local|offline|online|cloud) (?:mode|ai|brain)"
+    m = re.fullmatch(r"(?:switch to|use|swap to|change to|go) (chat ?gpt|gpt|claude|gemini|deep ?seek|auto(?:matic)?|local(?: ai)?|"
+                     r"offline|online|cloud)(?: brain| mode| ai)?|(chat ?gpt|claude|gemini|deep ?seek|auto|local|offline|online|cloud) (?:mode|ai|brain)"
                      r"|(?:swap|switch|change|flip|toggle)(?: the| your| my)? (brains?|ai)", t)
     if m:
         b = (m.group(1) or m.group(2) or "").replace(" ", "")
         if m.group(3):  # "swap brain": between the local AI and the online ones
             b = "auto" if features.settings().get("brain") == "local" else "local"
-        b = ("chatgpt" if "gpt" in b else "deepseek" if "deep" in b else "auto" if b.startswith(("auto", "online", "cloud")) else "local"
+        b = ("chatgpt" if "gpt" in b else "deepseek" if "deep" in b else "gemini" if "gemini" in b else "auto" if b.startswith(("auto", "online", "cloud")) else "local"
              if b.startswith(("local", "offline")) else b if b in ("auto", "local") else "claude")
         r = R["set_brain"](b)
-        return _ok(r, {"deepseek": "DeepSeek it is, {TITLE}.", "chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
+        return _ok(r, {"gemini": "Gemini it is, {TITLE}.", "deepseek": "DeepSeek it is, {TITLE}.", "chatgpt": "Switching to ChatGPT, {TITLE}.", "claude": "Back on Claude, {TITLE}.",
                        "local": "Running on this PC now, {TITLE}: free, but I'm not as sharp as Claude.",
                        "auto": "Automatic it is: Claude first, then ChatGPT, then the local AI if the others run out."}[b])
     # --- the HUD's background ---
