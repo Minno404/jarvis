@@ -1387,7 +1387,25 @@ function toLayout(r){const S=scaleNow();return{fx:(r.left+r.width/2)/innerWidth,
 function pinOf(r){const S=scaleNow(),cx=r.left+r.width/2,cy=r.top+r.height/2,
     ax=cx<innerWidth/3?'l':cx>innerWidth*2/3?'r':'c',ay=cy<innerHeight/3?'t':cy>innerHeight*2/3?'b':'m';
   return{ax,ay,dx:(ax==='l'?r.left:ax==='r'?innerWidth-r.right:cx-innerWidth/2)/S,dy:(ay==='t'?r.top:ay==='b'?innerHeight-r.bottom:cy-innerHeight/2)/S}}
+// It also follows the panel closest to it: kept beside, above or below that panel at the same gap, so when the
+// window grows and the columns widen or move, it moves with them. (The window edges are the fallback when that
+// panel is closed.)
+const shown=q=>q&&q.isConnected&&!q.classList.contains('closed')&&!q.classList.contains('out')&&q.offsetParent!==null;
+function nearOf(p,r){const S=scaleNow();let best=null,bd=1e9;
+  for(const q of document.querySelectorAll('.panel[data-id],.holo-panel[data-id]')){if(q===p||!shown(q)||layout[q.dataset.id]?.pin?.near?.to===p.dataset.id)continue;
+    const n=q.getBoundingClientRect(),gx=Math.max(0,n.left-r.right,r.left-n.right),gy=Math.max(0,n.top-r.bottom,r.top-n.bottom),d=Math.hypot(gx,gy);
+    if(n.width>40&&d<bd){bd=d;best={q,n}}}
+  if(!best)return null;const {q,n}=best,cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const ax=cx>n.right?'after':cx<n.left?'before':'start',ay=cy>n.bottom?'after':cy<n.top?'before':'start';
+  return{to:q.dataset.id,ax,ay,dx:(ax==='after'?r.left-n.right:ax==='before'?n.left-r.right:r.left-n.left)/S,
+    dy:(ay==='after'?r.top-n.bottom:ay==='before'?n.top-r.bottom:r.top-n.top)/S}}
+function nearBox(N,w,h){const q=document.querySelector(`[data-id="${N.to}"]`);if(!shown(q))return null;
+  const S=scaleNow(),n=q.getBoundingClientRect(),
+    x=N.ax==='after'?n.right+N.dx*S:N.ax==='before'?n.left-N.dx*S-w:n.left+N.dx*S,
+    y=N.ay==='after'?n.bottom+N.dy*S:N.ay==='before'?n.top-N.dy*S-h:n.top+N.dy*S;
+  return{x:Math.max(0,Math.min(innerWidth-w,x)),y:Math.max(0,Math.min(innerHeight-h,y)),w,h}}
 function fromLayout(b){
+  if(b.pin?.near){const S=scaleNow(),box=nearBox(b.pin.near,Math.min(b.w*S,innerWidth-8),Math.min(b.h*S,innerHeight-8));if(box)return box}
   if(b.pin){const S=scaleNow(),P=b.pin,w=Math.min(b.w*S,innerWidth-8),h=Math.min(b.h*S,innerHeight-8),
       x=P.ax==='l'?P.dx*S:P.ax==='r'?innerWidth-P.dx*S-w:innerWidth/2+P.dx*S-w/2,y=P.ay==='t'?P.dy*S:P.ay==='b'?innerHeight-P.dy*S-h:innerHeight/2+P.dy*S-h/2;
     return{x:Math.max(0,Math.min(innerWidth-w,x)),y:Math.max(0,Math.min(innerHeight-h,y)),w,h}}
@@ -1408,7 +1426,9 @@ function reflowFree(){  // the window changed size: put every moved panel back i
     else{const r=p.getBoundingClientRect();p.style.left=Math.max(0,Math.min(innerWidth-r.width,r.left))+'px';p.style.top=Math.max(0,Math.min(innerHeight-r.height,r.top))+'px'}
   }
 }
-let reflowT;addEventListener('resize',()=>{clearTimeout(reflowT);reflowT=setTimeout(reflowFree,60)});
+let reflowT;addEventListener('resize',()=>{clearTimeout(reflowT);reflowT=setTimeout(()=>{reflowFree();reflowFree()},60)});  /* twice: a panel pinned to a moved panel */
+setInterval(()=>{if(innerWidth<1000)return;for(const p of document.querySelectorAll('.free.pinned')){const b=layout[p.dataset.id];if(!b?.pin?.near)continue;  /* its panel grew or moved */
+  const r=fromLayout(b),o=p.getBoundingClientRect();if(Math.abs(r.x-o.left)>1||Math.abs(r.y-o.top)>1){p.dataset.reflow=Date.now();p.style.left=r.x+'px';p.style.top=r.y+'px'}}},700);
 function movable(p,id){
   if(PIN)return;  // a pinned panel's window moves as a whole instead
   const h=p.querySelector('h2,h3');if(!h)return;h.classList.add('grip');h.title='Drag to move · resize from the corner';
@@ -1428,11 +1448,11 @@ function movable(p,id){
   if(id&&layout[id]&&innerWidth>=1000)free(p,fromLayout(layout[id]));
   if(id){  // the pin: locks the panel where it is (no dragging or resizing) and anchors it to the nearest window edges
     const b=document.createElement('button');b.type='button';b.className='holo-pin';b.textContent='\u{1F4CC}';
-    const show=()=>{const on=!!layout[id]?.pin||(!p.classList.contains('free')&&colPins.has(id));p.classList.toggle('pinned',on);b.title=on?'Pinned: click to unpin':'Pin it here (locks it, and it keeps its place beside the panels around it when the window changes size)';b.setAttribute('aria-pressed',on)};
+    const show=()=>{const on=!!layout[id]?.pin||(!p.classList.contains('free')&&colPins.has(id));p.classList.toggle('pinned',on);b.title=on?'Pinned'+(layout[id]?.pin?.near?' beside the '+(document.querySelector(`[data-id="${layout[id].pin.near.to}"] h2,[data-id="${layout[id].pin.near.to}"] h3`)?.firstChild?.textContent||'').trim().toLowerCase()+' panel':'')+': click to unpin':'Pin it here (locks it, and it keeps its place beside the panels around it when the window changes size)';b.setAttribute('aria-pressed',on)};
     b.onclick=()=>{if(innerWidth<1000)return;
       if(!p.classList.contains('free')){colPins.has(id)?colPins.delete(id):colPins.add(id);  // still in its column: just locked there
         try{localStorage.setItem('jarvis-colpins',JSON.stringify([...colPins]))}catch(e){}}
-      else if(layout[id]?.pin)delete layout[id].pin;else{const r=p.getBoundingClientRect();layout[id]={...toLayout(r),pin:pinOf(r)}}
+      else if(layout[id]?.pin)delete layout[id].pin;else{const r=p.getBoundingClientRect();layout[id]={...toLayout(r),pin:{...pinOf(r),near:nearOf(p,r)}}}
       saveLayout();show();sfx('panel')};
     const x=p.querySelector(':scope>.holo-x');x?x.after(b):p.prepend(b);setTimeout(()=>{const x2=p.querySelector(':scope>.holo-x');if(x2&&b.previousElementSibling!==x2)x2.after(b)},0);show()}
 }

@@ -1,4 +1,4 @@
 {
- "version": "1.77.0",
- "notes": "Shift reminders (sleep before night shifts, time to leave with a short brief). Autopilot test run on past charts ('test the autopilot'). Autopilot trade reviews with charts ('show my autopilot trades') and a weekly summary on Sunday evenings. Phone alerts through the free ntfy app (Settings > Phone alerts)."
+ "version": "1.77.1",
+ "notes": "Pinned panels follow the panel closest to them when the window changes size (the window edges if that panel is closed)."
 }
