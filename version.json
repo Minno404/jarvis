@@ -1,4 +1,4 @@
 {
- "version": "1.77.1",
- "notes": "Pinned panels follow the panel closest to them when the window changes size (the window edges if that panel is closed)."
+ "version": "1.77.2",
+ "notes": "Autopilot: when ChatGPT gives no answer, Jarvis shows why (Codex's own message). The test run stops after 3 failed answers in a row and tells you the reason."
 }

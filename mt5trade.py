@@ -671,8 +671,11 @@ def ask_chatgpt(prompt):
     import usage
     usage.codex(r.stdout.splitlines(), "autopilot")
     _, texts, err = gpt_brain.parse(r.stdout.splitlines())
-    if err or not texts:
-        raise RuntimeError(err or "no answer")
+    if err or not texts:  # say why: Codex's own error, or the last thing it printed
+        why = err or next((l.strip() for l in reversed((r.stderr or "").splitlines() + r.stdout.splitlines())
+                           if l.strip() and "WARN" not in l), "") or f"Codex exited with code {r.returncode} and said nothing"
+        print(datetime.datetime.now(), "ChatGPT (autopilot) gave no answer:", (r.stderr or "")[-600:], r.stdout[-400:])
+        raise RuntimeError(why[:300])
     return texts[-1]
 
 

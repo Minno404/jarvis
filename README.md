@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.77.1** (shown at the bottom right of the HUD)
+**Version 1.77.2** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.77.2**: Autopilot: when ChatGPT gives no answer, Jarvis shows why (Codex's own message). The test run stops after 3 failed answers in a row and tells you the reason.
 - **1.77.1**: Pinned panels follow the panel closest to them when the window changes size (the window edges if that panel is closed).
 - **1.77.0**: Shift reminders (sleep before night shifts, time to leave with a short brief). Autopilot test run on past charts ('test the autopilot'). Autopilot trade reviews with charts ('show my autopilot trades') and a weekly summary on Sunday evenings. Phone alerts through the free ntfy app (Settings > Phone alerts).
 - **1.76.0**: Autopilot: both brains now get a lot size calculator and your risk per trade, and are told to put the stop where the chart needs it. A wider stop means a smaller lot for the same money at risk, so good setups aren't skipped for needing room.

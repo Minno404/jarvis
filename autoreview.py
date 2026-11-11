@@ -166,7 +166,7 @@ def test_autopilot(samples=30, days=60):
         return {"error": why}
     if len(m.brains()) < 2:
         return {"error": "The test needs both brains set up, like the autopilot."}
-    RUN.update(on=True, done=0, of=samples)
+    RUN.update(on=True, done=0, of=samples, fails=0)
     threading.Thread(target=_run, args=(samples, int(days)), daemon=True).start()
     return {"started": True, "samples": samples,
             "note": f"Replaying {samples} past moments; takes about {samples} minutes. Each one asks ChatGPT once."}
@@ -200,7 +200,14 @@ def _replay(samples, days):
             continue
         bid = snap["M15"][-1][3]
         snap.update(bid=bid, ask=round(bid + spread, info.digits), sizing=m.sizing(info, bid, acc, lim))
-        picks, names = m.ask_brains(m.build_prompt({s: snap}, acc, lim))
+        errs = []
+        picks, names = m.ask_brains(m.build_prompt({s: snap}, acc, lim), errs.append)
+        if errs and not any(picks):
+            fails = RUN["fails"] = RUN.get("fails", 0) + 1
+            if fails >= 3:  # the brain isn't answering at all: stop instead of burning through every moment
+                raise RuntimeError(errs[0])
+            continue
+        RUN["fails"] = 0
         row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks))}
         if len(picks) == 2 and all(picks):
             entry = snap["ask"] if picks[0].get("action") == "buy" else bid
