@@ -1,4 +1,4 @@
 {
- "version": "1.83.0",
- "notes": "Jarvis's own MT5 accounts: put their numbers in Settings > Trading (Jarvis's accounts). Your journal, reports, tilt meter and debriefs then show only your accounts; 'show your journal' shows Jarvis's (his accounts plus any autopilot or test trades). The autopilot only trades when MT5 is logged into one of his accounts."
+ "version": "1.84.0",
+ "notes": "When an autopilot test finishes, the other panels close and a results panel opens: a graph of the running total, then 'Trades' for a compact win/loss list; tap a trade for its chart (entry, stop, target), what the watcher spotted and what each AI said, and Back to return. 'Show the test results' opens it again."
 }

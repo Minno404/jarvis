@@ -124,19 +124,21 @@ def weekly(say):
 RUN = {"on": False, "done": 0, "of": 0}
 
 
-def outcome(side, entry, stop, target, bars):
+def outcome(side, entry, stop, target, bars, where=False):
     """R from the candles after entry: the stop or the target, whichever is hit first (both in one candle counts as
-    the stop, to be safe); neither within the candles: closed at the last close."""
+    the stop, to be safe); neither within the candles: closed at the last close. where: also (exit candle, price)."""
     risk = abs(entry - stop)
-    for _, h, lo, c in bars:
+    for i, (_, h, lo, c) in enumerate(bars):
         hit_stop = lo <= stop if side == "buy" else h >= stop
         hit_target = h >= target if side == "buy" else lo <= target
         if hit_stop:
-            return -1.0, "stop"
+            return (-1.0, "stop", i, stop) if where else (-1.0, "stop")
         if hit_target:
-            return round(abs(target - entry) / risk, 2), "target"
+            r = round(abs(target - entry) / risk, 2)
+            return (r, "target", i, target) if where else (r, "target")
     last = bars[-1][3] if bars else entry
-    return round(((last - entry) if side == "buy" else (entry - last)) / risk, 2), "time"
+    r = round(((last - entry) if side == "buy" else (entry - last)) / risk, 2)
+    return (r, "time", max(0, len(bars) - 1), last) if where else (r, "time")
 
 
 def filled(side, order, entry, bars):
@@ -277,7 +279,9 @@ def _replay(samples, days):
                 if start is None:
                     row.update(trade=trade, how="not reached")  # the planned entry expired: no trade
                 else:
-                    r, how = outcome(deal["side"], deal["entry"], deal["stop"], deal["target"], after[start:])
+                    r, how, end, price = outcome(deal["side"], deal["entry"], deal["stop"], deal["target"], after[start:], True)
+                    before = [b[1:] for b in _bars(mt5, s, at - 3 * 3600, at) if b[0] < at][-12:]
+                    trade.update(exit=price, bars=(before + after[:start + end + 3])[-90:])  # the snapshot
                     row.update(trade=trade, r=r, how=how)
         rows.append(row)
         RUN["done"] = i + 1
@@ -285,8 +289,29 @@ def _replay(samples, days):
     res = {"ran": datetime.datetime.now().isoformat(timespec="minutes"), "symbol": ", ".join(lim["auto_symbols"]),
            "setups_found": total, "rows": rows, "summary": _test_summary(rows, lim, acc)}
     m._save(TEST, res)
-    _panel(rows, len(found), lim, acc, done=True)
+    report(res, lim, acc)
     return res
+
+
+def report(res, lim=None, acc=None):
+    """The finished test run: every other panel closes and one opens with the results graph, a compact list of the
+    trades it took, and each trade's chart (the HUD draws the pages: kind 'testreport')."""
+    lim = lim or m.limits()
+    rows = res["rows"]
+    trades = [{"at": r["at"][5:16].replace("T", " "), "symbol": r.get("symbol", res.get("symbol", "")),
+               "trigger": r.get("trigger", ""), "how": r["how"], "r": r["r"], **r["trade"],
+               "why": [f"{k}: {(v or {}).get('reason', '')}" for k, v in r["brains"].items() if v]}
+              for r in rows if "r" in r]
+    if acc is None:
+        try:
+            acc = m._mt5().account_info()
+        except Exception:
+            acc = None
+    risk = m.money(lim["trade_size"], lim["trade_size_unit"], m.base_size(acc, lim)) \
+        if acc is not None and lim["trade_size_unit"] != "lots" else 0
+    m._panel({"type": "panel", "kind": "testreport", "title": "Autopilot test results", "stay": True, "clear_first": True,
+              "summary": res["summary"]["text"], "ran": res["ran"], "found": res.get("setups_found"),
+              "checked": len(rows), "risk": risk, "trades": trades})
 
 
 def _test_summary(rows, lim, acc):
@@ -366,9 +391,11 @@ def test_settings():
             "note": "Small samples overfit: check the best settings on a fresh test run before trusting them."}
 
 
-def last_test():
-    """The last test run's result (or that none has run)."""
+def last_test(show=True):
+    """The last test run's result (or that none has run); show: its results panel on the HUD."""
     t = _load(TEST, None)
+    if t and show and not RUN["on"]:
+        report(t)
     return {"running": RUN["on"], "done": RUN["done"], "of": RUN["of"],
             "last": t and {"ran": t["ran"], **t["summary"]}}
 
@@ -384,7 +411,8 @@ TOOLS = [
      "are best', 'test the autopilot settings'): replays the last test run's AI answers (no new AI questions) with "
      "every mix of reward:risk (1.2/1.5/2), minimum stop (0.5/1/1.5 ATR) and order expiry (1/2/4 h), shows the top "
      "ones. Change settings with trading_settings only if he agrees.", "input_schema": {"type": "object", "properties": {}}},
-    {"name": "autopilot_test_result", "description": "The autopilot test run's progress or last result.",
+    {"name": "autopilot_test_result", "description": "The autopilot test run's progress, or its last results (shown "
+     "on the HUD with a graph and each trade's chart: 'show the test results').",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "autopilot_trades", "description": "The autopilot's closed trades with their charts, profit and what each "
      "brain said ('show my autopilot trades', 'how did the autopilot do this week'). days: default 7.",
