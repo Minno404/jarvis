@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.79.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.80.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -630,9 +630,10 @@ import mt5trade   # trades he confirms on the HUD, and the trading autopilot (se
 import autoreview  # the autopilot's trade reviews, weekly summary and test run (see autoreview.py)
 import alerts     # phone alerts through the ntfy app (see alerts.py)
 import dayplan    # shift reminders: sleep before night shifts, time to leave (see dayplan.py)
+import bond       # his personality growing with him, and conversations he starts (see bond.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -800,6 +801,7 @@ mt5trade.CLAUDE = CLAUDE
 mt5trade.IS_OUT = lambda name: time.time() < OUT[name]["until"]
 gamecoach.CLAUDE = CLAUDE
 learn.CLAUDE = CLAUDE
+bond.CLAUDE = CLAUDE
 
 
 def _args(tool):
@@ -2215,6 +2217,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
         if self.path == "/api/roster_mail":  # Settings > Roster email (never the password itself)
             return self.send_json(roster_mail.public())
+        if self.path == "/api/personality":
+            return self.send_json(bond.personality_info())
         if self.path == "/api/phone_alerts":
             return self.send_json({**alerts.settings_info(), "commute": features.settings().get("shift_commute_min", 30)})
         if self.path == "/api/incognito":  # a page opening mid-incognito shows the badge
@@ -2396,6 +2400,10 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/personality":  # Settings > Personality: reset, conversations a day, a trait
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            return self.send_json(bond.set_personality(bool(body.get("reset")), body.get("chat_starts"),
+                                                       body.get("traits"), body.get("forget_opinion")))
         if self.path == "/api/phone_alerts":  # Settings > Phone alerts: on/off and the Test button
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             return self.send_json({**alerts.set_alerts(body.get("on"), bool(body.get("test"))),
@@ -3295,9 +3303,16 @@ if __name__ == "__main__":
 
         def ask_claude_and_say(prompt):
             try:
-                say(chat(prompt))
+                text = chat(prompt)
+                if text.strip().strip(".").upper() != "SKIP":  # a conversation opener can decide it's not the moment
+                    say(text)
             except Exception as e:
                 print(datetime.datetime.now(), "proactive message failed:", repr(e))
+
+        def start_chat(reason):
+            """Jarvis starts a conversation (bond.py decides whether now is fine)."""
+            if not st["away"] and not st["game"] and bond.start_due(reason):
+                threading.Thread(target=ask_claude_and_say, args=(bond.start_prompt(reason),), daemon=True).start()
 
         def review(day):
             text = chat(trading.REVIEW_PROMPT.replace("{day}", day))
@@ -3362,6 +3377,9 @@ if __name__ == "__main__":
                     if change == "back" and presence.last_gone >= 3 * 3600:
                         threading.Timer(12, offer_left_off).start()  # after the welcome: where you left off
                     if change == "back":
+                        st["back_at"] = time.time()
+                        if 1800 <= presence.last_gone < 3 * 3600:  # after the welcome back: a conversation
+                            threading.Timer(35, start_chat, args=("shift" if dayplan.ended_recently() else "back",)).start()
                         if presence.last_gone >= 3 * 3600 and features.settings().get("bootup", True):
                             held, st["held"] = st["held"][:6], []
                             boot_up(held)  # long time away: the full Iron Man welcome
@@ -3372,6 +3390,9 @@ if __name__ == "__main__":
                     if (was_game and not st["game"] or was_quiet and not quiet) and not st["away"] and not st["game"] \
                             and not quiet:
                         deliver_held("")  # game over or quiet mode off: what was held for later
+                    if sit and sit["idle_s"] < 60 and time.time() - st.setdefault("back_at", time.time()) > 2 * 3600:
+                        st["back_at"] = time.time()  # a long stretch at the PC: maybe a chat (checked every 2 h)
+                        start_chat("lull")
                     state = features._load("state.json", {})
                     if awareness.late_night_due(sit, state):
                         features._save("state.json", state)

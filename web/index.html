@@ -734,6 +734,13 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
       <div class="keyrow"><span class="hint tsl">Check on</span><select id="rmDay" style="flex:1"><option value="">Never (only when I say "get my roster")</option><option value="monday">Mondays</option><option value="tuesday">Tuesdays</option><option value="wednesday">Wednesdays</option><option value="thursday">Thursdays</option><option value="friday">Fridays</option><option value="saturday">Saturdays</option><option value="sunday">Sundays</option></select><button type="button" id="rmSave">Save</button></div>
       <p class="hint" id="rmSt">On that day (from 9 am) Jarvis looks for a roster email he hasn't loaded yet, and if there's one he loads your shifts and tells you. "Get my roster" does it any time. The app password only reads mail (Google account, 2-Step Verification on, then App passwords); it stays on this PC.</p>
     </fieldset>
+    <fieldset id="persSet"><legend>Personality</legend>
+      <p class="hint">Jarvis's personality grows from how you talk with him: what you laugh at, what you skip. Drag to set it yourself.</p>
+      <div id="persTraits"></div>
+      <div class="keyrow"><span class="hint tsl">Starts a chat</span><select id="chatStarts"><option value="0">Never</option><option value="1">Up to once a day</option><option value="2">Up to twice a day</option><option value="3">Up to 3 times a day</option><option value="4">Up to 4 times a day</option></select><button type="button" id="persReset">Reset personality</button></div>
+      <p class="hint" id="persWhy"></p>
+      <p class="hint" id="persOps"></p>
+    </fieldset>
     <fieldset id="alertSet"><legend>Phone alerts and shift reminders</legend>
       <label><input type="checkbox" id="paOn"> Send alerts to my phone: autopilot trades, new rosters, shift reminders, the weekly trade review</label>
       <p class="hint">Get the free <b>ntfy</b> app on your phone, tap +, and subscribe to this topic (keep it private): <b id="paTopic" style="user-select:all">...</b> <button type="button" id="paTest">Send a test</button></p>
@@ -3176,6 +3183,15 @@ const rmFill=r=>{if(!r)return;$('rmDay').value=r.check_day||'';$('rmGmail').valu
 fetch('/api/roster_mail').then(r=>r.json()).then(rmFill).catch(()=>{});
 $('rmSave').onclick=async()=>{const r=await fetch('/api/roster_mail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gmail:$('rmGmail').value,app_password:$('rmPass').value,sender:$('rmSender').value,name:$('rmName').value,check_day:$('rmDay').value})}).then(r=>r.json()).catch(()=>null);
   $('rmPass').value='';rmFill(r);$('rmSt').textContent=r?'Saved. Say "get my roster" to load the newest one.':'Couldn\'t save.'};
+const persFill=r=>{if(!r||!r.traits)return;const N={humour:['Dry','Playful'],warmth:['Businesslike','Warm'],chattiness:['Brief','Chatty'],formality:['Casual','Formal'],cheek:['Polite','Cheeky']};
+  $('persTraits').innerHTML=Object.entries(r.traits).map(([k,v])=>`<div class="keyrow"><span class="hint tsl">${N[k][0]}</span><input type="range" min="0.05" max="0.95" step="0.05" value="${v}" data-trait="${k}" style="flex:1"><span class="hint">${N[k][1]}</span></div>`).join('');
+  $('persTraits').querySelectorAll('input').forEach(i=>i.onchange=()=>persPost({traits:{[i.dataset.trait]:+i.value}}));
+  $('chatStarts').value=r.chat_starts;$('persWhy').textContent=r.last_change?`Last change (${r.last_change.day}): ${r.last_change.why}`:'No changes yet: give it a few days of chatting.';
+  $('persOps').textContent=r.opinions.length?'His opinions: '+r.opinions.join(' · '):''};
+const persPost=b=>fetch('/api/personality',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).then(persFill).catch(()=>{});
+fetch('/api/personality').then(r=>r.json()).then(persFill).catch(()=>{});
+$('chatStarts').onchange=()=>persPost({chat_starts:+$('chatStarts').value});
+$('persReset').onclick=()=>{if(confirm('Reset his personality traits to the start? (Memories, opinions and inside jokes stay.)'))persPost({reset:true})};
 const paFill=r=>{if(!r)return;$('paOn').checked=r.on;$('paTopic').textContent=r.topic;if(r.commute!=null)$('commute').value=r.commute};
 const paPost=b=>fetch('/api/phone_alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).then(paFill).catch(()=>{});
 fetch('/api/phone_alerts').then(r=>r.json()).then(paFill).catch(()=>{});

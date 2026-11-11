@@ -1,4 +1,4 @@
 {
- "version": "1.79.0",
- "notes": "Gemini as a brain (free API key from aistudio.google.com, Settings > Brain): chat with all of Jarvis's tools, a fallback after ChatGPT, and a trading brain. Autopilot: each trade keeps one brain's whole plan (no more mixing one brain's stop with the other's entry), stops at least 1 M15 ATR away (tighter ones are widened), and trades with the H1/H4 trend. The test run checks 60 moments by default."
+ "version": "1.80.0",
+ "notes": "Personality that grows: Jarvis's humour, warmth, chattiness, formality and cheek shift slowly with how you respond (Settings > Personality, with sliders and a reset). He keeps inside jokes and shared moments, forms his own opinions, follows up on things you're in the middle of, starts the odd conversation (up to twice a day by default) and offers quick games like would you rather."
 }

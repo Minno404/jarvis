@@ -72,6 +72,12 @@ def learn_now():
     facts = (json.loads(r.stdout).get("structured_output") or {}).get("facts", [])
     for fact in facts[:8]:
         features.remember(fact, source="learned")
+    try:  # the same conversations shape his personality: moments, opinions, threads, traits (bond.py)
+        import bond
+        bond.CLAUDE = CLAUDE
+        bond.reflect(convo)
+    except Exception as e:
+        print("personality reflection:", repr(e)[:200])
     state = _load("state.json", {})
     state["learned_lines"] = {**state.get("learned_lines", {}), **marks}
     _save("state.json", state)

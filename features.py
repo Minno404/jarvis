@@ -142,10 +142,17 @@ def morning_prompt():
 
 
 def memory_prompt():
+    """What he's told Jarvis, plus Jarvis's own personality as it has grown with him (bond.py)."""
+    try:
+        import bond
+        grown = bond.prompt()
+    except Exception as e:
+        print("personality:", repr(e)[:120])
+        grown = ""
     mem = memories()
     if not mem:
-        return ""
-    return personal("\nWhat you know about {USER} (id: fact; 'learned' = picked up from conversation, not asked):\n"
+        return grown
+    return grown + personal("\nWhat you know about {USER} (id: fact; 'learned' = picked up from conversation, not asked):\n"
             + "\n".join(f"{m['id']}: {m['fact']}" + (" (learned)" if m.get("source") == "learned" else "")
                          for m in mem))
 

@@ -32,6 +32,13 @@ def starts(rows):
     return out
 
 
+def ended_recently(hours=4, now=None):
+    """Did one of his shifts end in the last `hours` hours?"""
+    now = now or datetime.datetime.now()
+    rows = [s for s in shifts._load() if abs((datetime.date.fromisoformat(s["date"]) - now.date()).days) <= 2]
+    return any(now - datetime.timedelta(hours=hours) <= en <= now for _, en, _ in starts(rows))
+
+
 def due(now=None):
     """[(key, text)] reminders due now."""
     now = now or datetime.datetime.now()
