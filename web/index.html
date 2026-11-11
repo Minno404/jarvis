@@ -2636,7 +2636,7 @@ function showPanel(ev){
 function shiftCal(p,ev){
   const box=document.createElement('div'),ed=document.createElement('form'),days=ev.days||{};box.className='scal'+(ev.week?' week':'');ed.className='scal-ed';ed.hidden=true;
   const D=k=>new Date(k+'T12:00'),WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const hm=t=>{const [h,m]=t.split(':').map(Number);return (h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'a':'p')};  /* 09:00 -> 9a */
+  const hm=t=>{const [h,m]=t.split(':').map(Number);return (h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'am':'pm')};  /* 09:00 -> 9am */
   const cell=k=>{const v=days[k]||{shifts:[]},d=D(k);
     return `<button type="button" class="scal-d${k===ev.today?' today':''}${k<ev.today?' past':''}${v.off?' off':''}${v.shifts.length?' work':''}${v.note&&!v.off?' noted':''}" data-k="${k}">`
       +`<b>${ev.week?WD[(d.getDay()+6)%7]+' ':''}${d.getDate()}</b>`

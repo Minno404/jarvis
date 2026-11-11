@@ -1,4 +1,4 @@
 {
- "version": "1.75.1",
- "notes": "Shift calendar: full width on the phone, shorter labels (9a, 10p), and days off from the roster shown as BOD, Rest or Off. Rosters now save their days off as well as the shifts."
+ "version": "1.75.2",
+ "notes": "Shift calendar shows am and pm (9am, 10pm)."
 }
