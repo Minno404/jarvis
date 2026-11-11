@@ -119,7 +119,7 @@ def week_shifts(show=True):
     if show:
         hrs = sum(x["hours"] for v in days.values() for x in v["shifts"])
         features._panel({"type": "panel", "title": "This week", "kind": "calendar", "week": True, "stay": True,
-                         "days": days, "today": today.isoformat(), "note": f"{hrs:g} paid hours this week"})
+                         "days": days, "today": today.isoformat(), "note": f"{hrs:g} paid hours this week" + _pay_note(days)})
     return {"days": [{"date": k, **v} for k, v in days.items()]}
 
 
@@ -154,6 +154,75 @@ def set_day(date, start=None, end=None, off=False, note=None, clear=False, where
     return {"date": d, **calendar(*(datetime.date.fromisoformat(d),) * 2)[d]}
 
 
+# ---------- Pay ----------
+PAY = {"rate": 0.0, "night_pct": 0.0, "sat_pct": 0.0, "sun_pct": 0.0, "night_from": "18:00", "night_to": "06:00"}
+
+
+def pay_settings():
+    return {**PAY, **(features.settings().get("pay") or {})}
+
+
+def shift_pay(s, pay=None):
+    """Before-tax pay for one shift: its paid hours at his rate, each quarter hour at the highest extra that applies
+    (weekday nights, Saturday, Sunday: % on top). When the roster pays fewer hours than the shift lasts (a trip's
+    rest time), the extras are averaged over the whole shift."""
+    pay = pay or pay_settings()
+    if not pay["rate"]:
+        return 0.0
+    st = datetime.datetime.strptime(f"{s['date']} {s['start']}", "%Y-%m-%d %H:%M")
+    en = datetime.datetime.strptime(f"{s['date']} {s['end']}", "%Y-%m-%d %H:%M")
+    if en <= st:
+        en += datetime.timedelta(days=1)
+    mults, t = [], st
+    while t < en:
+        hm, wd = t.strftime("%H:%M"), t.weekday()
+        night = (hm >= pay["night_from"] or hm < pay["night_to"]) if pay["night_from"] > pay["night_to"] else \
+            pay["night_from"] <= hm < pay["night_to"]
+        extra = max(pay["sat_pct"] if wd == 5 else 0, pay["sun_pct"] if wd == 6 else 0, pay["night_pct"] if night else 0)
+        mults.append(1 + extra / 100)
+        t += datetime.timedelta(minutes=15)
+    return round(_hours(s) * pay["rate"] * sum(mults) / len(mults), 2) if mults else 0.0
+
+
+def pay_estimate(weeks_ahead=0, weeks=1):
+    """Expected before-tax pay for a week (Monday to Sunday; weeks_ahead 0 = this week, -1 = last week) or a run of
+    weeks, from his saved shifts and pay rates (Settings > Pay, or set_pay)."""
+    pay = pay_settings()
+    if not pay["rate"]:
+        return {"error": "No pay rate set yet: tell me your hourly rate (and any night, Saturday or Sunday extras)."}
+    today = datetime.date.today()
+    mon = today - datetime.timedelta(days=today.weekday()) + datetime.timedelta(weeks=int(weeks_ahead))
+    end = (mon + datetime.timedelta(weeks=max(1, int(weeks)))).isoformat()
+    rows = [s for s in _load() if mon.isoformat() <= s["date"] < end]
+    by = [{"date": s["date"], "start": s["start"], "end": s["end"], "hours": _hours(s), "pay": shift_pay(s, pay)}
+          for s in rows]
+    return {"from": mon.isoformat(), "to": end, "shifts": len(by), "hours": round(sum(x["hours"] for x in by), 2),
+            "gross": round(sum(x["pay"] for x in by), 2), "by_shift": by,
+            "note": "Before tax and super. Check it against the pay that lands in his bank (spending tools) if he asks."}
+
+
+def set_pay(rate=None, night_pct=None, sat_pct=None, sun_pct=None, night_from=None, night_to=None):
+    """His pay: hourly rate ($) and the % on top for weekday nights (night_from to night_to), Saturdays and Sundays."""
+    p = pay_settings()
+    for k, v in (("rate", rate), ("night_pct", night_pct), ("sat_pct", sat_pct), ("sun_pct", sun_pct)):
+        if v is not None:
+            p[k] = max(0.0, float(v))
+    for k, v in (("night_from", night_from), ("night_to", night_to)):
+        if v:
+            p[k] = datetime.datetime.strptime(str(v).strip().zfill(5), "%H:%M").strftime("%H:%M")
+    features._save("settings.json", {**features.settings(), "pay": p})
+    return p
+
+
+def _pay_note(days):
+    """' · about $1,234 before tax' for a calendar's days (or '' with no rate set)."""
+    pay = pay_settings()
+    if not pay["rate"]:
+        return ""
+    total = sum(shift_pay(x, pay) for v in days.values() for x in v["shifts"])
+    return f" · about ${total:,.0f} before tax"
+
+
 def delete_shifts(date=None, everything=False):
     """Remove the shifts on one date (YYYY-MM-DD), or everything=True for all."""
     keep = [] if everything else [s for s in _load() if s["date"] != str(date)]
@@ -164,7 +233,7 @@ def delete_shifts(date=None, everything=False):
     return {"left": len(keep)}
 
 
-FUNCS = {"save_shifts": save_shifts, "my_shifts": my_shifts, "delete_shifts": delete_shifts,
+FUNCS = {"pay_estimate": pay_estimate, "set_pay": set_pay, "save_shifts": save_shifts, "my_shifts": my_shifts, "delete_shifts": delete_shifts,
          "shift_calendar": shift_calendar, "week_shifts": week_shifts, "set_day": set_day}
 S = {"type": "string"}
 TOOLS = [
@@ -190,10 +259,17 @@ TOOLS = [
      "day's), off=true for a day off, a note (e.g. 'dentist 2pm'; '' removes it), or clear=true to empty it.",
      "input_schema": {"type": "object", "required": ["date"], "properties": {
          "date": S, "start": S, "end": S, "off": {"type": "boolean"}, "note": S, "clear": {"type": "boolean"}, "where": S}}},
+    {"name": "pay_estimate", "description": "His expected before-tax pay from his shifts ('how much will I get paid "
+     "this week?', 'what's my next pay?'): weeks_ahead (0 this week, 1 next, -1 last), weeks (2 for a fortnight).",
+     "input_schema": {"type": "object", "properties": {"weeks_ahead": {"type": "integer"}, "weeks": {"type": "integer"}}}},
+    {"name": "set_pay", "description": "Save his pay rates when he tells you: rate ($ an hour), night_pct, sat_pct, "
+     "sun_pct (% extra on top), night_from / night_to (HH:MM, default 18:00 to 06:00).",
+     "input_schema": {"type": "object", "properties": {"rate": {"type": "number"}, "night_pct": {"type": "number"},
+                      "sat_pct": {"type": "number"}, "sun_pct": {"type": "number"}, "night_from": S, "night_to": S}}},
     {"name": "delete_shifts", "description": "Remove his saved shifts on a date (YYYY-MM-DD), or everything=true for all.",
      "input_schema": {"type": "object", "properties": {"date": S, "everything": {"type": "boolean"}}}},
 ]
-COMMANDS = {"Work": ["*Bring up my work shifts", "*What am I doing this week?", "*When do I work next?",
+COMMANDS = {"Work": ["*Bring up my work shifts", "*What am I doing this week?", "How much will I get paid this week?", "*When do I work next?",
                      "Here's my roster (with a photo)"]}
 
 
@@ -224,6 +300,14 @@ def selftest():
         assert set_day(d(1), clear=True) == {"date": d(1), "shifts": [], "off": False, "note": ""}
         assert len(week_shifts()["days"]) == 7 and shown[-1]["kind"] == "calendar" and shown[-1]["week"]
         assert shift_calendar()["upcoming"] == 2 and d(3) in shown[-1]["days"]
+        assert pay_estimate().get("error")
+        set_pay(rate=40, night_pct=25, sat_pct=50, sun_pct=100)
+        # Wed 2026-11-11 22:00 to 06:00: all night (+25%) -> 8 h x 40 x 1.25; Sat 08:00-12:00 -> x1.5; Sun -> x2
+        assert shift_pay({"date": "2026-11-11", "start": "22:00", "end": "06:00"}) == 400
+        assert shift_pay({"date": "2026-11-14", "start": "08:00", "end": "12:00"}) == 240
+        assert shift_pay({"date": "2026-11-15", "start": "08:00", "end": "12:00", "paid": 2}) == 160
+        assert shift_pay({"date": "2026-11-13", "start": "16:00", "end": "20:00"}) == 180  # 2 h day + 2 h night
+        assert pay_estimate()["gross"] > 0
         assert delete_shifts(everything=True)["left"] == 0
         print("shifts self-test passed")
     finally:

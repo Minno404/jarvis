@@ -218,7 +218,8 @@ def _replay(samples, days):
                 raise RuntimeError(errs[0])
             continue
         RUN["fails"] = 0
-        row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks))}
+        row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks)),
+               "srv": at, "bid": bid, "ask": snap["ask"], "atr": snap["atr_m15"]}  # for the settings test
         if len(picks) == 2 and all(picks):
             deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, None, info.digits, bid, snap["ask"],
                            snap["atr_m15"] * lim["auto_min_stop_atr"])
@@ -264,6 +265,58 @@ def _panel(rows, of, lim, acc, done):
               "note": s["text"] + ("" if done else " (still running)")})
 
 
+RR, ATRS, HOURS = (1.2, 1.5, 2.0), (0.5, 1.0, 1.5), (1, 2, 4)
+
+
+def simulate(rows, rr, atr_mult, hours, digits, bars_of):
+    """The test run's AI answers replayed with other settings -> {trades, wins, r}. bars_of(row): M15 after it."""
+    out = []
+    for row in rows:
+        a, b = list(row["brains"].values())
+        deal = m.agree(a, b, None, digits, row["bid"], row["ask"], row["atr"] * atr_mult)
+        if not deal or deal["rr"] < rr:
+            continue
+        after = bars_of(row)
+        start = filled(deal["side"], deal["order"], deal["entry"], after[:int(hours * 4)])
+        if start is not None:
+            out.append(outcome(deal["side"], deal["entry"], deal["stop"], deal["target"], after[start:])[0])
+    return {"trades": len(out), "wins": sum(r > 0 for r in out), "r": round(sum(out), 2)}
+
+
+def test_settings():
+    """Which autopilot settings would have done best on the last test run's moments: the AIs' answers are reused
+    (no new AI questions), replayed with every mix of reward:risk, minimum stop (in ATRs) and planned-entry expiry."""
+    t = _load(TEST, None)
+    rows = [r for r in (t or {}).get("rows", []) if "srv" in r and len(r["brains"]) == 2 and all(r["brains"].values())]
+    if not rows:
+        return {"error": "Run 'test the autopilot' first (a run from v1.81 or later): the settings test reuses its answers."}
+    mt5 = m._mt5()
+    why = m.ready(mt5)
+    if why:
+        return {"error": why}
+    s, lim = t["symbol"], m.limits()
+    digits = mt5.symbol_info(s).digits
+    cache = {r["srv"]: [b[1:] for b in _bars(mt5, s, r["srv"], r["srv"] + 86400) if b[0] >= r["srv"]] for r in rows}
+    res = []
+    for rr in RR:
+        for am in ATRS:
+            for h in HOURS:
+                res.append({"rr": rr, "atr": am, "hours": h,
+                            **simulate(rows, rr, am, h, digits, lambda r: cache[r["srv"]])})
+    res.sort(key=lambda x: (-x["r"], -x["trades"]))
+    now = next((x for x in res if x["rr"] == lim["auto_min_rr"] and x["atr"] == lim["auto_min_stop_atr"]
+                and x["hours"] == lim["auto_order_hours"]), None)
+    line = lambda x: (f"Reward:risk {x['rr']:g}, stop ≥ {x['atr']:g} ATR, orders {x['hours']} h: "
+                      f"{x['trades']} trades, {x['wins']} won, {x['r']:+.1f}R")
+    m._panel({"type": "panel", "title": "Autopilot settings test", "kind": "list", "stay": True,
+              "items": [{"text": line(x), "sub": "best" if i == 0 else ""} for i, x in enumerate(res[:6])]
+              + ([{"text": "Yours now: " + line(now), "sub": ""}] if now and now not in res[:6] else []),
+              "note": f"{len(rows)} moments where both AIs answered, replayed {len(res)} ways. Few trades means luck "
+                      "matters a lot: prefer settings that do well with more trades, and re-test on new moments."})
+    return {"moments": len(rows), "best": res[:5], "yours": now,
+            "note": "Small samples overfit: check the best settings on a fresh test run before trusting them."}
+
+
 def last_test():
     """The last test run's result (or that none has run)."""
     t = _load(TEST, None)
@@ -271,20 +324,24 @@ def last_test():
             "last": t and {"ran": t["ran"], **t["summary"]}}
 
 
-FUNCS = {"test_autopilot": test_autopilot, "autopilot_test_result": last_test, "autopilot_trades": show_trades}
+FUNCS = {"test_autopilot_settings": test_settings, "test_autopilot": test_autopilot, "autopilot_test_result": last_test, "autopilot_trades": show_trades}
 TOOLS = [
     {"name": "test_autopilot", "description": "Test the trading autopilot on past charts before risking money ('test the "
      "autopilot', 'backtest it'): replays `samples` random past moments (default 60, last `days` days, default 60) "
      "through both brains and checks whether each trade would have hit its stop or target. Runs in the background "
      "and reports when done.", "input_schema": {"type": "object", "properties": {
          "samples": {"type": "integer"}, "days": {"type": "integer"}}}},
+    {"name": "test_autopilot_settings", "description": "Which autopilot settings would have done best ('which settings "
+     "are best', 'test the autopilot settings'): replays the last test run's AI answers (no new AI questions) with "
+     "every mix of reward:risk (1.2/1.5/2), minimum stop (0.5/1/1.5 ATR) and order expiry (1/2/4 h), shows the top "
+     "ones. Change settings with trading_settings only if he agrees.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "autopilot_test_result", "description": "The autopilot test run's progress or last result.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "autopilot_trades", "description": "The autopilot's closed trades with their charts, profit and what each "
      "brain said ('show my autopilot trades', 'how did the autopilot do this week'). days: default 7.",
      "input_schema": {"type": "object", "properties": {"days": {"type": "integer"}}}},
 ]
-COMMANDS = {"Trading": ["*Test the autopilot", "*Show my autopilot trades"]}
+COMMANDS = {"Trading": ["*Test the autopilot", "*Which autopilot settings are best?", "*Show my autopilot trades"]}
 
 
 if __name__ == "__main__":
@@ -299,6 +356,12 @@ if __name__ == "__main__":
     lim = {"auto_quiet_from": "04:00", "auto_quiet_to": "10:30"}
     ts = moments(40, 60, lim, datetime.datetime(2026, 11, 11, 18))
     assert len(ts) == 40 and all(t.weekday() < 5 and not ("04:00" <= t.strftime("%H:%M") < "10:30") and t.minute % 15 == 0 for t in ts)
+    ra = {"action": "buy", "symbol": "X", "stop": 98, "target": 104, "order": "market"}
+    rows_ = [{"brains": {"ChatGPT": ra, "Claude": ra}, "bid": 100, "ask": 100, "atr": 3, "srv": 1}]
+    up = lambda r: [[100, 105, 99.5, 104]]
+    assert simulate(rows_, 1.5, 0.5, 2, 2, up) == {"trades": 1, "wins": 1, "r": 2.0}
+    assert simulate(rows_, 1.2, 1.0, 2, 2, up) == {"trades": 1, "wins": 1, "r": 1.33}  # stop widened to 3
+    assert simulate(rows_, 2.0, 1.0, 2, 2, up)["trades"] == 0  # 4/3 < 2
     rows = [{"profit": 50, "r": 1.0}, {"profit": -25, "r": -0.5}]
     assert summary(rows)["text"] == "2 trades, 1 won (50%), up $25.00, +0.5R"
     assert weekly_due(datetime.datetime(2026, 11, 15, 18, 5)) and not weekly_due(datetime.datetime(2026, 11, 15, 19))

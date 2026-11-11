@@ -54,6 +54,7 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_min_rr": 1.5,             # reward to risk at least this
     "auto_order_hours": 2.0,        # a planned entry (limit or stop order) not reached within this is cancelled
     "auto_min_stop_atr": 1.0,       # the stop is at least this many M15 ATRs from the entry (tighter: widened)
+    "auto_news_min": 30,            # no new trades this many minutes before and after high-impact news (0 = off)
     "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
     "auto_quiet_from": "04:00",     # every day from ...
@@ -946,6 +947,15 @@ class Autopilot:
             return "it already has a trade open"
         if any(o.magic == MAGIC_AUTO for o in mt5.orders_get() or []):
             return "its planned entry is waiting to be reached"
+        if lim.get("auto_news_min"):
+            try:
+                import trading
+                near = trading.news_near(lim["auto_news_min"])
+            except Exception:
+                near = []  # no calendar right now: trade as normal
+            if near:
+                e = near[0]
+                return f"high-impact news ({e['currency']} {e['event']} at {e['time'][11:]}): waiting {lim['auto_news_min']:g} min either side"
         try:
             import trading
             soon = [e for e in trading.upcoming_news(0.5)]
@@ -1216,7 +1226,7 @@ TOOLS = [
          "trade_size_unit": {"type": "string", "enum": ["%", "$", "lots"]}, "trade_daily_loss": N,
          "trade_daily_loss_unit": {"type": "string", "enum": ["%", "$"]}, "trade_equity_floor": N,
          "trade_daily_target": N, "trade_daily_target_unit": {"type": "string", "enum": ["%", "$"]},
-         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N, "auto_min_stop_atr": N,
+         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N, "auto_min_stop_atr": N, "auto_news_min": N,
          "auto_symbols": {"type": "array", "items": S}}}},
     {"name": "autopilot", "description": (
         "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "

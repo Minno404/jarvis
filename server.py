@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.80.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.81.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2220,6 +2220,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(roster_mail.public())
         if self.path == "/api/personality":
             return self.send_json(bond.personality_info())
+        if self.path == "/api/pay":
+            return self.send_json(shifts.pay_settings())
         if self.path == "/api/voice_mute":
             return self.send_json({"muted": bool(features.settings().get("voice_muted"))})
         if self.path == "/api/phone_alerts":
@@ -2403,6 +2405,12 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/pay":  # Settings > Pay: his rates for the pay estimate
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            try:
+                return self.send_json(shifts.set_pay(**{k: v for k, v in body.items() if k in shifts.PAY}))
+            except (TypeError, ValueError) as e:
+                return self.send_json({"error": str(e)})
         if self.path == "/api/voice_mute":  # the HUD's Mute button: Jarvis stops listening to the PC's microphone
             if not self.local():
                 return self.send_error(403)

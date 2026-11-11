@@ -1,4 +1,4 @@
 {
- "version": "1.80.1",
- "notes": "A Mute button next to Mic on the PC: Jarvis stops listening to your microphone (even \"Hey Jarvis\") until you press Unmute. It stays in step with the mini core's and the tray's mute."
+ "version": "1.81.0",
+ "notes": "Autopilot: no new trades 30 minutes either side of high-impact news (trading setting auto_news_min). 'Which autopilot settings are best?' replays the last test run's AI answers with 27 mixes of reward:risk, minimum stop and order expiry, with no new AI questions. Pay estimate: set your rates in Settings > Pay, then ask 'how much will I get paid this week?' (nights, Saturdays and Sundays included); the week view shows it too."
 }

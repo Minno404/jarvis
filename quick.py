@@ -98,6 +98,23 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    m = re.fullmatch(r"(?:how much (?:will|do|am) i (?:get(?:ting)? paid|earn(?:ing)?|make|making)|what s my pay|what will i get paid)"
+                     r"(?: for)?(?: (this|next|last) (week|fortnight))?", t)
+    if m and "pay_estimate" in R:
+        when, span = m.group(1) or "this", m.group(2) or "week"
+        r = R["pay_estimate"](weeks_ahead={"this": 0, "next": 1, "last": -1}[when], weeks=2 if span == "fortnight" else 1)
+        if r.get("error"):
+            return r["error"]
+        return (f"About ${r['gross']:,.2f} before tax {when} {span}, {{TITLE}}: {r['shifts']} shift"
+                f"{'s' if r['shifts'] != 1 else ''}, {r['hours']:g} paid hours.")
+    if re.fullmatch(r"(?:which|what) (?:auto ?pilot )?settings (?:are|work|would be) (?:the )?best(?: for the auto ?pilot)?|"
+                    r"test (?:the |my )?auto ?pilot settings", t) and "test_autopilot_settings" in R:
+        r = R["test_autopilot_settings"]()
+        if r.get("error"):
+            return r["error"]
+        b = r["best"][0]
+        return (f"Best on {r['moments']} past moments, {{TITLE}}: reward to risk {b['rr']:g}, stop at least {b['atr']:g} ATR, "
+                f"orders kept {b['hours']} hours: {b['trades']} trades, {b['r']:+.1f}R. The rest are on the panel.")
     if re.fullmatch(r"(?:test|backtest|trial|try out)(?: run)? (?:the |my )?(?:auto ?pilot|trading bot)(?: on (?:past|old) charts)?", t) \
             and "test_autopilot" in R:
         r = R["test_autopilot"]()

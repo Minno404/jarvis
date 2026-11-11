@@ -131,6 +131,12 @@ def high_impact(events, now, hours):
     return sorted(out, key=lambda x: x["time"])
 
 
+def news_near(minutes=30, now=None):
+    """High-impact events for his currencies within `minutes` before or after now (the autopilot's news filter)."""
+    now = now or datetime.datetime.now()
+    return high_impact(_calendar(), now - datetime.timedelta(minutes=minutes), 2 * minutes / 60)
+
+
 def upcoming_news(hours=24):
     return high_impact(_calendar(), datetime.datetime.now(), float(hours))
 
