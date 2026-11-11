@@ -188,6 +188,40 @@ def wanted_size(info, entry, stop, acc, lim):
                      lim["trade_max_lots"])
 
 
+def sizing(info, price, acc, lim):
+    """The lot size calculator the brains get for one symbol: $ per 1.0 price move per lot, the risk per trade, and
+    the lots (and $ at risk) for a range of stop distances, so they can see a wider stop just means fewer lots."""
+    per = loss_per_lot(info, price, price + 1.0)  # $ per 1.0 move per 1 lot
+    fixed = lim["trade_size_unit"] == "lots"
+    risk = None if fixed else round(money(lim["trade_size"], lim["trade_size_unit"], base_size(acc, lim)), 2)
+    out = {"usd_per_1.0_move_per_lot": round(per, 4), "min_lot": info.volume_min, "lot_step": info.volume_step}
+    table = {}
+    for d in (2, 3, 5, 8, 12, 16, 20, 30):
+        lots = wanted_size(info, price, price - d, acc, lim)
+        table[str(d)] = {"lots": lots, "usd_at_risk": round(lots * d * per, 2)} if lots else "too wide: even the smallest lot risks too much"
+    out["stop_distance_to_lots"] = table
+    if risk and per:
+        out["risk_per_trade_usd"] = risk
+        out["widest_stop_the_smallest_lot_allows"] = round(risk / (per * info.volume_min), 2)
+    return out
+
+
+def risk_rules(lim):
+    """How risk works, for the brains: the stop goes where the chart needs it, and the lot size absorbs it."""
+    if lim["trade_size_unit"] == "lots":
+        return (f"Size: a fixed {lim['trade_size']} lots each trade, so a wider stop risks more money; 'sizing' shows "
+                "the $ at risk for each stop distance. Keep the stop where the chart needs it, and skip the trade if that "
+                "risk is too much for this account.\n")
+    return ("Risk: every trade risks the same money, his setting ('sizing' > risk_per_trade_usd). The system works out "
+            "the lot size from your stop with this lot size calculator: lots = risk / (stop distance x "
+            "usd_per_1.0_move_per_lot), rounded down to the lot step. So put the stop where the setup is proven wrong "
+            "(beyond the swing or level, with room for the spread and normal noise), even if that is wider than his "
+            "usual stop: a wider stop means a smaller lot, the same money at risk. His typical stop distance is only a "
+            "reference. 'stop_distance_to_lots' shows the lots for each distance; the stop can't be wider than "
+            "widest_stop_the_smallest_lot_allows. Set the target at a real level that gives the minimum reward:risk; "
+            "don't skip a good setup only because it needs a wider stop.\n")
+
+
 def _load(path, default):
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -834,16 +868,18 @@ class Autopilot:
                 continue  # no fresh prices: market closed
             spread = tick.ask - tick.bid
             market[s] = {"bid": tick.bid, "ask": tick.ask, "spread": round(spread, info.digits), "digits": info.digits,
+                         "sizing": sizing(info, tick.bid, acc, lim),
                          "M15": _chart(mt5, s, "M15", 48), "H1": _chart(mt5, s, "H1", 48), "H4": _chart(mt5, s, "H4", 30)}
         if not market:
             self.show("Waiting: the market is closed")
             return
         prompt = (
-            "Decide whether to open ONE trade now, trading the way this trader does. Be selective: 'none' is the "
-            "right answer most of the time, unless there is a clear setup.\n"
+            "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
+            "there is a real setup, and say 'none' when there isn't.\n"
             f"Trader's style: {his_style()}\n"
-            f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}. Risk per trade is fixed by the system.\n"
-            f"Minimum reward:risk {lim['auto_min_rr']}.\n"
+            f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
+            + risk_rules(lim) +
+            f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance).\n"
             "Candles are [open, high, low, close], oldest first, MT5 server time:\n"
             + json.dumps(market) +
             '\nReply with one JSON object only: {"action": "buy" | "sell" | "none", "symbol": "...", '

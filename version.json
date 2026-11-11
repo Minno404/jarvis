@@ -1,4 +1,4 @@
 {
- "version": "1.75.2",
- "notes": "Shift calendar shows am and pm (9am, 10pm)."
+ "version": "1.76.0",
+ "notes": "Autopilot: both brains now get a lot size calculator and your risk per trade, and are told to put the stop where the chart needs it. A wider stop means a smaller lot for the same money at risk, so good setups aren't skipped for needing room."
 }

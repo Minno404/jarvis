@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.75.2** (shown at the bottom right of the HUD)
+**Version 1.76.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.76.0**: Autopilot: both brains now get a lot size calculator and your risk per trade, and are told to put the stop where the chart needs it. A wider stop means a smaller lot for the same money at risk, so good setups aren't skipped for needing room.
 - **1.75.2**: Shift calendar shows am and pm (9am, 10pm).
 - **1.75.1**: Shift calendar: full width on the phone, shorter labels (9a, 10p), and days off from the roster shown as BOD, Rest or Off. Rosters now save their days off as well as the shifts.
 - **1.75.0**: Shift calendar: 'bring up my work shifts' shows a month calendar up to the end of your latest roster; tap a day to give it a shift, mark it off or add a note. 'What am I doing this week?' shows this week in one row. Voice: an Emotion slider in Settings > Voice for every voice (pace, pitch and pauses follow the words), and 14 more adult voices. Roleplay characters can have their own voice and speed.
