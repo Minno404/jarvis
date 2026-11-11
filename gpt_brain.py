@@ -20,19 +20,41 @@ import usage
 HERE = Path(__file__).resolve().parent
 
 
-def add_node():
-    """codex.cmd needs node.exe on the PATH ('"node" is not recognized'). Jarvis may have been started without it (Node
-    installed or updated while it ran, or a restart from a 32-bit launcher, where ProgramFiles is the x86 folder):
-    put the first folder that has node.exe on the PATH."""
-    if os.name != "nt" or shutil.which("node"):
-        return
+def node_exe():
+    """node.exe: on the PATH, else the usual install folders (Jarvis may run without Node on its PATH)."""
     e = os.environ.get
+    found = shutil.which("node.exe") if os.name == "nt" else shutil.which("node")
+    if found:
+        return found
     for d in (Path(e("ProgramW6432", r"C:\Program Files")) / "nodejs", Path(e("ProgramFiles", "")) / "nodejs",
-              Path(e("NVM_SYMLINK", "")) if e("NVM_SYMLINK") else None, Path(e("LOCALAPPDATA", "")) / "Programs" / "nodejs",
+              Path(e("NVM_SYMLINK")) if e("NVM_SYMLINK") else None, Path(e("LOCALAPPDATA", "")) / "Programs" / "nodejs",
               Path(e("APPDATA", "")) / "npm", Path(e("LOCALAPPDATA", "")) / "Volta" / "bin"):
         if d and (d / "node.exe").exists():
-            os.environ["PATH"] = str(d) + os.pathsep + e("PATH", "")
-            return
+            return str(d / "node.exe")
+    return None
+
+
+def add_node():
+    """codex.cmd runs "node" through cmd.exe, which fails ('"node" is not recognized') when Jarvis's environment lacks
+    Node's folder on the PATH or a usable PATHEXT. Make sure both are there."""
+    if os.name != "nt":
+        return
+    if ".EXE" not in os.environ.get("PATHEXT", "").upper():
+        os.environ["PATHEXT"] = ".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC"
+    node = node_exe()
+    if node and str(Path(node).parent).lower() not in os.environ.get("PATH", "").lower():
+        os.environ["PATH"] = str(Path(node).parent) + os.pathsep + os.environ.get("PATH", "")
+
+
+def codex_prefix():
+    """How to start Codex: node.exe straight on Codex's own script when it's an npm install (no cmd.exe in between,
+    so the PATH can't break it), else the codex command."""
+    if CODEX and os.name == "nt" and CODEX.lower().endswith(".cmd"):
+        js = Path(CODEX).parent / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+        node = node_exe()
+        if js.exists() and node:
+            return [node, str(js)]
+    return [CODEX]
 
 
 def find_codex():
@@ -101,7 +123,7 @@ def recent_context(n=6):
 
 def command(resume_id=None, images=(), local=False, cwd=HERE):
     add_node()
-    cmd = [CODEX, "exec", "--json", "--skip-git-repo-check", "-C", str(cwd), "-s", SANDBOX,
+    cmd = [*codex_prefix(), "exec", "--json", "--skip-git-repo-check", "-C", str(cwd), "-s", SANDBOX,
            "-c", "sandbox_workspace_write.network_access=true", "-c", 'approval_policy="never"']
     if local:  # the AI on this PC, through Ollama (it can't see pictures)
         import local_brain
