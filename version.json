@@ -1,4 +1,4 @@
 {
- "version": "1.77.2",
- "notes": "Autopilot: when ChatGPT gives no answer, Jarvis shows why (Codex's own message). The test run stops after 3 failed answers in a row and tells you the reason."
+ "version": "1.77.3",
+ "notes": "ChatGPT works again when Jarvis was started without Node.js on its PATH ('\"node\" is not recognized'): Jarvis finds node.exe itself."
 }

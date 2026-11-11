@@ -20,12 +20,24 @@ import usage
 HERE = Path(__file__).resolve().parent
 
 
+def add_node():
+    """codex.cmd needs node.exe on the PATH ('"node" is not recognized'). Jarvis may have been started without it (Node
+    installed or updated while it ran, or a restart from a 32-bit launcher, where ProgramFiles is the x86 folder):
+    put the first folder that has node.exe on the PATH."""
+    if os.name != "nt" or shutil.which("node"):
+        return
+    e = os.environ.get
+    for d in (Path(e("ProgramW6432", r"C:\Program Files")) / "nodejs", Path(e("ProgramFiles", "")) / "nodejs",
+              Path(e("NVM_SYMLINK", "")) if e("NVM_SYMLINK") else None, Path(e("LOCALAPPDATA", "")) / "Programs" / "nodejs",
+              Path(e("APPDATA", "")) / "npm", Path(e("LOCALAPPDATA", "")) / "Volta" / "bin"):
+        if d and (d / "node.exe").exists():
+            os.environ["PATH"] = str(d) + os.pathsep + e("PATH", "")
+            return
+
+
 def find_codex():
     global CODEX
-    # Node.js installed while Jarvis was running isn't on his PATH yet, and codex.cmd needs it ("node" not found)
-    node = Path(os.environ.get("ProgramFiles", "")) / "nodejs"
-    if os.name == "nt" and (node / "node.exe").exists() and str(node).lower() not in os.environ["PATH"].lower():
-        os.environ["PATH"] = str(node) + os.pathsep + os.environ["PATH"]
+    add_node()
     CODEX = shutil.which("codex") or shutil.which("codex.cmd") or shutil.which("codex", path=str(
         Path(os.environ.get("APPDATA", Path.home())) / "npm"))  # npm's global folder on Windows
     return CODEX
@@ -88,6 +100,7 @@ def recent_context(n=6):
 
 
 def command(resume_id=None, images=(), local=False, cwd=HERE):
+    add_node()
     cmd = [CODEX, "exec", "--json", "--skip-git-repo-check", "-C", str(cwd), "-s", SANDBOX,
            "-c", "sandbox_workspace_write.network_access=true", "-c", 'approval_policy="never"']
     if local:  # the AI on this PC, through Ollama (it can't see pictures)
