@@ -149,7 +149,14 @@ def grid_shifts(data, name):
                         "where": "", "note": " ".join(label).strip()[:60],
                         **({"paid": int(paid.split(":")[0]) + int(paid.split(":")[1]) / 60} if paid else {})})
         out = [s for s in out if not OFF.search(s["note"])]
-        if out:
+        if out:  # every other day in the roster's columns is a day off, with what the roster says on it (BOD, rest)
+            work = {s["date"] for s in out}
+            for c in cols:
+                if dates[c].isoformat() in work:
+                    continue
+                words = [t for x, y, t in cells if abs(x - c) < 2 and not TIME.match(t) and not re.fullmatch(r"[\d.:]+", t)]
+                note = " ".join(dict.fromkeys(" ".join(words).split()))  # "BOD BOD" -> "BOD"
+                out.append({"date": dates[c].isoformat(), "off": True, "note": note[:40] or "Off", "start": ""})
             return sorted(out, key=lambda s: (s["date"], s["start"]))
     return []
 

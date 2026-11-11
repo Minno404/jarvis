@@ -206,8 +206,12 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .holo-panel.wide{width:min(520px,62vw)}
 .scal-m{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--cyan);margin:8px 0 4px}
 .scal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.scal-g i{font-style:normal;font-size:9px;color:var(--mute);text-align:center}
-.scal-d{all:unset;box-sizing:border-box;min-height:46px;padding:3px;border:1px solid rgba(var(--rgb),.18);font-size:10px;line-height:1.2;cursor:pointer;display:flex;flex-direction:column;gap:1px;overflow:hidden}
-.scal-d b{font-size:11px}.scal-d span{color:var(--cyan)}.scal-d .o{color:var(--mute)}.scal-d small{color:var(--amber);font-size:9px}
+.scal-d{all:unset;box-sizing:border-box;min-height:44px;min-width:0;padding:3px 4px;border:1px solid rgba(var(--rgb),.14);font-size:11px;line-height:1.25;cursor:pointer;display:flex;flex-direction:column;gap:1px;overflow:hidden;position:relative}
+.scal-d b{font-size:10px;font-weight:400;color:var(--mute)}.scal-d.work b,.scal-d.today b{color:var(--text);font-weight:700}
+.scal-d span{color:var(--cyan);font-weight:600;white-space:nowrap}.scal-d .o{color:var(--mute);font-weight:400;font-size:9px;text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis}
+.scal-d.noted::after{content:"";position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%;background:var(--amber)}
+.scal-ed .i{white-space:pre-line;color:var(--mute);font-size:11px;margin:3px 0}
+@media (max-width:700px){.holo-panel.cal{width:auto!important;max-width:none!important;left:auto!important;right:auto!important}.scal-g{gap:2px}.scal-d{padding:2px 3px;min-height:40px}}
 .scal-d.work{background:rgba(var(--rgb),.12)}.scal-d.today{border-color:var(--cyan);box-shadow:0 0 6px rgba(var(--rgb),.5)}.scal-d.past{opacity:.45}.scal-d:hover{border-color:var(--cyan)}
 .scal.week .scal-d{min-height:60px}
 .scal-ed{margin-top:8px;font-size:12px}.scal-ed:not([hidden]){display:block!important}.scal-ed .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0}.scal-ed .t{color:var(--cyan)}
@@ -2632,10 +2636,11 @@ function showPanel(ev){
 function shiftCal(p,ev){
   const box=document.createElement('div'),ed=document.createElement('form'),days=ev.days||{};box.className='scal'+(ev.week?' week':'');ed.className='scal-ed';ed.hidden=true;
   const D=k=>new Date(k+'T12:00'),WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const hm=t=>{const [h,m]=t.split(':').map(Number);return (h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'a':'p')};  /* 09:00 -> 9a */
   const cell=k=>{const v=days[k]||{shifts:[]},d=D(k);
-    return `<button type="button" class="scal-d${k===ev.today?' today':''}${k<ev.today?' past':''}${v.off?' off':''}${v.shifts.length?' work':''}" data-k="${k}">`
+    return `<button type="button" class="scal-d${k===ev.today?' today':''}${k<ev.today?' past':''}${v.off?' off':''}${v.shifts.length?' work':''}${v.note&&!v.off?' noted':''}" data-k="${k}">`
       +`<b>${ev.week?WD[(d.getDay()+6)%7]+' ':''}${d.getDate()}</b>`
-      +v.shifts.map(x=>`<span>${esc(x.start)}<br>${esc(x.end)}</span>`).join('')+(v.off?'<span class="o">Off</span>':'')+(v.note?`<small>${esc(v.note)}</small>`:'')+'</button>'};
+      +v.shifts.map(x=>`<span>${hm(x.start)}${ev.week?'–'+hm(x.end):''}</span>`).join('')+(v.off?`<span class="o">${esc((v.note||'Off').split(' ').pop())}</span>`:'')+'</button>'};
   const draw=()=>{const ks=Object.keys(days).sort();let h='',month='';
     for(const k of ks){const d=D(k),m=d.toLocaleDateString([],{month:'long',year:'numeric'});
       if(!ev.week&&m!==month){if(month)h+='</div>';month=m;h+=`<div class="scal-m">${esc(m)}</div><div class="scal-g">`+WD.map(w=>`<i>${w}</i>`).join('')+'<em></em>'.repeat((d.getDay()+6)%7)}
@@ -2644,14 +2649,15 @@ function shiftCal(p,ev){
   let k=null;
   box.onclick=e=>{const b=e.target.closest('.scal-d');if(!b)return;k=b.dataset.k;const v=days[k]||{shifts:[]},s=v.shifts[0]||{};
     ed.hidden=false;ed.querySelector('.t').textContent=D(k).toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
+    ed.querySelector('.i').textContent=v.shifts.map(x=>`${x.start} to ${x.end}${x.hours!=null?' · '+x.hours+' h':''}${x.note?' · '+x.note:''}`).join('\n')||(v.off?'Day off'+(v.note&&v.note!=='Off'?': '+v.note:''):'Nothing on');
     ed.st.value=s.start||'';ed.en.value=s.end||'';ed.nt.value=v.note||''};
-  ed.innerHTML='<div class="t"></div><div class="r"><input type="time" name="st"><span>to</span><input type="time" name="en"></div><input name="nt" placeholder="Note (optional)" maxlength="80">'
+  ed.innerHTML='<div class="t"></div><div class="i"></div><div class="r"><input type="time" name="st"><span>to</span><input type="time" name="en"></div><input name="nt" placeholder="Note (optional)" maxlength="80">'
     +'<div class="r"><button type="submit">Save shift</button><button type="button" data-a="off">Day off</button><button type="button" data-a="clear">Clear</button><button type="button" data-a="x">Cancel</button></div>';
   const send=async body=>{try{const r=await (await fetch('/api/shift_day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:k,note:ed.nt.value,...body})})).json();
     if(r.error)throw new Error(r.error);days[k]={shifts:r.shifts,off:r.off,note:r.note};draw();ed.hidden=true}catch(e){ed.querySelector('.t').textContent=e.message||'Not saved'}};
   ed.onsubmit=e=>{e.preventDefault();if(ed.st.value&&ed.en.value)send({start:ed.st.value,end:ed.en.value});else send({})};
   ed.onclick=e=>{const a=e.target.dataset?.a;if(a==='x')ed.hidden=true;else if(a==='off')send({off:true});else if(a==='clear')send({clear:true,note:''})};
-  draw();p.classList.add('wide');p.append(box,ed)}
+  draw();p.classList.add('wide','cal');p.append(box,ed)}
 const fmtNum=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString():Math.abs(v)>=100?Math.round(v):(+v).toFixed(2).replace(/\.00$/,'');
 const PALETTE=()=>{const a=css('--rgb');return[`rgb(${a})`,'#ffb347','#b98cff','#4dff9a','#ff6bd6','#ffe14d','#3d8bff','#ff8a3d',`rgba(${a},.55)`,'#c8d6e0','#ff5a5a','#3dffe0']};
 function drawLine(c,ev){
