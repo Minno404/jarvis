@@ -4,7 +4,7 @@
   (autopilot_reviews.json): entry, exit, profit, R, what each brain said, and the M15 candles around it.
   "Show my autopilot trades" draws them with their charts.
 - Weekly summary: Sunday from 6 pm, the week's trades, win rate and total, said and sent to his phone.
-- Test run: "test the autopilot" replays past moments (random 15-minute candles in the last 60 days, outside quiet
+- Test run: "test the autopilot" replays past setups (the chart watcher's, found in the last 60 days, outside quiet
   hours and weekends) through both brains exactly like the live autopilot, then follows the price afterwards to see
   whether the stop or the target came first. It shows the win rate and total in R and $ before any money is risked.
   Each moment costs one ChatGPT question, plus one for Claude when ChatGPT sees a trade.
@@ -179,7 +179,8 @@ def test_autopilot(samples=60, days=60):
     RUN.update(on=True, done=0, of=samples, fails=0)
     threading.Thread(target=_run, args=(samples, int(days)), daemon=True).start()
     return {"started": True, "samples": samples,
-            "note": f"Replaying {samples} past moments; takes about {samples} minutes. Each one asks ChatGPT once."}
+            "note": f"Finding the setups the chart watcher would have spotted in the last {days} days, then asking the "
+                    f"brains about up to {samples} of them; about {samples} minutes."}
 
 
 def _run(samples, days):
@@ -194,31 +195,77 @@ def _run(samples, days):
         RUN["on"] = False
 
 
+def _quiet(local, lim):
+    """Outside trading: weekends and his quiet hours (the live autopilot doesn't look then either)."""
+    q_from, q_to = lim.get("auto_quiet_from"), lim.get("auto_quiet_to")
+    hm = local.strftime("%H:%M")
+    return local.weekday() >= 5 or bool(q_from and q_to and ((q_from <= hm < q_to) if q_from < q_to else (hm >= q_from or hm < q_to)))
+
+
+def history_triggers(mt5, s, days, lim, offset):
+    """Every setup the chart watcher would have flagged on s in the last `days` days (outside quiet hours, with its
+    2-hour cooldown), found from MT5's history with no AI: [(server time, trigger)]."""
+    import bisect
+    import watcher
+    end = int(datetime.datetime.now().timestamp() + offset) - 86400  # a day left over to see how trades end
+    start = end - int(days) * 86400
+    m5 = _bars(mt5, s, start, end, "M5")
+    h1 = _bars(mt5, s, start - 8 * 86400, end, "H1")
+    d1 = _bars(mt5, s, start - 6 * 86400, end, "D1")
+    m15 = _bars(mt5, s, start - 86400, end, "M15")
+    h1_close, d1_close, m15_close = ([b[0] + sec for b in arr] for arr, sec in ((h1, 3600), (d1, 86400), (m15, 900)))
+    cool, out, cache = watcher.Cooldown(2), [], {}
+    info = mt5.symbol_info(s)
+    step = info.point * 10 ** max(0, info.digits - 2)
+    for i in range(1, len(m5)):
+        t = m5[i][0] + 300  # this candle has just closed
+        if _quiet(datetime.datetime.fromtimestamp(t - offset), lim):
+            continue
+        nh = bisect.bisect_right(h1_close, t)
+        nd = bisect.bisect_right(d1_close, t)
+        if (nh, nd) not in cache:  # levels and trend only change when an hour (or a day) closes
+            hs, ds = h1[max(0, nh - 120):nh], d1[max(0, nd - 3):nd]
+            cache = {(nh, nd): (hs, ds, watcher.levels(hs, ds), watcher.trend(hs))}
+        hs, ds, lv, tr = cache[(nh, nd)]
+        nm = bisect.bisect_right(m15_close, t)
+        trig = watcher.trigger(m5[i - 1:i + 1], hs, ds, watcher.atr(m15[max(0, nm - 20):nm]), lv, tr)
+        if trig and cool.ok(s, trig["level"], t, step):
+            out.append((t, trig))
+    return out
+
+
 def _replay(samples, days):
     mt5 = m._mt5()
     lim = m.limits()
     acc = mt5.account_info()
-    s = m._symbol(mt5, lim["auto_symbols"][0])
-    info, tick = mt5.symbol_info(s), mt5.symbol_info_tick(s)
-    spread = tick.ask - tick.bid
-    offset = round((tick.time - datetime.datetime.now().timestamp()) / 1800) * 1800  # MT5 server time vs real time
+    found = []
+    for raw in lim["auto_symbols"]:
+        s = m._symbol(mt5, raw)
+        tick = mt5.symbol_info_tick(s)
+        offset = round((tick.time - datetime.datetime.now().timestamp()) / 1800) * 1800  # MT5 server vs real time
+        found += [(s, offset, t, trig) for t, trig in history_triggers(mt5, s, days, lim, offset)]
+    total = len(found)
+    found = sorted(random.sample(found, min(samples, total)), key=lambda x: x[2])
+    RUN["of"], RUN["found"] = len(found), total
     rows = []
-    for i, local in enumerate(moments(samples, days, lim)):
-        at = int(local.timestamp() + offset)  # the same moment in MT5 server time
+    for i, (s, offset, at, trig) in enumerate(found):
+        info, tick = mt5.symbol_info(s), mt5.symbol_info_tick(s)
         snap = m.snapshot(mt5, s, info, 0, 0, acc, lim, at=at)
         if not snap["M15"]:
             continue
         bid = snap["M15"][-1][3]
-        snap.update(bid=bid, ask=round(bid + spread, info.digits), sizing=m.sizing(info, bid, acc, lim))
+        snap.update(bid=bid, ask=round(bid + (tick.ask - tick.bid), info.digits), sizing=m.sizing(info, bid, acc, lim))
         errs = []
-        picks, names = m.ask_brains(m.build_prompt({s: snap}, acc, lim), errs.append)
+        picks, names = m.ask_brains(m.build_prompt({s: snap}, acc, lim, {**trig, "symbol": s}), errs.append)
         if errs and not any(picks):
             fails = RUN["fails"] = RUN.get("fails", 0) + 1
             if fails >= 3:  # the brain isn't answering at all: stop instead of burning through every moment
                 raise RuntimeError(errs[0])
             continue
         RUN["fails"] = 0
-        row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks)),
+        local = datetime.datetime.fromtimestamp(at - offset)
+        row = {"at": local.isoformat(timespec="minutes"), "symbol": s, "trigger": trig["text"],
+               "brains": dict(zip(names, picks)),
                "srv": at, "bid": bid, "ask": snap["ask"], "atr": snap["atr_m15"]}  # for the settings test
         if len(picks) == 2 and all(picks):
             deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, None, info.digits, bid, snap["ask"],
@@ -234,11 +281,11 @@ def _replay(samples, days):
                     row.update(trade=trade, r=r, how=how)
         rows.append(row)
         RUN["done"] = i + 1
-        _panel(rows, samples, lim, acc, done=False)
-    res = {"ran": datetime.datetime.now().isoformat(timespec="minutes"), "symbol": s, "rows": rows,
-           "summary": _test_summary(rows, lim, acc)}
+        _panel(rows, len(found), lim, acc, done=False)
+    res = {"ran": datetime.datetime.now().isoformat(timespec="minutes"), "symbol": ", ".join(lim["auto_symbols"]),
+           "setups_found": total, "rows": rows, "summary": _test_summary(rows, lim, acc)}
     m._save(TEST, res)
-    _panel(rows, samples, lim, acc, done=True)
+    _panel(rows, len(found), lim, acc, done=True)
     return res
 
 
@@ -268,12 +315,12 @@ def _panel(rows, of, lim, acc, done):
 RR, ATRS, HOURS = (1.2, 1.5, 2.0), (0.5, 1.0, 1.5), (1, 2, 4)
 
 
-def simulate(rows, rr, atr_mult, hours, digits, bars_of):
+def simulate(rows, rr, atr_mult, hours, digits, bars_of):  # digits: a number, or row -> number
     """The test run's AI answers replayed with other settings -> {trades, wins, r}. bars_of(row): M15 after it."""
     out = []
     for row in rows:
         a, b = list(row["brains"].values())
-        deal = m.agree(a, b, None, digits, row["bid"], row["ask"], row["atr"] * atr_mult)
+        deal = m.agree(a, b, None, digits(row) if callable(digits) else digits, row["bid"], row["ask"], row["atr"] * atr_mult)
         if not deal or deal["rr"] < rr:
             continue
         after = bars_of(row)
@@ -294,15 +341,17 @@ def test_settings():
     why = m.ready(mt5)
     if why:
         return {"error": why}
-    s, lim = t["symbol"], m.limits()
-    digits = mt5.symbol_info(s).digits
-    cache = {r["srv"]: [b[1:] for b in _bars(mt5, s, r["srv"], r["srv"] + 86400) if b[0] >= r["srv"]] for r in rows}
+    lim = m.limits()
+    sym = lambda r: m._symbol(mt5, r.get("symbol") or t["symbol"].split(",")[0])
+    digits = {sym(r): mt5.symbol_info(sym(r)).digits for r in rows}
+    cache = {(sym(r), r["srv"]): [b[1:] for b in _bars(mt5, sym(r), r["srv"], r["srv"] + 86400) if b[0] >= r["srv"]]
+             for r in rows}
     res = []
     for rr in RR:
         for am in ATRS:
             for h in HOURS:
-                res.append({"rr": rr, "atr": am, "hours": h,
-                            **simulate(rows, rr, am, h, digits, lambda r: cache[r["srv"]])})
+                res.append({"rr": rr, "atr": am, "hours": h, **simulate(
+                    rows, rr, am, h, lambda r: digits[sym(r)], lambda r: cache[(sym(r), r["srv"])])})
     res.sort(key=lambda x: (-x["r"], -x["trades"]))
     now = next((x for x in res if x["rr"] == lim["auto_min_rr"] and x["atr"] == lim["auto_min_stop_atr"]
                 and x["hours"] == lim["auto_order_hours"]), None)

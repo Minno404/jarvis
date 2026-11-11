@@ -5,12 +5,13 @@ stop and target on the right sides, size within his limits), works out the dolla
 HUD with the chart and the entry, stop and target lines. Nothing is sent until he clicks Confirm on the ticket: a
 misheard word must never place a trade. Moving a stop or target and closing trades go through the same tickets.
 
-The autopilot ("make me money"): every 15 minutes it reads the charts (M15, H1, H4), his account, the news calendar
+The autopilot ("make me money"): a chart watcher (watcher.py, no AI) checks each pair at every 5-minute candle close;
+only when it spots a setup are the brains asked, with the charts (M15, H1, H4), his account, the news calendar
 and how he trades (from his journal), and asks two brains (Claude and ChatGPT, or DeepSeek if one is out) for the
 best trade, separately. It trades only when both independently pick the same symbol and direction, sized to his
-risk limit, with the wider stop and the nearer target of the two. Hard limits it can't break: a daily loss limit
-(then it stops for the day), a maximum number of trades a day, one autopilot trade open at a time, nothing within
-30 minutes of high-impact news, a wide-spread check, and a demo account unless he has switched live trading on
+risk limit, with the first brain's whole plan (stop at least 1 M15 ATR away). Hard limits it can't break: a daily
+loss limit (then it stops for the day), a maximum number of trades a day and of brain questions a day, one trade per
+pair (two at once at most), nothing within 30 minutes of high-impact news for the pair's currencies, a wide-spread check, and a demo account unless he has switched live trading on
 (with a click on a HUD card). It moves its stop to break-even at 1R. "Stop trading" stops it at once. Everything it
 decides, and why, goes in autopilot_log.json and on the HUD.
 """
@@ -55,7 +56,9 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_order_hours": 2.0,        # a planned entry (limit or stop order) not reached within this is cancelled
     "auto_min_stop_atr": 1.0,       # the stop is at least this many M15 ATRs from the entry (tighter: widened)
     "auto_news_min": 30,            # no new trades this many minutes before and after high-impact news (0 = off)
-    "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
+    "auto_symbols": ["XAUUSD", "GBPJPY", "EURAUD"],  # what the autopilot watches
+    "auto_max_asks": 12,            # the most times a day the chart watcher asks the brains (each costs tokens)
+    "auto_max_open": 2,             # trades (or planned entries) open at once, at most one per pair
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
     "auto_quiet_from": "04:00",     # every day from ...
     "auto_quiet_to": "10:30",       # ... until (thin market overnight)
@@ -68,6 +71,9 @@ UNITS = {"trade_size_unit": ("%", "$", "lots"), "trade_daily_loss_unit": ("%", "
 
 def limits():
     s = features.settings()
+    if s.get("auto_symbols") == ["XAUUSD"] and not s.get("auto_pairs_added"):  # the old gold-only default: add the
+        s = {**s, "auto_symbols": LIMITS["auto_symbols"], "auto_pairs_added": True}  # new pairs once (he can remove them)
+        features._save("settings.json", s)
     return {k: s.get(k, v) for k, v in LIMITS.items()}
 
 
@@ -419,7 +425,26 @@ def check_levels(side, entry, stop, target):
     return bad
 
 
-TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400}
+TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400, "D1": 86400}
+
+
+def _closed(mt5, s, tf, bars, at=None):
+    """Closed candles only, with their time: [[time, open, high, low, close]] (the chart watcher's input)."""
+    if at is None:
+        rates = mt5.copy_rates_from_pos(s, getattr(mt5, "TIMEFRAME_" + tf), 1, bars)
+    else:
+        rates = mt5.copy_rates_from(s, getattr(mt5, "TIMEFRAME_" + tf), int(at), bars + 1)
+        rates = [c for c in (rates if rates is not None else []) if int(c["time"]) + TF_SECONDS[tf] <= at][-bars:]
+    return [[int(c["time"]), float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"])]
+            for c in (rates if rates is not None else [])]
+
+
+def find_trigger(mt5, s, at=None):
+    """The chart watcher's setup on symbol s now (or at a past server time), or None. No AI, no tokens."""
+    import watcher
+    m5, h1, d1 = _closed(mt5, s, "M5", 3, at), _closed(mt5, s, "H1", 120, at), _closed(mt5, s, "D1", 3, at)
+    m15 = _closed(mt5, s, "M15", 20, at)
+    return watcher.trigger(m5, h1, d1, watcher.atr(m15))
 
 
 def _chart(mt5, s, tf="M15", bars=60, at=None):
@@ -758,10 +783,13 @@ def snapshot(mt5, s, info, bid, ask, acc, lim, at=None):
             "M15": m15, "H1": _chart(mt5, s, "H1", 48, at), "H4": _chart(mt5, s, "H4", 30, at)}
 
 
-def build_prompt(market, acc, lim):
+def build_prompt(market, acc, lim, trig=None):
     return (
         "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
         "there is a real setup with a clear plan, and say 'none' when there isn't.\n"
+        + (f"Why you're being asked now: the chart watcher spotted a possible {trig['side']} {trig['kind']} on "
+           f"{trig['symbol']}: {trig['text']}. Judge whether it's worth taking; it's only a candidate.\n" if trig else "")
+        +
         f"Trader's style: {his_style()}\n"
         f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
         + risk_rules(lim) +
@@ -886,7 +914,7 @@ class Autopilot:
                     self._quiet = None
                     self.cycle()
                     now = time.time()
-                    next_look = now - now % 900 + 900 + 20  # just after each 15-minute candle closes
+                    next_look = now - now % 300 + 300 + 5  # just after each 5-minute candle closes
             except Exception as e:
                 self.show(f"Error: {type(e).__name__}: {str(e)[:120]}")
             for _ in range(60):
@@ -943,29 +971,35 @@ class Autopilot:
             return "equity is at his floor"
         if st["trades"] >= lim["auto_max_trades"]:
             return f"{st['trades']} trades today, its limit"
-        if any(p.magic == MAGIC_AUTO for p in mt5.positions_get() or []):
-            return "it already has a trade open"
-        if any(o.magic == MAGIC_AUTO for o in mt5.orders_get() or []):
-            return "its planned entry is waiting to be reached"
+        mine = [p for p in mt5.positions_get() or [] if p.magic == MAGIC_AUTO] + \
+            [o for o in mt5.orders_get() or [] if o.magic == MAGIC_AUTO]
+        if len(mine) >= lim["auto_max_open"]:
+            return f"{len(mine)} trades or planned entries open, its limit"
+        if st.get("asks", 0) >= lim["auto_max_asks"]:
+            return f"asked the brains {st['asks']} times today, its limit (saves tokens)"
+        return None
+
+    @staticmethod
+    def pair_busy(mt5, lim, s):
+        """Why this pair can't be traded now: a trade or planned entry already on it, or news for its currencies."""
+        if any(x.magic == MAGIC_AUTO and x.symbol == s for x in (mt5.positions_get() or []) + (mt5.orders_get() or [])):
+            return "already has a trade or planned entry"
         if lim.get("auto_news_min"):
             try:
                 import trading
-                near = trading.news_near(lim["auto_news_min"])
+                import watcher
+                near = trading.news_near(lim["auto_news_min"], watcher.currencies(s))
             except Exception:
                 near = []  # no calendar right now: trade as normal
             if near:
                 e = near[0]
-                return f"high-impact news ({e['currency']} {e['event']} at {e['time'][11:]}): waiting {lim['auto_news_min']:g} min either side"
-        try:
-            import trading
-            soon = [e for e in trading.upcoming_news(0.5)]
-            if soon:
-                return f"high-impact news soon ({soon[0]['currency']} {soon[0]['event']})"
-        except Exception:
-            pass
+                return f"high-impact {e['currency']} news ({e['event']} at {e['time'][11:]})"
         return None
 
     def cycle(self):
+        """One look, at each 5-minute candle close: the chart watcher checks every pair (free); only a setup on a pair
+        that's free to trade gets the brains asked."""
+        import watcher
         mt5 = _mt5()
         lim = limits()
         st = day_state(mt5)
@@ -973,19 +1007,39 @@ class Autopilot:
         if why:
             self.show(f"Waiting: {why}")
             return
-        acc = mt5.account_info()
-        market = {}
+        if not hasattr(self, "cool"):
+            self.cool = watcher.Cooldown(2)
+        acc, seen, notes = mt5.account_info(), [], []
         for raw in lim["auto_symbols"]:
             s = _symbol(mt5, raw)
             info, tick = mt5.symbol_info(s), mt5.symbol_info_tick(s)
-            if time.time() - tick.time > 600:
+            if not tick or time.time() - tick.time > 600:
                 continue  # no fresh prices: market closed
-            market[s] = snapshot(mt5, s, info, tick.bid, tick.ask, acc, lim)
-        if not market:
+            seen.append(s)
+            busy = self.pair_busy(mt5, lim, s)
+            if busy:
+                notes.append(f"{s}: {busy}")
+                continue
+            trig = find_trigger(mt5, s)
+            if not trig or not self.cool.ok(s, trig["level"], time.time(), info.point * 10 ** max(0, info.digits - 2)):
+                continue
+            st["asks"] = st.get("asks", 0) + 1
+            _save(AUTO_STATE, st)
+            self.show(f"{s}: {trig['text']}. Asking the brains...")
+            market = {s: snapshot(mt5, s, info, tick.bid, tick.ask, acc, lim)}
+            picks, names = ask_brains(build_prompt(market, acc, lim, {**trig, "symbol": s}), self.show)
+            self.log({"at": datetime.datetime.now().isoformat(timespec="seconds"), "trigger": {**trig, "symbol": s},
+                      "brains": dict(zip(names, picks))})
+            self.decide(mt5, lim, st, acc, market, picks, names)
+            return  # one pair a look: the next candle checks the rest
+        if not seen:
             self.show("Waiting: the market is closed")
-            return
-        picks, names = ask_brains(build_prompt(market, acc, lim), self.show)
-        self.log({"at": datetime.datetime.now().isoformat(timespec="seconds"), "brains": dict(zip(names, picks))})
+        else:
+            self.show(f"Watching {', '.join(seen)}: no setup at {datetime.datetime.now():%H:%M}"
+                      + (f" ({'; '.join(notes)})" if notes else "") + f". Asked the brains {st.get('asks', 0)} times today.")
+
+    def decide(self, mt5, lim, st, acc, market, picks, names):
+        """The brains' answers about a setup -> a trade, or why not."""
         if len(picks) == 1 and picks[0]:
             why = str(picks[0].get("reason", ""))[:110]
             self.show(f"No trade: {names[0]} sees no clear setup right now." + (f" {why}" if why else ""))
@@ -1227,9 +1281,11 @@ TOOLS = [
          "trade_daily_loss_unit": {"type": "string", "enum": ["%", "$"]}, "trade_equity_floor": N,
          "trade_daily_target": N, "trade_daily_target_unit": {"type": "string", "enum": ["%", "$"]},
          "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N, "auto_min_stop_atr": N, "auto_news_min": N,
+         "auto_max_asks": N, "auto_max_open": N,
          "auto_symbols": {"type": "array", "items": S}}}},
     {"name": "autopilot", "description": (
-        "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "
+        "The trading autopilot ('make me money', 'stop trading'): a free chart watcher checks his pairs at every 5-minute "
+        "candle close and only when it spots a setup (a breakout or rejection at a key level) asks two "
         "brains separately; it trades only when both pick the same trade, within his limits (risk per trade, daily "
         "loss limit, trades a day, no news, demo unless he switched it to live). on: true to start, false to stop. "
         "Starting opens MetaTrader 5 minimised if it's closed (it can take a minute); stopping closes MT5."),

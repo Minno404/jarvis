@@ -1,4 +1,4 @@
 {
- "version": "1.81.1",
- "notes": "Pay: a tax-free meal allowance for every 8 hours on trips (shifts in a row lasting 12+ hours; local and shunt shifts don't count), shown on top of the before-tax estimate. Set it in Settings > Pay."
+ "version": "1.82.0",
+ "notes": "Autopilot: a free chart watcher checks gold, GBPJPY and EURAUD at every 5-minute candle close and asks the brains only when it spots a setup (a breakout or a rejection at a key level, with the H1 trend), instead of every 15 minutes. At most 12 brain questions a day (auto_max_asks), one trade per pair and two at once (auto_max_open), news checked per pair's currencies. The test run now replays the watcher's past setups."
 }

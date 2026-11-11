@@ -15,7 +15,7 @@ SIZE_UP_X = 2.0          # warn when a new trade is this many times your usual s
 REVENGE_MIN = 5          # warn when you re-enter within this many minutes of a loss
 LOSSES_A_DAY = 3         # warn when you open another trade after this many losses in a day
 DAILY_LOSS_PCT = 5.0     # warn once when the day's losses reach this % of the starting balance
-NEWS_CURRENCIES = {"USD", "GBP", "JPY"}  # gold and GBPJPY
+NEWS_CURRENCIES = {"USD", "GBP", "JPY", "EUR", "AUD"}  # gold, GBPJPY and EURAUD
 NEWS_WARN_MIN = 15       # minutes of warning before high-impact news
 REVIEW_QUIET_MIN = 90    # end-of-day review once there's been no trading for this long
 
@@ -114,11 +114,11 @@ def _calendar():
     return cache["events"]
 
 
-def high_impact(events, now, hours):
-    """High-impact events for his currencies from now until `hours` ahead, in his local time."""
+def high_impact(events, now, hours, currencies=None):
+    """High-impact events for his currencies (or the ones given) from now until `hours` ahead, in his local time."""
     out = []
     for e in events:
-        if e.get("impact") != "High" or e.get("country") not in NEWS_CURRENCIES:
+        if e.get("impact") != "High" or e.get("country") not in (currencies or NEWS_CURRENCIES):
             continue
         try:
             t = datetime.datetime.fromisoformat(e["date"]).astimezone().replace(tzinfo=None)
@@ -131,10 +131,11 @@ def high_impact(events, now, hours):
     return sorted(out, key=lambda x: x["time"])
 
 
-def news_near(minutes=30, now=None):
-    """High-impact events for his currencies within `minutes` before or after now (the autopilot's news filter)."""
+def news_near(minutes=30, currencies=None, now=None):
+    """High-impact events (his currencies, or the ones given) within `minutes` before or after now (the autopilot's
+    news filter)."""
     now = now or datetime.datetime.now()
-    return high_impact(_calendar(), now - datetime.timedelta(minutes=minutes), 2 * minutes / 60)
+    return high_impact(_calendar(), now - datetime.timedelta(minutes=minutes), 2 * minutes / 60, currencies)
 
 
 def upcoming_news(hours=24):
