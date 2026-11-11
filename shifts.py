@@ -1,10 +1,13 @@
-"""Work shifts: "bring up my work shifts" shows what's coming up; sending a photo or screenshot of the roster ("here's
-my roster") has the brain read it and save every shift (save_shifts). Kept in shifts.json on this PC."""
+"""Work shifts: "bring up my work shifts" shows a month calendar up to the end of his latest roster, and a tap on a
+day edits it (a shift, a day off, a note). "What am I doing this week?" shows this week in one row. Sending a photo,
+screenshot or PDF of the roster has the brain save every shift (save_shifts). Kept in shifts.json (shifts) and
+days.json (days off and notes) on this PC. Days inside a roster's dates with no shift count as days off."""
 import datetime
 
 import features
 
 FILE = "shifts.json"
+DAYS = "days.json"  # {date: {"off": bool, "note": str}}: what he marked himself
 
 
 def _load():
@@ -39,6 +42,13 @@ def save_shifts(shifts, replace=True):
     allx = sorted(old + clean, key=lambda s: (s["date"], s["start"]))
     cutoff = (datetime.date.today() - datetime.timedelta(days=60)).isoformat()
     features._save(FILE, [s for s in allx if s["date"] >= cutoff])  # keep two months of past shifts
+    days = features._load(DAYS, {})
+    if replace and any(days.get(d, {}).get("off") for d in dates):  # the new roster says he works those days
+        features._save(DAYS, {d: v for d, v in days.items() if not (d in dates and v.get("off"))})
+    covered = sorted({*features._load("roster_dates.json", []), *(  # every day a roster has covered, for "off" days
+        (datetime.date.fromisoformat(min(dates)) + datetime.timedelta(days=i)).isoformat()
+        for i in range((datetime.date.fromisoformat(max(dates)) - datetime.date.fromisoformat(min(dates))).days + 1))})
+    features._save("roster_dates.json", [d for d in covered if d >= cutoff])
     first, last = min(dates), max(dates)
     return {"saved": len(clean), "from": first, "to": last, "hours": round(sum(_hours(s) for s in clean), 1)}
 
@@ -52,28 +62,99 @@ def my_shifts(days=14, show=True):
           and not (s["date"] == today.isoformat() and s["end"] < now and s["end"] > s["start"])]
     hours = round(sum(_hours(s) for s in up), 1)
     if show:
-        def line(s):
-            d = datetime.date.fromisoformat(s["date"])
-            day = "Today" if d == today else "Tomorrow" if d == today + datetime.timedelta(days=1) else d.strftime("%a %d %b")
-            return {"text": f"{day}  {s['start']} to {s['end']}",
-                    "sub": " · ".join(x for x in (s["where"], f"{_hours(s):g} h", s["note"]) if x)}
-        features._panel({"type": "panel", "title": "Work shifts", "kind": "list", "stay": True,
-                         "items": [line(s) for s in up[:12]] or [{"text": "No shifts saved for the next two weeks",
-                                                                  "sub": "Send a photo or screenshot of your roster"}],
-                         "note": f"{len(up)} shifts, {hours:g} hours in the next {days} days" if up else ""})
+        shift_calendar()
     nxt = up[0] if up else None
     return {"shifts": up, "count": len(up), "hours": hours,
             "next": nxt and f"{nxt['date']} {nxt['start']} to {nxt['end']}" + (f" at {nxt['where']}" if nxt["where"] else "")}
+
+
+def calendar(start, end):
+    """Each day from start to end (dates): its shifts, and whether it's a day off (he marked it, or a roster covered
+    it with no shift for him)."""
+    by = {}
+    for x in _load():
+        by.setdefault(x["date"], []).append(x)
+    days, covered = features._load(DAYS, {}), set(features._load("roster_dates.json", []))
+    out, d = {}, start
+    while d <= end:
+        k = d.isoformat()
+        sh = [{**x, "hours": round(_hours(x), 2)} for x in by.get(k, [])]
+        mark = days.get(k, {})
+        out[k] = {"shifts": sh, "off": bool(mark.get("off") or (not sh and k in covered)), "note": mark.get("note", "")}
+        d += datetime.timedelta(days=1)
+    return out
+
+
+def shift_calendar(show=True):
+    """The month calendar: this month up to the end of the month his latest shift is in."""
+    today = datetime.date.today()
+    last = max([datetime.date.fromisoformat(x["date"]) for x in _load()] + [today])
+    start = today.replace(day=1)
+    end = (last.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - datetime.timedelta(days=1)
+    days = calendar(start, end)
+    up = [x for k, v in days.items() if k >= today.isoformat() for x in v["shifts"]]
+    note = f"{len(up)} shifts, {sum(x['hours'] for x in up):g} paid hours from today. Tap a day to change it."
+    if show:
+        features._panel({"type": "panel", "title": "Work shifts", "kind": "calendar", "stay": True, "days": days,
+                         "today": today.isoformat(), "note": note, "actions": [["Check my roster email", "check rosters"]]})
+    return {"from": start.isoformat(), "to": end.isoformat(), "upcoming": len(up), "note": note}
+
+
+def week_shifts(show=True):
+    """This week, Monday to Sunday, in one row: 'what am I doing this week?'."""
+    today = datetime.date.today()
+    mon = today - datetime.timedelta(days=today.weekday())
+    days = calendar(mon, mon + datetime.timedelta(days=6))
+    if show:
+        hrs = sum(x["hours"] for v in days.values() for x in v["shifts"])
+        features._panel({"type": "panel", "title": "This week", "kind": "calendar", "week": True, "stay": True,
+                         "days": days, "today": today.isoformat(), "note": f"{hrs:g} paid hours this week"})
+    return {"days": [{"date": k, **v} for k, v in days.items()]}
+
+
+def set_day(date, start=None, end=None, off=False, note=None, clear=False, where=""):
+    """Change one day by hand: a shift (start and end HH:MM, replacing that day's shifts), off=True for a day off,
+    note (any text, "" removes it), or clear=True to empty the day."""
+    try:
+        d = datetime.date.fromisoformat(str(date)).isoformat()
+    except ValueError:
+        return {"error": "date must be YYYY-MM-DD"}
+    days = features._load(DAYS, {})
+    mark = days.get(d, {})
+    if clear or off or (start and end):
+        features._save(FILE, [x for x in _load() if x["date"] != d])
+        mark.pop("off", None)
+    if start and end:
+        r = save_shifts([{"date": d, "start": start, "end": end, "where": where}])
+        if r.get("error"):
+            return r
+    if off:
+        mark["off"] = True
+    elif clear:
+        covered = features._load("roster_dates.json", [])
+        if d in covered:  # empty means empty, not "off" from the roster
+            features._save("roster_dates.json", [x for x in covered if x != d])
+    if note is not None:
+        mark["note"] = str(note)[:80]
+    if clear:
+        mark = {}
+    days = {**days, d: mark} if any(mark.values()) else {k: v for k, v in days.items() if k != d}
+    features._save(DAYS, days)
+    return {"date": d, **calendar(*(datetime.date.fromisoformat(d),) * 2)[d]}
 
 
 def delete_shifts(date=None, everything=False):
     """Remove the shifts on one date (YYYY-MM-DD), or everything=True for all."""
     keep = [] if everything else [s for s in _load() if s["date"] != str(date)]
     features._save(FILE, keep)
+    if everything:
+        features._save(DAYS, {})
+        features._save("roster_dates.json", [])
     return {"left": len(keep)}
 
 
-FUNCS = {"save_shifts": save_shifts, "my_shifts": my_shifts, "delete_shifts": delete_shifts}
+FUNCS = {"save_shifts": save_shifts, "my_shifts": my_shifts, "delete_shifts": delete_shifts,
+         "shift_calendar": shift_calendar, "week_shifts": week_shifts, "set_day": set_day}
 S = {"type": "string"}
 TOOLS = [
     {"name": "save_shifts", "description": (
@@ -86,13 +167,22 @@ TOOLS = [
          "shifts": {"type": "array", "items": {"type": "object", "required": ["date", "start", "end"], "properties": {
              "date": S, "start": S, "end": S, "where": S, "note": S}}},
          "replace": {"type": "boolean"}}}},
-    {"name": "my_shifts", "description": "His upcoming work shifts ('when do I work next?', 'bring up my work shifts', "
-     "'how many hours this week?'): shows them as a panel and returns them. days: how far ahead (default 14).",
+    {"name": "my_shifts", "description": "His upcoming work shifts ('when do I work next?', 'how many hours this fortnight?'): shows the shift "
+     "calendar and returns them. days: how far ahead (default 14).",
      "input_schema": {"type": "object", "properties": {"days": {"type": "integer"}, "show": {"type": "boolean"}}}},
+    {"name": "shift_calendar", "description": "His work shifts as a month calendar, up to the end of his latest roster "
+     "('bring up my work shifts', 'show my roster').", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "week_shifts", "description": "This week's shifts, Monday to Sunday, in one row ('what am I doing this "
+     "week?'). Returns each day.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "set_day", "description": "Change one day on his shift calendar: a shift (start, end HH:MM, replacing that "
+     "day's), off=true for a day off, a note (e.g. 'dentist 2pm'; '' removes it), or clear=true to empty it.",
+     "input_schema": {"type": "object", "required": ["date"], "properties": {
+         "date": S, "start": S, "end": S, "off": {"type": "boolean"}, "note": S, "clear": {"type": "boolean"}, "where": S}}},
     {"name": "delete_shifts", "description": "Remove his saved shifts on a date (YYYY-MM-DD), or everything=true for all.",
      "input_schema": {"type": "object", "properties": {"date": S, "everything": {"type": "boolean"}}}},
 ]
-COMMANDS = {"Work": ["*Bring up my work shifts", "*When do I work next?", "Here's my roster (with a photo)"]}
+COMMANDS = {"Work": ["*Bring up my work shifts", "*What am I doing this week?", "*When do I work next?",
+                     "Here's my roster (with a photo)"]}
 
 
 def selftest():
@@ -109,8 +199,16 @@ def selftest():
         assert r["saved"] == 2 and r["hours"] == 16.5, r
         assert save_shifts([{"date": d(1), "start": "10:00", "end": "14:00"}])["saved"] == 1  # new roster replaces that day
         m = my_shifts()
-        assert m["count"] == 2 and m["hours"] == 12 and shown[-1]["stay"] and "Tomorrow" in shown[-1]["items"][0]["text"], m
+        assert m["count"] == 2 and m["hours"] == 12 and shown[-1]["kind"] == "calendar", m
         assert save_shifts([{"date": "nope", "start": "9", "end": "5"}]).get("error")
+        c = calendar(datetime.date.fromisoformat(d(0)), datetime.date.fromisoformat(d(3)))
+        assert c[d(2)]["off"] and not c[d(0)]["off"] and c[d(3)]["shifts"][0]["hours"] == 8, c  # inside the roster: off
+        assert set_day(d(2), "08:00", "12:00")["shifts"][0]["start"] == "08:00"
+        r = set_day(d(1), off=True, note="dentist")
+        assert r["off"] and not r["shifts"] and r["note"] == "dentist", r
+        assert set_day(d(1), clear=True) == {"date": d(1), "shifts": [], "off": False, "note": ""}
+        assert len(week_shifts()["days"]) == 7 and shown[-1]["kind"] == "calendar" and shown[-1]["week"]
+        assert shift_calendar()["upcoming"] == 2 and d(3) in shown[-1]["days"]
         assert delete_shifts(everything=True)["left"] == 0
         print("shifts self-test passed")
     finally:

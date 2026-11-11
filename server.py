@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.74.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.75.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1030,6 +1030,8 @@ def save_prefs(d):
         s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
+    if "voice_emotion" in d:  # Settings > Voice > Emotion, 0 (flat) to 100 (very expressive)
+        s["voice_emotion"] = max(0, min(100, int(float(d["voice_emotion"]))))
     if "voice_volume" in d:
         s["voice_volume"] = max(0.0, min(1.5, float(d["voice_volume"])))
     if d.get("depth_mode") in ("void", "standard"):  # the HUD's look: inside a huge sphere, or the flat floor
@@ -1045,7 +1047,7 @@ def save_prefs(d):
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
                                                             "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
-                                                            "local_voice", "local_on", "incognito_model", "claude_route", "split_claude_voice",
+                                                            "local_voice", "local_on", "incognito_model", "claude_route", "voice_emotion", "split_claude_voice",
                                                             "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
 
@@ -2335,7 +2337,8 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 audio, mime = (speech.say_lang(body["text"], body["lang"]) if body.get("lang")
-                               else speech.say_voice(body["text"], body["voice"]) if body.get("voice") in speech.SPLIT_VOICES
+                               else speech.say_voice(body["text"], body["voice"], float(body.get("speed") or 1.0))
+                               if body.get("voice") in speech.SPLIT_VOICES
                                else tts(body["text"], body.get("side")))
                 if not audio:
                     raise RuntimeError("no audio returned")
@@ -2365,6 +2368,10 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/shift_day":  # a tap on a day in the shift calendar panel (shifts.set_day)
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            allowed = {"date", "start", "end", "off", "note", "clear", "where"}
+            return self.send_json(shifts.set_day(**{k: v for k, v in body.items() if k in allowed}))
         if self.path == "/api/custom_call":  # a custom add-on's own panel calling its own functions (custom/*.py)
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             fn = next((m.FUNCS[body.get("name")] for m in custom_loader.modules

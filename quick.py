@@ -98,8 +98,20 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
-    if re.fullmatch(r"(?:bring up|show(?: me)?|open|what are|whats|pull up|get) (?:my |the )?(?:work )?(?:shifts|roster)|"
-                    r"my (?:work )?(?:shifts|roster)|when do i (?:work|start)(?: next)?|work shifts", t) and "my_shifts" in R:
+    if re.fullmatch(r"(?:what am i|what s on|whats on|what are my shifts|what do i have|when am i working|show(?: me)? my "
+                    r"(?:work )?(?:shifts|roster)) (?:doing |on |for |working )?this week|my week|this week s shifts", t) \
+            and "week_shifts" in R:
+        days = R["week_shifts"]()["days"]
+        work = [d for d in days if d["shifts"]]
+        if not work:
+            return "Nothing rostered this week, {TITLE}."
+        say = [datetime.date.fromisoformat(d["date"]).strftime("%A") + " " + " and ".join(f"{x['start']} to {x['end']}" for x in d["shifts"])
+               for d in work]
+        return f"{len(work)} shift{'s' if len(work) > 1 else ''} this week, {{TITLE}}: " + ", ".join(say) + "."
+    if re.fullmatch(r"(?:bring up|show(?: me)?|open|pull up|get) (?:my |the )?(?:work )?(?:shifts|roster|shift calendar)(?: calendar)?|"
+                    r"my (?:work )?(?:shifts|roster)|work shifts", t) and "shift_calendar" in R:
+        return R["shift_calendar"]()["note"].split(". Tap")[0].replace(" from today", " from today, {TITLE}") + "."
+    if re.fullmatch(r"(?:what are|whats) (?:my |the )?(?:work )?(?:shifts|roster)|when do i (?:work|start)(?: next)?", t) and "my_shifts" in R:
         r = R["my_shifts"]()
         if not r["count"]:
             return "No shifts saved for the next two weeks, {TITLE}. Send me a photo or screenshot of your roster."

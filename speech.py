@@ -27,7 +27,10 @@ KOKORO_VOICES = {  # name -> (Kokoro voice, language)
     "Emma (British woman)": ("bf_emma", "en-gb"), "Isabella (British woman)": ("bf_isabella", "en-gb"),
     "Alice (British woman)": ("bf_alice", "en-gb"), "Lily (British woman)": ("bf_lily", "en-gb"),
     "Michael (American man)": ("am_michael", "en-us"), "Adam (American man)": ("am_adam", "en-us"),
-    "Heart (American woman)": ("af_heart", "en-us"), "Bella (American woman)": ("af_bella", "en-us")}
+    "Heart (American woman)": ("af_heart", "en-us"), "Bella (American woman)": ("af_bella", "en-us"),
+    "Nicole (American woman, soft)": ("af_nicole", "en-us"), "Sky (American woman)": ("af_sky", "en-us"),
+    "Sarah (American woman)": ("af_sarah", "en-us"), "Nova (American woman)": ("af_nova", "en-us"),
+    "Eric (American man)": ("am_eric", "en-us"), "Liam (American man)": ("am_liam", "en-us")}
 PERSONA_KOKORO = {"jarvis": "George (British man)", "dm": "Lewis (British man)", "friday": "Emma (British woman)",
                   "edith": "Heart (American woman)", "mate": "Michael (American man)"}
 status = {"kokoro": "not installed", "progress": 0}
@@ -62,13 +65,13 @@ def speakable(text):
 
 
 # ---------- Engines ----------
-def edge(text, voice, rate):
+def edge(text, voice, rate, pitch="+0Hz"):
     import asyncio
     import edge_tts
 
     async def run():
         audio = b""
-        async for chunk in edge_tts.Communicate(text, voice, rate=rate).stream():
+        async for chunk in edge_tts.Communicate(text, voice, rate=rate, pitch=pitch).stream():
             if chunk["type"] == "audio":
                 audio += chunk["data"]
         return audio
@@ -99,14 +102,50 @@ def _importable():
         return False
 
 
-def kokoro(text, name, speed=1.0):
+def kokoro(text, name, speed=1.0, emotion=None):
+    """emotion 0-1 (None: Settings > Voice > Emotion): each sentence at its own pace (see feel())."""
+    import numpy as np
+    emotion = voice_emotion() if emotion is None else emotion
     with _lock:  # one at a time: the model is shared
         if "k" not in _kokoro:
             from kokoro_onnx import Kokoro
             _kokoro["k"] = Kokoro(str(VOICES_DIR / "kokoro-v1.0.onnx"), str(VOICES_DIR / "voices-v1.0.bin"))
         voice, lang = KOKORO_VOICES.get(name, KOKORO_VOICES["George (British man)"])
-        samples, rate = _kokoro["k"].create(text, voice=voice, speed=speed, lang=lang)
-    return _wav(samples, rate)
+        parts, rate = [], 24000
+        for sent, (r, _pitch, pause) in feel(text, emotion):
+            samples, rate = _kokoro["k"].create(sent, voice=voice, speed=max(0.6, min(1.6, speed * (1 + r / 100))), lang=lang)
+            parts += [samples, np.zeros(int(rate * pause), dtype=samples.dtype)]
+    return _wav(np.concatenate(parts) if parts else np.zeros(1), rate)
+
+
+def voice_emotion():
+    try:
+        return max(0.0, min(1.0, float(features.settings().get("voice_emotion", 35)) / 100))
+    except (TypeError, ValueError):
+        return 0.35
+
+
+def feel(text, emotion):
+    """More human delivery: the text in sentences, each with a pace change (%), a pitch change (Hz) and a pause
+    after it (s), from how it's written: excited ones (!) quicker and higher, questions rising, trailing ones (...)
+    slower and lower, short punchy lines quicker. emotion 0 = flat, 1 = very expressive. The voices have no real
+    emotion controls, so pace, pitch and timing carry it."""
+    out = []
+    for sent in [s for s in re.split(r"(?<=[.!?…])\s+", text.strip()) if s.strip()] or [text]:
+        r = p = 0.0
+        pause = 0.12
+        if re.search(r"!\s*$", sent):
+            r, p, pause = 9, 14, 0.18
+        elif re.search(r"\?\s*$", sent):
+            r, p = 2, 8
+        elif re.search(r"(\.\.\.|…)\s*$", sent):
+            r, p, pause = -12, -6, 0.45
+        if len(sent.split()) <= 4:
+            r += 4
+        if re.search(r"\b(haha|wow|yes|oh|omg|amazing|love)\b", sent, re.I):
+            p += 6
+        out.append((sent, (r * emotion, p * emotion, pause * (0.5 + emotion))))
+    return out
 
 
 def install_kokoro():
@@ -160,11 +199,15 @@ def say(text, persona):
     return _edge_or_ryan(words, os.environ.get("JARVIS_VOICE") or persona["voice"], persona["rate"])
 
 
-# online voices that can be picked for split mode's avatars (next to all the Kokoro ones)
+# online voices that can be picked for split mode's avatars and roleplay characters (next to all the Kokoro ones)
 ONLINE_VOICES = {"Sonia (British woman, online)": "en-GB-SoniaNeural", "Ryan (British man, online)": "en-GB-RyanNeural",
+                 "Libby (British woman, online)": "en-GB-LibbyNeural", "Thomas (British man, online)": "en-GB-ThomasNeural",
                  "Natasha (Australian woman, online)": "en-AU-NatashaNeural",
                  "William (Australian man, online)": "en-AU-WilliamNeural",
-                 "Aria (American woman, online)": "en-US-AriaNeural", "Guy (American man, online)": "en-US-GuyNeural"}
+                 "Aria (American woman, online)": "en-US-AriaNeural", "Guy (American man, online)": "en-US-GuyNeural",
+                 "Jenny (American woman, online)": "en-US-JennyNeural", "Ava (American woman, online)": "en-US-AvaNeural",
+                 "Emma (American woman, online)": "en-US-EmmaNeural", "Michelle (American woman, online)": "en-US-MichelleNeural",
+                 "Andrew (American man, online)": "en-US-AndrewNeural", "Brian (American man, online)": "en-US-BrianNeural"}
 SPLIT_VOICES = [*KOKORO_VOICES, *ONLINE_VOICES]
 
 
@@ -183,27 +226,44 @@ def say_lang(text, lang):
     return edge(text, LANG_VOICES.get(lang.lower()[:2], "en-GB-SoniaNeural"), "-5%"), "audio/mpeg"
 
 
-def say_voice(text, name, speed=1.0):
+def say_voice(text, name, speed=1.0, emotion=None):
     """Speech in one named voice from SPLIT_VOICES (split mode). A Kokoro voice installs Kokoro the first time;
     until it's ready (or if it fails) an online voice stands in."""
     words = speakable(text)
     if name in KOKORO_VOICES:
         if kokoro_ready():
             try:
-                return kokoro(words, name, speed), "audio/wav"
+                return kokoro(words, name, speed, emotion), "audio/wav"
             except Exception as e:
                 print("Kokoro voice failed, using an online voice:", repr(e))
         elif status["kokoro"] not in ("installing", "downloading"):
             install_kokoro()
         name = "Ryan (British man, online)" if "man)" in name and "woman" not in name else "Sonia (British woman, online)"
-    return _edge_or_ryan(words, ONLINE_VOICES.get(name, "en-GB-SoniaNeural"), f"{round((speed - 1) * 100):+d}%")
+    return _edge_or_ryan(words, ONLINE_VOICES.get(name, "en-GB-SoniaNeural"), f"{round((speed - 1) * 100):+d}%", emotion)
 
 
 SILENCE = (b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00@\x1f\x00\x00@\x1f\x00\x00\x01\x00\x08\x00"
            b"data\x00\x00\x00\x00", "audio/wav")  # nothing to say (only symbols): a moment of quiet, not an error
 
 
-def _edge_or_ryan(words, voice, rate):
+def _edge_feel(words, voice, rate, emotion):
+    """The online voice, sentence by sentence with feel() (mp3 clips join end to end)."""
+    base = int(str(rate).rstrip("%") or 0)
+    runs = []  # neighbouring sentences that sound the same go in one request
+    for sent, (r, p, _) in feel(words, voice_emotion() if emotion is None else emotion):
+        key = (f"{round(base + r):+d}%", f"{round(p):+d}Hz")
+        if runs and runs[-1][1] == key:
+            runs[-1][0] += " " + sent
+        else:
+            runs.append([sent, key])
+    if len(runs) == 1:
+        return edge(runs[0][0], voice, *runs[0][1])
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(4) as pool:  # all at once, so it's no slower than one request
+        return b"".join(pool.map(lambda x: edge(x[0], voice, *x[1]), runs))
+
+
+def _edge_or_ryan(words, voice, rate, emotion=None):
     """The online voice; if it returns nothing, Jarvis's own Ryan; if the online voices are down altogether,
     Kokoro on this PC when it's installed. Never the robotic Windows voice if it can be helped."""
     if not re.search(r"[A-Za-z0-9]", words):
@@ -211,7 +271,7 @@ def _edge_or_ryan(words, voice, rate):
     plain = re.sub(r"[^A-Za-z0-9 ,.?!']+", " ", words)  # the online voice sometimes chokes on odd characters
     for attempt in (words, words, plain):  # its hiccups are usually brief: try again before changing voice
         try:
-            return edge(attempt, voice, rate), "audio/mpeg"
+            return _edge_feel(attempt, voice, rate, emotion), "audio/mpeg"
         except Exception as e:
             print(f"online voice {voice} failed on {attempt[:60]!r}:", repr(e))
     if voice != "en-GB-RyanNeural":

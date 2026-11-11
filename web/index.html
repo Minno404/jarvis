@@ -204,6 +204,14 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
 .pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
 .holo-panel.wide{width:min(520px,62vw)}
+.scal-m{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--cyan);margin:8px 0 4px}
+.scal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.scal-g i{font-style:normal;font-size:9px;color:var(--mute);text-align:center}
+.scal-d{all:unset;box-sizing:border-box;min-height:46px;padding:3px;border:1px solid rgba(var(--rgb),.18);font-size:10px;line-height:1.2;cursor:pointer;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.scal-d b{font-size:11px}.scal-d span{color:var(--cyan)}.scal-d .o{color:var(--mute)}.scal-d small{color:var(--amber);font-size:9px}
+.scal-d.work{background:rgba(var(--rgb),.12)}.scal-d.today{border-color:var(--cyan);box-shadow:0 0 6px rgba(var(--rgb),.5)}.scal-d.past{opacity:.45}.scal-d:hover{border-color:var(--cyan)}
+.scal.week .scal-d{min-height:60px}
+.scal-ed{margin-top:8px;font-size:12px}.scal-ed:not([hidden]){display:block!important}.scal-ed .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:5px 0}.scal-ed .t{color:var(--cyan)}
+.scal-ed input{background:rgba(0,0,0,.35);color:var(--text);border:1px solid rgba(var(--rgb),.35);font:inherit;padding:4px;box-sizing:border-box}.scal-ed input[name=nt]{width:100%}.scal-ed button{flex:1 1 auto;font-size:11px}
 .free .pics{height:100%}.free .pics.n1 .pic{height:100%}
 @media (max-width:1000px){.grip{cursor:auto}}
 .panel.closed{display:none!important}
@@ -681,6 +689,8 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
           <span class="hint" id="speedVal"></span></div>
         <div class="keyrow"><span class="hint">Volume</span><input type="range" id="voiceVol" min="0" max="1.5" step="0.05" style="flex:1">
           <span class="hint" id="volVal"></span></div></div>
+      <div class="keyrow" title="How much his pace and pitch change with the words: excited lines quicker and higher, questions rising, trailing lines slower. All voices."><span class="hint">Emotion</span><input type="range" id="voiceEmo" min="0" max="100" step="5" style="flex:1">
+        <span class="hint" id="emoVal"></span></div>
       <div class="keyrow phoneonly"><span class="hint">On this phone</span><select id="phoneSound" style="flex:1"><option value="mix">Play alongside YouTube and music (Silent switch mutes him)</option><option value="duck">Lower YouTube and music while he talks (try in Silent)</option><option value="take">Take over like a music app (heard in Silent, pauses others)</option></select></div>
       <div class="keyrow"><button type="button" id="voiceTest">Test voice</button></div>
     </fieldset>
@@ -1139,11 +1149,11 @@ function audio(){
       a.setAttribute('x-webkit-airplay','deny');a.volume=0.01;document.body.append(a);a.play().catch(()=>{mediaOn=false})}catch(e){mediaOn=false}}
   try{if(!actx){actx=new AudioContext();analyser=actx.createAnalyser();analyser.fftSize=1024;voiceGain=actx.createGain();voiceGain.gain.value=voiceVol;analyser.connect(voiceGain).connect(actx.destination);abuf=new Uint8Array(analyser.fftSize)}actx.resume()}catch(e){}
 }
-function voice(side,lang){
+function voice(side,lang,opt){
   let pending='',all='',chain=Promise.resolve(),at=0,playing=0,started=false,closed=false,sent=0;
   const gen=voiceGen,cut=()=>gen!==voiceGen;
   const done=()=>{if(cut())return;if(side&&actx&&speechAt>actx.currentTime+.1)return;voiceOn=false;if(split)split.speaker=null;setMode('idle')};
-  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,side,lang})})
+  const clip=t=>fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,side,lang,...(opt||{})})})
     .then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()}).then(b=>actx.decodeAudioData(b)).catch(()=>null);
   const queue=t=>{t=t.trim();if(!t||!actx||cut())return;const c=clip(t);chain=chain.then(async()=>{const buf=await c;if(!buf||cut())return;
     const src=actx.createBufferSource();src.buffer=buf;src.connect(analyser);at=Math.max(at,speechAt,actx.currentTime+.03);src.start(at);
@@ -2564,6 +2574,7 @@ function showPanel(ev){
     for(const it of ev.items||[]){const li=document.createElement('li'),sp=document.createElement('span');sp.textContent=it.text;
       if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';if(it.status)li.className='st-'+it.status;li.append(sp);ul.append(li)}p.append(ul)}
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
+  else if(ev.kind==='calendar')shiftCal(p,ev);
   else if(ev.kind==='recipe'){const d=document.createElement('div'),miss=new Set((ev.missing||[]).map(m=>m.toLowerCase()));d.className='recipe';
     const need=i=>[...miss].some(m=>i.toLowerCase().includes(m));
     d.innerHTML=`<div class="rmeta">${[ev.minutes&&ev.minutes+' min',ev.serves&&'serves '+ev.serves].filter(Boolean).map(esc).join(' · ')}</div>`
@@ -2617,6 +2628,30 @@ function showPanel(ev){
   movable(p,null);
   if(ev.kind!=='countdown'&&!ev.stay)setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
 }
+// Work shifts as a month calendar (or one week in a row): tap a day to give it a shift, mark it off, or add a note.
+function shiftCal(p,ev){
+  const box=document.createElement('div'),ed=document.createElement('form'),days=ev.days||{};box.className='scal'+(ev.week?' week':'');ed.className='scal-ed';ed.hidden=true;
+  const D=k=>new Date(k+'T12:00'),WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const cell=k=>{const v=days[k]||{shifts:[]},d=D(k);
+    return `<button type="button" class="scal-d${k===ev.today?' today':''}${k<ev.today?' past':''}${v.off?' off':''}${v.shifts.length?' work':''}" data-k="${k}">`
+      +`<b>${ev.week?WD[(d.getDay()+6)%7]+' ':''}${d.getDate()}</b>`
+      +v.shifts.map(x=>`<span>${esc(x.start)}<br>${esc(x.end)}</span>`).join('')+(v.off?'<span class="o">Off</span>':'')+(v.note?`<small>${esc(v.note)}</small>`:'')+'</button>'};
+  const draw=()=>{const ks=Object.keys(days).sort();let h='',month='';
+    for(const k of ks){const d=D(k),m=d.toLocaleDateString([],{month:'long',year:'numeric'});
+      if(!ev.week&&m!==month){if(month)h+='</div>';month=m;h+=`<div class="scal-m">${esc(m)}</div><div class="scal-g">`+WD.map(w=>`<i>${w}</i>`).join('')+'<em></em>'.repeat((d.getDay()+6)%7)}
+      else if(ev.week&&!h)h='<div class="scal-g">';h+=cell(k)}
+    box.innerHTML=h+'</div>'};
+  let k=null;
+  box.onclick=e=>{const b=e.target.closest('.scal-d');if(!b)return;k=b.dataset.k;const v=days[k]||{shifts:[]},s=v.shifts[0]||{};
+    ed.hidden=false;ed.querySelector('.t').textContent=D(k).toLocaleDateString([],{weekday:'long',day:'numeric',month:'long'});
+    ed.st.value=s.start||'';ed.en.value=s.end||'';ed.nt.value=v.note||''};
+  ed.innerHTML='<div class="t"></div><div class="r"><input type="time" name="st"><span>to</span><input type="time" name="en"></div><input name="nt" placeholder="Note (optional)" maxlength="80">'
+    +'<div class="r"><button type="submit">Save shift</button><button type="button" data-a="off">Day off</button><button type="button" data-a="clear">Clear</button><button type="button" data-a="x">Cancel</button></div>';
+  const send=async body=>{try{const r=await (await fetch('/api/shift_day',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:k,note:ed.nt.value,...body})})).json();
+    if(r.error)throw new Error(r.error);days[k]={shifts:r.shifts,off:r.off,note:r.note};draw();ed.hidden=true}catch(e){ed.querySelector('.t').textContent=e.message||'Not saved'}};
+  ed.onsubmit=e=>{e.preventDefault();if(ed.st.value&&ed.en.value)send({start:ed.st.value,end:ed.en.value});else send({})};
+  ed.onclick=e=>{const a=e.target.dataset?.a;if(a==='x')ed.hidden=true;else if(a==='off')send({off:true});else if(a==='clear')send({clear:true,note:''})};
+  draw();p.classList.add('wide');p.append(box,ed)}
 const fmtNum=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString():Math.abs(v)>=100?Math.round(v):(+v).toFixed(2).replace(/\.00$/,'');
 const PALETTE=()=>{const a=css('--rgb');return[`rgb(${a})`,'#ffb347','#b98cff','#4dff9a','#ff6bd6','#ffe14d','#3d8bff','#ff8a3d',`rgba(${a},.55)`,'#c8d6e0','#ff5a5a','#3dffe0']};
 function drawLine(c,ev){
@@ -2708,7 +2743,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,voice_emotion:info.voice_emotion,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -2898,6 +2933,7 @@ function showPrefs(p){
   document.querySelectorAll('input[name=as]').forEach(r=>r.checked=r.value===(prefs.avatar_style||'hologram'));
   document.querySelectorAll('input[name=ve]').forEach(r=>r.checked=r.value===(prefs.voice_engine||'edge'));
   const vv=prefs.voice_volume??1;$('voiceVol').value=vv;$('volVal').textContent=Math.round(vv*100)+'%';setVoiceVol(vv);
+  {const e=prefs.voice_emotion??35;$('voiceEmo').value=e;$('emoVal').textContent=e+'%'}
   $('voiceSpeed').value=prefs.voice_speed||1;$('speedVal').textContent=(+(prefs.voice_speed||1)).toFixed(2)+'×';
   $('pttName').textContent=keyName(prefs.ptt_key);
   $('pttHint').textContent=/^(Key|Digit|Space|Enter|Tab)/.test(prefs.ptt_key||'')?"Heads up: that key also types, so it'll trigger Jarvis while you type. F-keys, ` or a mouse side button are better for games."
@@ -2963,6 +2999,8 @@ $('voiceSpeed').oninput=()=>$('speedVal').textContent=(+$('voiceSpeed').value).t
 $('voiceVol').oninput=()=>{setVoiceVol($('voiceVol').value);$('volVal').textContent=Math.round(voiceVol*100)+'%'};
 $('voiceVol').onchange=()=>{savePref({voice_volume:+$('voiceVol').value});try{audio();const v=voice();v.push('Volume set.');v.end()}catch(e){}};
 $('voiceSpeed').onchange=()=>savePref({voice_speed:+$('voiceSpeed').value});
+$('voiceEmo').oninput=()=>$('emoVal').textContent=$('voiceEmo').value+'%';
+$('voiceEmo').onchange=()=>savePref({voice_emotion:+$('voiceEmo').value});
 $('voiceTest').onclick=()=>{audio();announce("Good evening. This is how I sound now. Gold is up 0.4 percent, and your next reminder is at six.")};
 $('settingsBtn').onclick=()=>{$('settingsModal').hidden=false;$('setMsg').textContent='';loadModels();showPrefs({});refreshVoice();refreshLocal();loadTrading()};
 const tradeFields=()=>[...document.querySelectorAll('#tradeSet [data-t]')];
