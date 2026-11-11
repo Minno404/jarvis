@@ -1,4 +1,4 @@
 {
- "version": "1.82.0",
- "notes": "Autopilot: a free chart watcher checks gold, GBPJPY and EURAUD at every 5-minute candle close and asks the brains only when it spots a setup (a breakout or a rejection at a key level, with the H1 trend), instead of every 15 minutes. At most 12 brain questions a day (auto_max_asks), one trade per pair and two at once (auto_max_open), news checked per pair's currencies. The test run now replays the watcher's past setups."
+ "version": "1.82.1",
+ "notes": "The autopilot's and the test button's trades are kept apart from yours: they no longer count toward your tilt meter, trade warnings, journal, debriefs or the trading style the autopilot copies. Its own trades have their own reviews ('show my autopilot trades')."
 }

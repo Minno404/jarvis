@@ -15,7 +15,7 @@ SIZE_UP_X = 2.0          # warn when a new trade is this many times your usual s
 REVENGE_MIN = 5          # warn when you re-enter within this many minutes of a loss
 LOSSES_A_DAY = 3         # warn when you open another trade after this many losses in a day
 DAILY_LOSS_PCT = 5.0     # warn once when the day's losses reach this % of the starting balance
-NEWS_CURRENCIES = {"USD", "GBP", "JPY", "EUR", "AUD"}  # gold, GBPJPY and EURAUD
+NEWS_CURRENCIES = {"USD", "GBP", "JPY"}  # gold and GBPJPY (the autopilot checks each pair's own)
 NEWS_WARN_MIN = 15       # minutes of warning before high-impact news
 REVIEW_QUIET_MIN = 90    # end-of-day review once there's been no trading for this long
 
@@ -200,7 +200,7 @@ class Watch:
         closed_today = R["mt5_trades"](since=today, limit=200)
         history = R["mt5_trades"](limit=30)
         usual = statistics.median(float(t["volume"]) for t in history) if history else 0
-        open_now = {p["ticket"]: p for p in acct["open_positions"]}
+        open_now = {p["ticket"]: p for p in acct["open_positions"] if not p.get("jarvis")}  # his own trades only
         if self.seen is None:
             self.seen = set(open_now)  # don't warn about trades that were open before Jarvis started
         for ticket, p in open_now.items():

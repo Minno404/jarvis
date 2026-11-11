@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.82.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.82.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -316,7 +316,9 @@ def account_status():
     return {"balance": a.balance, "equity": a.equity, "floating_pnl": a.profit, "margin_free": a.margin_free,
             "open_positions": [{"ticket": p.ticket, "symbol": p.symbol, "direction": "Long" if p.type == 0 else "Short",
                                 "volume": p.volume, "entry": p.price_open, "now": p.price_current, "stop": p.sl,
-                                "target": p.tp, "pnl": p.profit, "opened": _ts(p.time)}
+                                "target": p.tp, "pnl": p.profit, "opened": _ts(p.time),
+                                **({"jarvis": "autopilot"} if p.magic == mt5trade.MAGIC_AUTO else
+                                   {"jarvis": "test"} if p.magic == mt5trade.MAGIC_TEST else {})}
                                for p in mt5.positions_get() or []]}
 
 
@@ -372,7 +374,13 @@ def mt5_sync_live():
         # logged into another account: the journal now shows that account's trades
         features._save("state.json", {**state, "mt5_account": f"MT5 {acct.login}", "mt5_login": str(acct.login)})
     deals = mt5.history_deals_get(datetime.datetime(2020, 1, 1), datetime.datetime.now() + datetime.timedelta(days=2))
-    rows = positions_from_deals(deals or [], acct.balance)
+    # the autopilot's and the test button's trades aren't his: out of his journal, tilt meter, debriefs and the
+    # style the autopilot copies (they have their own reviews: autoreview.py)
+    bots = {str(d.position_id) for d in deals or [] if getattr(d, "magic", 0) in (mt5trade.MAGIC_AUTO, mt5trade.MAGIC_TEST)}
+    state = features._load("state.json", {})
+    if bots - set(state.get("bot_positions", [])):
+        features._save("state.json", {**state, "bot_positions": sorted(bots | set(state.get("bot_positions", [])))[-2000:]})
+    rows = [r for r in positions_from_deals(deals or [], acct.balance) if r["position"] not in bots]
     for r in rows:
         r["account"] = str(acct.login)
     _merge_positions(rows, "MT5 terminal")
@@ -395,6 +403,8 @@ def mt5_load(since=None, until=None, symbol=None):
     elif login and any(t.get("account") for t in rows):
         rows = []  # an account with no trades yet: an empty journal (trades from before accounts were recorded show
         #            only until the first look at MT5 labels them)
+    bots = set(features._load("state.json", {}).get("bot_positions", []))
+    rows = [t for t in rows if t.get("position") not in bots]  # Jarvis's own trades (autopilot, test) aren't his
     out = []
     for t in rows:
         if since and t["closed"] < since or until and t["closed"][:10] > until:
