@@ -738,7 +738,8 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
     <fieldset id="paySet"><legend>Pay</legend>
       <p class="hint">For "how much will I get paid this week?": your hourly rate and the extras on top, before tax.</p>
       <div class="keyrow"><span class="hint tsl">Hourly rate $</span><input type="number" id="payRate" min="0" step="0.01" style="width:90px"><span class="hint">Nights +%</span><input type="number" id="payNight" min="0" step="1" style="width:60px"><span class="hint">from</span><input type="time" id="payNf"><span class="hint">to</span><input type="time" id="payNt"></div>
-      <div class="keyrow"><span class="hint tsl">Saturday +%</span><input type="number" id="paySat" min="0" step="1" style="width:60px"><span class="hint">Sunday +%</span><input type="number" id="paySun" min="0" step="1" style="width:60px"><button type="button" id="paySave">Save</button></div>
+      <div class="keyrow"><span class="hint tsl">Saturday +%</span><input type="number" id="paySat" min="0" step="1" style="width:60px"><span class="hint">Sunday +%</span><input type="number" id="paySun" min="0" step="1" style="width:60px"></div>
+      <div class="keyrow"><span class="hint tsl">Meal allowance $</span><input type="number" id="payMeal" min="0" step="0.01" style="width:80px"><span class="hint">tax-free, every</span><input type="number" id="payMealH" min="1" step="0.5" style="width:55px"><span class="hint">hours on trips (shifts in a row lasting 12+ hours; local and shunt shifts don't count)</span><button type="button" id="paySave">Save</button></div>
     </fieldset>
     <fieldset id="persSet"><legend>Personality</legend>
       <p class="hint">Jarvis's personality grows from how you talk with him: what you laugh at, what you skip. Drag to set it yourself.</p>
@@ -3195,10 +3196,10 @@ const rmFill=r=>{if(!r)return;$('rmDay').value=r.check_day||'';$('rmGmail').valu
 fetch('/api/roster_mail').then(r=>r.json()).then(rmFill).catch(()=>{});
 $('rmSave').onclick=async()=>{const r=await fetch('/api/roster_mail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gmail:$('rmGmail').value,app_password:$('rmPass').value,sender:$('rmSender').value,name:$('rmName').value,check_day:$('rmDay').value})}).then(r=>r.json()).catch(()=>null);
   $('rmPass').value='';rmFill(r);$('rmSt').textContent=r?'Saved. Say "get my roster" to load the newest one.':'Couldn\'t save.'};
-const payFill=p=>{if(!p||p.error)return;$('payRate').value=p.rate||'';$('payNight').value=p.night_pct;$('paySat').value=p.sat_pct;$('paySun').value=p.sun_pct;$('payNf').value=p.night_from;$('payNt').value=p.night_to};
+const payFill=p=>{if(!p||p.error)return;$('payRate').value=p.rate||'';$('payNight').value=p.night_pct;$('paySat').value=p.sat_pct;$('paySun').value=p.sun_pct;$('payNf').value=p.night_from;$('payNt').value=p.night_to;$('payMeal').value=p.meal||'';$('payMealH').value=p.meal_every};
 fetch('/api/pay').then(r=>r.json()).then(payFill).catch(()=>{});
 $('paySave').onclick=()=>fetch('/api/pay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rate:+$('payRate').value||0,
-  night_pct:+$('payNight').value||0,sat_pct:+$('paySat').value||0,sun_pct:+$('paySun').value||0,night_from:$('payNf').value||'18:00',night_to:$('payNt').value||'06:00'})})
+  night_pct:+$('payNight').value||0,sat_pct:+$('paySat').value||0,sun_pct:+$('paySun').value||0,night_from:$('payNf').value||'18:00',night_to:$('payNt').value||'06:00',meal:+$('payMeal').value||0,meal_every:+$('payMealH').value||8})})
   .then(r=>r.json()).then(p=>{payFill(p);$('setMsg').textContent=p.error||'Pay rates saved. Ask "how much will I get paid this week?"'}).catch(()=>{});
 const persFill=r=>{if(!r||!r.traits)return;const N={humour:['Dry','Playful'],warmth:['Businesslike','Warm'],chattiness:['Brief','Chatty'],formality:['Casual','Formal'],cheek:['Polite','Cheeky']};
   $('persTraits').innerHTML=Object.entries(r.traits).map(([k,v])=>`<div class="keyrow"><span class="hint tsl">${N[k][0]}</span><input type="range" min="0.05" max="0.95" step="0.05" value="${v}" data-trait="${k}" style="flex:1"><span class="hint">${N[k][1]}</span></div>`).join('');

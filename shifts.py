@@ -155,7 +155,8 @@ def set_day(date, start=None, end=None, off=False, note=None, clear=False, where
 
 
 # ---------- Pay ----------
-PAY = {"rate": 0.0, "night_pct": 0.0, "sat_pct": 0.0, "sun_pct": 0.0, "night_from": "18:00", "night_to": "06:00"}
+PAY = {"rate": 0.0, "night_pct": 0.0, "sat_pct": 0.0, "sun_pct": 0.0, "night_from": "18:00", "night_to": "06:00",
+       "meal": 0.0, "meal_every": 8.0, "trip_min_hours": 12.0}  # meal: tax-free allowance per meal_every hours away
 
 
 def pay_settings():
@@ -184,6 +185,36 @@ def shift_pay(s, pay=None):
     return round(_hours(s) * pay["rate"] * sum(mults) / len(mults), 2) if mults else 0.0
 
 
+def _span(s):
+    st = datetime.datetime.strptime(f"{s['date']} {s['start']}", "%Y-%m-%d %H:%M")
+    en = datetime.datetime.strptime(f"{s['date']} {s['end']}", "%Y-%m-%d %H:%M")
+    return st, en + datetime.timedelta(days=1) if en <= st else en
+
+
+def trips(rows, min_hours=12.0):
+    """His trips away (Perth, Broken Hill...): shifts that run straight on into the next one, together lasting at
+    least min_hours. Local and shunt shifts are shorter, so they never count. -> [(start, end, shifts)]"""
+    chains = []
+    for s in sorted(rows, key=lambda s: _span(s)[0]):
+        st, en = _span(s)
+        if chains and st <= chains[-1][1]:  # starts as the last one ends: the same trip
+            chains[-1][1] = max(chains[-1][1], en)
+            chains[-1][2].append(s)
+        else:
+            chains.append([st, en, [s]])
+    return [tuple(c) for c in chains if (c[1] - c[0]).total_seconds() / 3600 >= min_hours]
+
+
+def meals(rows, pay=None):
+    """Meal allowances on trips: one for every full `meal_every` hours away. -> [(trip start, end, count, $)]"""
+    pay = pay or pay_settings()
+    out = []
+    for st, en, _ in trips(rows, pay["trip_min_hours"]):
+        n = int((en - st).total_seconds() / 3600 // pay["meal_every"]) if pay["meal_every"] else 0
+        out.append((st, en, n, round(n * pay["meal"], 2)))
+    return out
+
+
 def pay_estimate(weeks_ahead=0, weeks=1):
     """Expected before-tax pay for a week (Monday to Sunday; weeks_ahead 0 = this week, -1 = last week) or a run of
     weeks, from his saved shifts and pay rates (Settings > Pay, or set_pay)."""
@@ -196,15 +227,25 @@ def pay_estimate(weeks_ahead=0, weeks=1):
     rows = [s for s in _load() if mon.isoformat() <= s["date"] < end]
     by = [{"date": s["date"], "start": s["start"], "end": s["end"], "hours": _hours(s), "pay": shift_pay(s, pay)}
           for s in rows]
+    near = [s for s in _load() if (mon - datetime.timedelta(days=3)).isoformat() <= s["date"] < end]  # whole trips
+    trip = [m for m in meals(near, pay) if mon.isoformat() <= m[0].date().isoformat() < end]  # counted by start day
+    allow = round(sum(m[3] for m in trip), 2) if pay["meal"] else 0.0
     return {"from": mon.isoformat(), "to": end, "shifts": len(by), "hours": round(sum(x["hours"] for x in by), 2),
             "gross": round(sum(x["pay"] for x in by), 2), "by_shift": by,
-            "note": "Before tax and super. Check it against the pay that lands in his bank (spending tools) if he asks."}
+            "meal_allowance": allow, "meals": sum(m[2] for m in trip),
+            "trips": [{"from": f"{a:%a %d %b %H:%M}", "to": f"{b:%a %d %b %H:%M}", "meals": n} for a, b, n, _ in trip],
+            "note": "gross is before tax and super; meal_allowance is tax-free, on top. Check it against the pay that "
+                    "lands in his bank (spending tools) if he asks."}
 
 
-def set_pay(rate=None, night_pct=None, sat_pct=None, sun_pct=None, night_from=None, night_to=None):
-    """His pay: hourly rate ($) and the % on top for weekday nights (night_from to night_to), Saturdays and Sundays."""
+def set_pay(rate=None, night_pct=None, sat_pct=None, sun_pct=None, night_from=None, night_to=None, meal=None,
+            meal_every=None, trip_min_hours=None):
+    """His pay: hourly rate ($) and the % on top for weekday nights (night_from to night_to), Saturdays and Sundays;
+    meal: the tax-free allowance ($) for every meal_every hours on a trip (trips: shifts in a row lasting
+    trip_min_hours or more)."""
     p = pay_settings()
-    for k, v in (("rate", rate), ("night_pct", night_pct), ("sat_pct", sat_pct), ("sun_pct", sun_pct)):
+    for k, v in (("rate", rate), ("night_pct", night_pct), ("sat_pct", sat_pct), ("sun_pct", sun_pct), ("meal", meal),
+                 ("meal_every", meal_every), ("trip_min_hours", trip_min_hours)):
         if v is not None:
             p[k] = max(0.0, float(v))
     for k, v in (("night_from", night_from), ("night_to", night_to)):
@@ -220,7 +261,10 @@ def _pay_note(days):
     if not pay["rate"]:
         return ""
     total = sum(shift_pay(x, pay) for v in days.values() for x in v["shifts"])
-    return f" · about ${total:,.0f} before tax"
+    first = min(days)
+    near = [s for s in _load() if (datetime.date.fromisoformat(first) - datetime.timedelta(days=3)).isoformat() <= s["date"] <= max(days)]
+    allow = sum(m[3] for m in meals(near, pay) if first <= m[0].date().isoformat() <= max(days))
+    return f" · about ${total:,.0f} before tax" + (f" + ${allow:,.0f} meal allowance" if allow else "")
 
 
 def delete_shifts(date=None, everything=False):
@@ -263,9 +307,12 @@ TOOLS = [
      "this week?', 'what's my next pay?'): weeks_ahead (0 this week, 1 next, -1 last), weeks (2 for a fortnight).",
      "input_schema": {"type": "object", "properties": {"weeks_ahead": {"type": "integer"}, "weeks": {"type": "integer"}}}},
     {"name": "set_pay", "description": "Save his pay rates when he tells you: rate ($ an hour), night_pct, sat_pct, "
-     "sun_pct (% extra on top), night_from / night_to (HH:MM, default 18:00 to 06:00).",
+     "sun_pct (% extra on top), night_from / night_to (HH:MM, default 18:00 to 06:00), meal ($ tax-free meal "
+     "allowance per meal_every hours on trips, default every 8 h; trips are shifts in a row lasting trip_min_hours, "
+     "default 12, so local and shunt shifts don't count).",
      "input_schema": {"type": "object", "properties": {"rate": {"type": "number"}, "night_pct": {"type": "number"},
-                      "sat_pct": {"type": "number"}, "sun_pct": {"type": "number"}, "night_from": S, "night_to": S}}},
+                      "sat_pct": {"type": "number"}, "sun_pct": {"type": "number"}, "night_from": S, "night_to": S,
+                      "meal": {"type": "number"}, "meal_every": {"type": "number"}, "trip_min_hours": {"type": "number"}}}},
     {"name": "delete_shifts", "description": "Remove his saved shifts on a date (YYYY-MM-DD), or everything=true for all.",
      "input_schema": {"type": "object", "properties": {"date": S, "everything": {"type": "boolean"}}}},
 ]
@@ -308,6 +355,12 @@ def selftest():
         assert shift_pay({"date": "2026-11-15", "start": "08:00", "end": "12:00", "paid": 2}) == 160
         assert shift_pay({"date": "2026-11-13", "start": "16:00", "end": "20:00"}) == 180  # 2 h day + 2 h night
         assert pay_estimate()["gross"] > 0
+        set_pay(meal=30)
+        trip = [{"date": "2026-11-16", "start": "09:00", "end": "01:00"}, {"date": "2026-11-17", "start": "01:00", "end": "01:00"},
+                {"date": "2026-11-18", "start": "01:00", "end": "09:00"}, {"date": "2026-11-18", "start": "20:00", "end": "04:00"},
+                {"date": "2026-11-10", "start": "22:00", "end": "05:30"}]
+        m = meals(trip)
+        assert [(a.isoformat(), n, d) for a, _, n, d in m] == [("2026-11-16T09:00:00", 6, 180)], m  # 48 h away; local ones: none
         assert delete_shifts(everything=True)["left"] == 0
         print("shifts self-test passed")
     finally:

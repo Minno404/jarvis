@@ -1,4 +1,4 @@
 {
- "version": "1.81.0",
- "notes": "Autopilot: no new trades 30 minutes either side of high-impact news (trading setting auto_news_min). 'Which autopilot settings are best?' replays the last test run's AI answers with 27 mixes of reward:risk, minimum stop and order expiry, with no new AI questions. Pay estimate: set your rates in Settings > Pay, then ask 'how much will I get paid this week?' (nights, Saturdays and Sundays included); the week view shows it too."
+ "version": "1.81.1",
+ "notes": "Pay: a tax-free meal allowance for every 8 hours on trips (shifts in a row lasting 12+ hours; local and shunt shifts don't count), shown on top of the before-tax estimate. Set it in Settings > Pay."
 }

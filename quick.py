@@ -105,7 +105,9 @@ def quick(text):
         r = R["pay_estimate"](weeks_ahead={"this": 0, "next": 1, "last": -1}[when], weeks=2 if span == "fortnight" else 1)
         if r.get("error"):
             return r["error"]
-        return (f"About ${r['gross']:,.2f} before tax {when} {span}, {{TITLE}}: {r['shifts']} shift"
+        meal = (f", plus ${r['meal_allowance']:,.2f} tax-free meal allowance ({r['meals']} meals)"
+                if r.get("meal_allowance") else "")
+        return (f"About ${r['gross']:,.2f} before tax {when} {span}{meal}, {{TITLE}}: {r['shifts']} shift"
                 f"{'s' if r['shifts'] != 1 else ''}, {r['hours']:g} paid hours.")
     if re.fullmatch(r"(?:which|what) (?:auto ?pilot )?settings (?:are|work|would be) (?:the )?best(?: for the auto ?pilot)?|"
                     r"test (?:the |my )?auto ?pilot settings", t) and "test_autopilot_settings" in R:
