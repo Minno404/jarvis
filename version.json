@@ -1,4 +1,4 @@
 {
- "version": "1.80.0",
- "notes": "Personality that grows: Jarvis's humour, warmth, chattiness, formality and cheek shift slowly with how you respond (Settings > Personality, with sliders and a reset). He keeps inside jokes and shared moments, forms his own opinions, follows up on things you're in the middle of, starts the odd conversation (up to twice a day by default) and offers quick games like would you rather."
+ "version": "1.80.1",
+ "notes": "A Mute button next to Mic on the PC: Jarvis stops listening to your microphone (even \"Hey Jarvis\") until you press Unmute. It stays in step with the mini core's and the tray's mute."
 }

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.80.0** (shown at the bottom right of the HUD)
+**Version 1.80.1** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.80.1**: A Mute button next to Mic on the PC: Jarvis stops listening to your microphone (even "Hey Jarvis") until you press Unmute. It stays in step with the mini core's and the tray's mute.
 - **1.80.0**: Personality that grows: Jarvis's humour, warmth, chattiness, formality and cheek shift slowly with how you respond (Settings > Personality, with sliders and a reset). He keeps inside jokes and shared moments, forms his own opinions, follows up on things you're in the middle of, starts the odd conversation (up to twice a day by default) and offers quick games like would you rather.
 - **1.79.0**: Gemini as a brain (free API key from aistudio.google.com, Settings > Brain): chat with all of Jarvis's tools, a fallback after ChatGPT, and a trading brain. Autopilot: each trade keeps one brain's whole plan (no more mixing one brain's stop with the other's entry), stops at least 1 M15 ATR away (tighter ones are widened), and trades with the H1/H4 trend. The test run checks 60 moments by default.
 - **1.78.0**: Autopilot: the brains can plan an entry (a buy or sell stop for a breakout, a limit for a pullback) instead of saying 'none' while they wait for confirmation. Planned entries not reached within 2 hours are cancelled (trading setting auto_order_hours). The test run simulates them too.

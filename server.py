@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.80.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.80.1"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -656,6 +656,7 @@ def voice_mute(on=True):
     except Exception:
         pass
     push_event({"type": "status"})
+    push_event({"type": "muted", "on": bool(on)})  # the HUD's Mute button
     return {"muted": bool(on)}
 
 
@@ -2219,6 +2220,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(roster_mail.public())
         if self.path == "/api/personality":
             return self.send_json(bond.personality_info())
+        if self.path == "/api/voice_mute":
+            return self.send_json({"muted": bool(features.settings().get("voice_muted"))})
         if self.path == "/api/phone_alerts":
             return self.send_json({**alerts.settings_info(), "commute": features.settings().get("shift_commute_min", 30)})
         if self.path == "/api/incognito":  # a page opening mid-incognito shows the badge
@@ -2400,6 +2403,11 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/voice_mute":  # the HUD's Mute button: Jarvis stops listening to the PC's microphone
+            if not self.local():
+                return self.send_error(403)
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            return self.send_json(voice_mute(bool(body.get("on"))))
         if self.path == "/api/personality":  # Settings > Personality: reset, conversations a day, a trait
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             return self.send_json(bond.set_personality(bool(body.get("reset")), body.get("chat_starts"),
