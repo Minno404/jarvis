@@ -52,6 +52,7 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "trade_daily_target_unit": "%",
     "auto_max_trades": 3,           # autopilot trades a day
     "auto_min_rr": 1.5,             # reward to risk at least this
+    "auto_order_hours": 2.0,        # a planned entry (limit or stop order) not reached within this is cancelled
     "auto_symbols": ["XAUUSD"],     # what the autopilot looks at
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
     "auto_quiet_from": "04:00",     # every day from ...
@@ -694,14 +695,35 @@ def brains():
     return sorted(out, key=lambda b: b[0] != "ChatGPT")[:2]  # ChatGPT first: it screens every check
 
 
-def agree(a, b, side_entry, digits):
-    """Both brains' picks -> the trade (or None). Same symbol and direction; the wider stop (size is set by risk,
-    so a wider stop means fewer lots, not more risk) and the nearer target."""
+def plan_entry(pick, side, bid, ask):
+    """The entry a brain planned -> (order, price): 'market' now, or a limit/stop order at its price. A limit or stop
+    price the market has already reached becomes a market entry; one on the wrong side of the price is refused."""
+    order = str(pick.get("order") or "market").lower()
+    now = ask if side == "buy" else bid
+    if order not in ("limit", "stop"):
+        return "market", now
+    try:
+        price = float(pick["entry"])
+    except (KeyError, TypeError, ValueError):
+        return "market", now
+    below = price < now
+    if (order == "limit") == (side == "buy"):  # buy limit / sell stop: below the price
+        return (order, price) if below else ("market", now) if order == "limit" else (None, None)
+    return (order, price) if not below and price != now else ("market", now) if order == "stop" else (None, None)
+
+
+def agree(a, b, side_entry, digits, bid=None, ask=None):
+    """Both brains' picks -> the trade (or None). Same symbol and direction; the first brain's entry (now, or its
+    planned limit/stop price); the wider stop (size is set by risk, so a wider stop means fewer lots, not more risk)
+    and the nearer target."""
     if not a or not b or a.get("action") not in ("buy", "sell") or a.get("action") != b.get("action"):
         return None
     if str(a.get("symbol", "")).upper() != str(b.get("symbol", "")).upper():
         return None
-    side, entry = a["action"], side_entry
+    side = a["action"]
+    order, entry = plan_entry(a, side, side_entry if bid is None else bid, side_entry if ask is None else ask)
+    if order is None:
+        return None
     try:
         stops = [float(a["stop"]), float(b["stop"])]
         targets = [float(a["target"]), float(b["target"])]
@@ -711,7 +733,8 @@ def agree(a, b, side_entry, digits):
     target = min(targets) if side == "buy" else max(targets)
     if check_levels(side, entry, stop, target):
         return None
-    return {"symbol": a["symbol"], "side": side, "stop": round(stop, digits), "target": round(target, digits),
+    return {"symbol": a["symbol"], "side": side, "order": order, "entry": round(entry, digits),
+            "stop": round(stop, digits), "target": round(target, digits),
             "rr": abs(target - entry) / abs(entry - stop), "confidence": min(int(a.get("confidence", 0)), int(b.get("confidence", 0))),
             "why": [str(a.get("reason", ""))[:200], str(b.get("reason", ""))[:200]]}
 
@@ -726,14 +749,20 @@ def snapshot(mt5, s, info, bid, ask, acc, lim, at=None):
 def build_prompt(market, acc, lim):
     return (
         "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
-        "there is a real setup, and say 'none' when there isn't.\n"
+        "there is a real setup with a clear plan, and say 'none' when there isn't.\n"
         f"Trader's style: {his_style()}\n"
         f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
         + risk_rules(lim) +
-        f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance).\n"
+        f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance, measured from the entry).\n"
+        "Entry: 'market' enters now. When the setup needs a trigger (a breakout, or a pullback to a level), plan it "
+        "instead of waiting: 'stop' enters when price reaches your entry price moving your way (a buy stop above "
+        "resistance, a sell stop below support), 'limit' enters when price comes back to it (a buy limit at support, a "
+        f"sell limit at resistance). A planned entry not reached within {lim['auto_order_hours']:g} hours is cancelled. "
+        "So 'no confirmed breakout yet' or 'wait for the retest' are reasons to plan the entry, not to say none.\n"
         "Candles are [open, high, low, close], oldest first, MT5 server time:\n"
         + json.dumps(market) +
         '\nReply with one JSON object only: {"action": "buy" | "sell" | "none", "symbol": "...", '
+        '"order": "market" | "stop" | "limit", "entry": price (for stop or limit), '
         '"stop": price, "target": price, "confidence": 0-100, "reason": "one sentence"}')
 
 
@@ -858,6 +887,13 @@ class Autopilot:
             autoreview.check_closed(mt5, self.say)
         except Exception as e:
             print("autopilot review:", repr(e)[:160])
+        hours = limits()["auto_order_hours"]
+        for o in mt5.orders_get() or []:
+            tick = o.magic == MAGIC_AUTO and mt5.symbol_info_tick(o.symbol)
+            if tick and tick.time - o.time_setup > hours * 3600:
+                r = mt5.order_send({"action": mt5.TRADE_ACTION_REMOVE, "order": o.ticket})
+                if r is not None and r.retcode == mt5.TRADE_RETCODE_DONE:
+                    self.show(f"Cancelled its planned entry at {o.price_open}: not reached in {hours:g} h")
         for p in mt5.positions_get() or []:
             if p.magic != MAGIC_AUTO or not p.sl:
                 continue
@@ -894,6 +930,8 @@ class Autopilot:
             return f"{st['trades']} trades today, its limit"
         if any(p.magic == MAGIC_AUTO for p in mt5.positions_get() or []):
             return "it already has a trade open"
+        if any(o.magic == MAGIC_AUTO for o in mt5.orders_get() or []):
+            return "its planned entry is waiting to be reached"
         try:
             import trading
             soon = [e for e in trading.upcoming_news(0.5)]
@@ -937,15 +975,15 @@ class Autopilot:
             self.show(self.no_trade(names, picks))
             return
         tick, info = mt5.symbol_info_tick(s), mt5.symbol_info(s)
-        entry = tick.ask if a.get("action") == "buy" else tick.bid
         deal = agree({**a, "symbol": s}, {**picks[1], "symbol": s if str(picks[1].get("symbol", "")).upper()[:6] == s.upper()[:6] else picks[1].get("symbol")},
-                     entry, info.digits)
+                     None, info.digits, tick.bid, tick.ask)
         if not deal:
             self.show(self.no_trade(names, picks))
             return
         if deal["rr"] < lim["auto_min_rr"]:
             self.show(f"No trade: both said {deal['side']} {s}, but reward:risk is only {deal['rr']:.1f}")
             return
+        entry = deal["entry"]
         lots = wanted_size(info, entry, deal["stop"], acc, lim)
         if not lots:
             self.show("No trade: the stop is too far for the smallest lot within the risk limit")
@@ -954,7 +992,7 @@ class Autopilot:
         if why:
             self.show("No trade: " + why)
             return
-        t = {"kind": "open", "symbol": s, "side": deal["side"], "order": "market", "entry": entry, "stop": deal["stop"],
+        t = {"kind": "open", "symbol": s, "side": deal["side"], "order": deal["order"], "entry": entry, "stop": deal["stop"],
              "target": deal["target"], "lots": lots}
         r = send(mt5, t, MAGIC_AUTO)
         self.log({"at": datetime.datetime.now().isoformat(timespec="seconds"), "trade": t, "result": r, "why": deal["why"]})
@@ -962,7 +1000,8 @@ class Autopilot:
             st["trades"] += 1
             _save(AUTO_STATE, st)
             risk = loss_per_lot(info, entry, deal["stop"]) * lots
-            line = (f"Autopilot: {deal['side']} {lots} {s}, stop {deal['stop']}, target {deal['target']}, "
+            how = "" if deal["order"] == "market" else f" {deal['order']} order at {entry} (cancelled if not reached in {lim['auto_order_hours']:g} h)"
+            line = (f"Autopilot: {deal['side']} {lots} {s}{how}, stop {deal['stop']}, target {deal['target']}, "
                     f"risking ${risk:,.0f}. Both brains agreed: {deal['why'][0]}")
             self.say(line)
             import alerts
@@ -1163,7 +1202,7 @@ TOOLS = [
          "trade_size_unit": {"type": "string", "enum": ["%", "$", "lots"]}, "trade_daily_loss": N,
          "trade_daily_loss_unit": {"type": "string", "enum": ["%", "$"]}, "trade_equity_floor": N,
          "trade_daily_target": N, "trade_daily_target_unit": {"type": "string", "enum": ["%", "$"]},
-         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N,
+         "trade_max_lots": N, "trade_max_risk_pct": N, "auto_max_trades": N, "auto_min_rr": N, "auto_order_hours": N,
          "auto_symbols": {"type": "array", "items": S}}}},
     {"name": "autopilot", "description": (
         "The trading autopilot ('make me money', 'stop trading'): every 15 minutes it reads the charts and asks two "
@@ -1191,6 +1230,14 @@ def selftest():
     assert d and d["stop"] == 2335 and d["target"] == 2370 and d["confidence"] == 60  # wider stop, nearer target
     assert agree(a, {**b, "action": "sell"}, 2350.0, 2) is None and agree(a, {**b, "action": "none"}, 2350, 2) is None
     assert agree(a, {**b, "symbol": "EURUSD"}, 2350.0, 2) is None and agree(a, None, 2350, 2) is None
+    p = {"order": "stop", "entry": 2360}
+    assert plan_entry(p, "buy", 2350, 2350.3) == ("stop", 2360) and plan_entry(p, "buy", 2361, 2361.3) == ("market", 2361.3)
+    assert plan_entry({"order": "limit", "entry": 2340}, "buy", 2350, 2350.3) == ("limit", 2340)
+    assert plan_entry({"order": "limit", "entry": 2360}, "buy", 2350, 2350.3) == ("market", 2350.3)  # already there
+    assert plan_entry({"order": "stop", "entry": 2340}, "sell", 2350, 2350.3) == ("stop", 2340)
+    assert plan_entry({"order": "limit", "entry": 2340}, "sell", 2350, 2350.3) == (None, None)  # wrong side
+    d = agree({**a, "order": "stop", "entry": 2355}, b, None, 2, 2350, 2350.3)
+    assert d["order"] == "stop" and d["entry"] == 2355 and round(d["rr"], 2) == 0.75
     assert _json_in('Sure: {"action": "none"} done') == {"action": "none"} and _json_in("no") is None
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "pos.csv"

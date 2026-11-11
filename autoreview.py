@@ -139,6 +139,16 @@ def outcome(side, entry, stop, target, bars):
     return round(((last - entry) if side == "buy" else (entry - last)) / risk, 2), "time"
 
 
+def filled(side, order, entry, bars):
+    """Index of the candle where a planned entry is reached (0 for a market entry), else None."""
+    if order == "market":
+        return 0
+    for i, (_, h, lo, _c) in enumerate(bars):
+        if lo <= entry <= h or (order == "stop") == (side == "buy") and h >= entry or (order == "stop") != (side == "buy") and lo <= entry:
+            return i
+    return None
+
+
 def moments(n, days, lim, now=None):
     """n random past 15-minute candle closes on weekdays, outside his quiet hours, at least a day back."""
     now = now or datetime.datetime.now()
@@ -210,13 +220,16 @@ def _replay(samples, days):
         RUN["fails"] = 0
         row = {"at": local.isoformat(timespec="minutes"), "brains": dict(zip(names, picks))}
         if len(picks) == 2 and all(picks):
-            entry = snap["ask"] if picks[0].get("action") == "buy" else bid
-            deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, entry, info.digits)
+            deal = m.agree({**picks[0], "symbol": s}, {**picks[1], "symbol": s}, None, info.digits, bid, snap["ask"])
             if deal and deal["rr"] >= lim["auto_min_rr"]:
                 after = [b[1:] for b in _bars(mt5, s, at, at + 86400) if b[0] >= at]
-                r, how = outcome(deal["side"], entry, deal["stop"], deal["target"], after)
-                row.update(trade={"side": deal["side"], "entry": entry, "stop": deal["stop"], "target": deal["target"]},
-                           r=r, how=how)
+                trade = {k: deal[k] for k in ("side", "order", "entry", "stop", "target")}
+                start = filled(deal["side"], deal["order"], deal["entry"], after[:int(lim["auto_order_hours"] * 4)])
+                if start is None:
+                    row.update(trade=trade, how="not reached")  # the planned entry expired: no trade
+                else:
+                    r, how = outcome(deal["side"], deal["entry"], deal["stop"], deal["target"], after[start:])
+                    row.update(trade=trade, r=r, how=how)
         rows.append(row)
         RUN["done"] = i + 1
         _panel(rows, samples, lim, acc, done=False)
@@ -241,9 +254,10 @@ def _test_summary(rows, lim, acc):
 
 def _panel(rows, of, lim, acc, done):
     s = _test_summary(rows, lim, acc)
-    items = [{"text": f"{r['at'][5:16].replace('T', ' ')}  {r['trade']['side']} → {r['how']} {r['r']:+.1f}R",
+    items = [{"text": f"{r['at'][5:16].replace('T', ' ')}  {r['trade']['side']} {r['trade'].get('order', '')} → {r['how']}"
+                      + (f" {r['r']:+.1f}R" if "r" in r else ""),
               "sub": next((str(p.get('reason', ''))[:120] for p in r["brains"].values() if p), "")}
-             for r in rows if "r" in r][-10:]
+             for r in rows if "trade" in r][-10:]
     m._panel({"type": "panel", "title": "Autopilot test run" + ("" if done else f" · {len(rows)}/{of}"), "kind": "list",
               "stay": True, "items": items or [{"text": "No trades yet", "sub": f"{len(rows)} moments checked"}],
               "note": s["text"] + ("" if done else " (still running)")})
@@ -278,6 +292,9 @@ if __name__ == "__main__":
     assert outcome("buy", 100, 98, 104, [[100, 101, 99, 100], [100, 104.5, 99.5, 104]]) == (2.0, "target")
     assert outcome("sell", 100, 102, 96, [[100, 102.1, 95, 96]]) == (-1.0, "stop")  # both in one candle: the stop
     assert outcome("buy", 100, 98, 110, [[100, 101, 99, 101]]) == (0.5, "time")
+    bars = [[100, 101, 99, 100], [100, 103, 100, 102]]
+    assert filled("buy", "stop", 102, bars) == 1 and filled("buy", "limit", 98, bars) is None and filled("sell", "market", 0, []) == 0
+    assert filled("sell", "limit", 102.5, bars) == 1 and filled("sell", "stop", 99.5, bars) == 0
     lim = {"auto_quiet_from": "04:00", "auto_quiet_to": "10:30"}
     ts = moments(40, 60, lim, datetime.datetime(2026, 11, 11, 18))
     assert len(ts) == 40 and all(t.weekday() < 5 and not ("04:00" <= t.strftime("%H:%M") < "10:30") and t.minute % 15 == 0 for t in ts)

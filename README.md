@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.77.4** (shown at the bottom right of the HUD)
+**Version 1.78.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.78.0**: Autopilot: the brains can plan an entry (a buy or sell stop for a breakout, a limit for a pullback) instead of saying 'none' while they wait for confirmation. Planned entries not reached within 2 hours are cancelled (trading setting auto_order_hours). The test run simulates them too.
 - **1.77.4**: ChatGPT: Jarvis now starts Codex with node.exe directly (no cmd.exe in between), and fixes a missing PATHEXT, so '"node" is not recognized' can't stop it.
 - **1.77.3**: ChatGPT works again when Jarvis was started without Node.js on its PATH ('"node" is not recognized'): Jarvis finds node.exe itself.
 - **1.77.2**: Autopilot: when ChatGPT gives no answer, Jarvis shows why (Codex's own message). The test run stops after 3 failed answers in a row and tells you the reason.

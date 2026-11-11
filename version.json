@@ -1,4 +1,4 @@
 {
- "version": "1.77.4",
- "notes": "ChatGPT: Jarvis now starts Codex with node.exe directly (no cmd.exe in between), and fixes a missing PATHEXT, so '\"node\" is not recognized' can't stop it."
+ "version": "1.78.0",
+ "notes": "Autopilot: the brains can plan an entry (a buy or sell stop for a breakout, a limit for a pullback) instead of saying 'none' while they wait for confirmation. Planned entries not reached within 2 hours are cancelled (trading setting auto_order_hours). The test run simulates them too."
 }
