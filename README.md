@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.82.1** (shown at the bottom right of the HUD)
+**Version 1.83.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.83.0**: Jarvis's own MT5 accounts: put their numbers in Settings > Trading (Jarvis's accounts). Your journal, reports, tilt meter and debriefs then show only your accounts; 'show your journal' shows Jarvis's (his accounts plus any autopilot or test trades). The autopilot only trades when MT5 is logged into one of his accounts.
 - **1.82.1**: The autopilot's and the test button's trades are kept apart from yours: they no longer count toward your tilt meter, trade warnings, journal, debriefs or the trading style the autopilot copies. Its own trades have their own reviews ('show my autopilot trades').
 - **1.82.0**: Autopilot: a free chart watcher checks gold, GBPJPY and EURAUD at every 5-minute candle close and asks the brains only when it spots a setup (a breakout or a rejection at a key level, with the H1 trend), instead of every 15 minutes. At most 12 brain questions a day (auto_max_asks), one trade per pair and two at once (auto_max_open), news checked per pair's currencies. The test run now replays the watcher's past setups.
 - **1.81.1**: Pay: a tax-free meal allowance for every 8 hours on trips (shifts in a row lasting 12+ hours; local and shunt shifts don't count), shown on top of the before-tax estimate. Set it in Settings > Pay.

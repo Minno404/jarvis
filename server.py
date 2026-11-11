@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.82.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.83.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -380,13 +380,15 @@ def mt5_sync_live():
     state = features._load("state.json", {})
     if bots - set(state.get("bot_positions", [])):
         features._save("state.json", {**state, "bot_positions": sorted(bots | set(state.get("bot_positions", [])))[-2000:]})
-    rows = [r for r in positions_from_deals(deals or [], acct.balance) if r["position"] not in bots]
+    rows = positions_from_deals(deals or [], acct.balance)  # all kept; mt5_load splits his from Jarvis's
     for r in rows:
         r["account"] = str(acct.login)
     _merge_positions(rows, "MT5 terminal")
 
 
-def mt5_load(since=None, until=None, symbol=None):
+def mt5_load(since=None, until=None, symbol=None, whose="mine"):
+    """Closed MT5 trades. whose 'mine': his own accounts (the one he's logged into, if it's his), without Jarvis's
+    trades; 'jarvis': Jarvis's accounts (Settings > Trading) and the autopilot's and test button's trades anywhere."""
     import csv
     for sync in (mt5_sync, mt5_sync_live):
         try:
@@ -398,13 +400,17 @@ def mt5_load(since=None, until=None, symbol=None):
     reads = {r["position"]: r for r in json.loads(MT5_READS.read_text())} if MT5_READS.exists() else {}
     rows = list(csv.DictReader(MT5_CSV.open(encoding="utf-8")))
     login = features._load("state.json", {}).get("mt5_login")
-    if login and any(t.get("account") == login for t in rows):
-        rows = [t for t in rows if t.get("account") == login]  # only the MT5 account he's logged into
-    elif login and any(t.get("account") for t in rows):
-        rows = []  # an account with no trades yet: an empty journal (trades from before accounts were recorded show
-        #            only until the first look at MT5 labels them)
     bots = set(features._load("state.json", {}).get("bot_positions", []))
-    rows = [t for t in rows if t.get("position") not in bots]  # Jarvis's own trades (autopilot, test) aren't his
+    his_not = set(mt5trade.limits()["auto_accounts"])  # Jarvis's accounts
+    if whose == "jarvis":
+        rows = [t for t in rows if t.get("account") in his_not or t.get("position") in bots]
+    else:
+        rows = [t for t in rows if t.get("account") not in his_not and t.get("position") not in bots]
+        if login and login not in his_not and any(t.get("account") == login for t in rows):
+            rows = [t for t in rows if t.get("account") == login]  # only the MT5 account he's logged into
+        elif login and login not in his_not and any(t.get("account") for t in rows):
+            rows = []  # an account with no trades yet: an empty journal (trades from before accounts were recorded
+            #            show only until the first look at MT5 labels them)
     out = []
     for t in rows:
         if since and t["closed"] < since or until and t["closed"][:10] > until:
@@ -418,10 +424,12 @@ def mt5_load(since=None, until=None, symbol=None):
     return out
 
 
-def mt5_report(since=None, until=None, symbol=None):
-    ts = mt5_load(since, until, symbol)
+def mt5_report(since=None, until=None, symbol=None, whose="mine"):
+    ts = mt5_load(since, until, symbol, whose)
+    label = "Jarvis's trading (his accounts and the autopilot)" if whose == "jarvis" else \
+        features._load("state.json", {}).get("mt5_account", "MT5")
     if not ts:
-        return {"trades": 0, "account": features._load("state.json", {}).get("mt5_account")}
+        return {"trades": 0, "account": label}
     wins, losses = [t for t in ts if t["pnl"] > 0], [t for t in ts if t["pnl"] < 0]
     gross_win, gross_loss = sum(t["pnl"] for t in wins), -sum(t["pnl"] for t in losses)
     group = lambda key: {k: {"trades": len(v), "net": round(sum(t["pnl"] for t in v), 2),
@@ -437,7 +445,7 @@ def mt5_report(since=None, until=None, symbol=None):
         worst_streak = max(worst_streak, streak)
     pick = lambda t: {k: t[k] for k in ("position", "closed", "symbol", "direction", "pnl", "read")}
     return {
-        "account": features._load("state.json", {}).get("mt5_account", "MT5"), "first": ts[0]["closed"],
+        "account": label, "first": ts[0]["closed"],
         "last": ts[-1]["closed"],
         "trades": len(ts), "wins": len(wins), "losses": len(losses),
         "win_rate": round(len(wins) / len(ts) * 100), "net_pnl": round(gross_win - gross_loss, 2),
@@ -453,8 +461,8 @@ def mt5_report(since=None, until=None, symbol=None):
     }
 
 
-def mt5_trades(since=None, until=None, symbol=None, limit=15):
-    return mt5_load(since, until, symbol)[-limit:]
+def mt5_trades(since=None, until=None, symbol=None, limit=15, whose="mine"):
+    return mt5_load(since, until, symbol, whose)[-limit:]
 
 
 def _groupby(items, key):
@@ -555,7 +563,9 @@ FUNCS = {"add_trade": add_trade, "delete_trade": delete_trade, "journal_report":
          "candles": candles, "candles_between": candles_between}
 MT5_FILTERS = {"since": {"type": "string", "description": "Closed on/after YYYY-MM-DD"},
                "until": {"type": "string", "description": "Closed on/before YYYY-MM-DD"},
-               "symbol": {"type": "string", "description": "e.g. XAUUSD"}}
+               "symbol": {"type": "string", "description": "e.g. XAUUSD"},
+               "whose": {"type": "string", "enum": ["mine", "jarvis"], "description": "mine (default): his own trading; "
+                         "jarvis: Jarvis's own accounts and autopilot trades ('your journal', 'how is your trading going')"}}
 TOOLS = [
     {"name": "add_trade", "description": "Log one trade in {USER}'s trading journal.",
      "input_schema": {"type": "object", "required": ["pair", "side", "result_r"], "properties": {

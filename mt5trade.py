@@ -59,6 +59,7 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_symbols": ["XAUUSD", "GBPJPY", "EURAUD"],  # what the autopilot watches
     "auto_max_asks": 12,            # the most times a day the chart watcher asks the brains (each costs tokens)
     "auto_max_open": 2,             # trades (or planned entries) open at once, at most one per pair
+    "auto_accounts": [],            # Jarvis's own MT5 account numbers: his journal there, the autopilot trades there
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.
     "auto_quiet_from": "04:00",     # every day from ...
     "auto_quiet_to": "10:30",       # ... until (thin market overnight)
@@ -96,6 +97,8 @@ def save_limits(d):
             s[k] = v.zfill(5) if v else ""
         elif k == "auto_weekend_off":
             s[k] = v in (True, 1, "1", "true", "on", "yes")
+        elif k == "auto_accounts":
+            s[k] = [str(x).strip() for x in (v if isinstance(v, list) else str(v).split(",")) if str(x).strip().isdigit()][:6]
         elif k == "auto_symbols":
             s[k] = [str(x).strip().upper().replace("/", "")[:12] for x in (v if isinstance(v, list) else str(v).split(",")) if str(x).strip()][:4] or ["XAUUSD"]
         elif k in LIMITS:
@@ -853,6 +856,11 @@ class Autopilot:
         if why:
             return {"error": why + "."}
         lim = limits()
+        acc_no = str(mt5.account_info().login)
+        if lim["auto_accounts"] and acc_no not in lim["auto_accounts"]:
+            return {"error": f"MT5 is logged into account {acc_no}, one of his own. The autopilot trades only on "
+                             f"Jarvis's account ({', '.join(lim['auto_accounts'])}): log MT5 into it (File > Login to "
+                             "Trade Account), then start the autopilot again."}
         if not is_demo(mt5) and not lim["auto_live"]:
             return {"error": "This is a real-money account and the autopilot is set to demo only. Open a demo "
                              "account in MT5, or switch it on for live with trading_settings(auto_live=true), "
@@ -952,6 +960,8 @@ class Autopilot:
     def guards(self, mt5, lim, st):
         """Why it mustn't trade now (or None)."""
         acc = mt5.account_info()
+        if lim["auto_accounts"] and str(acc.login) not in lim["auto_accounts"]:
+            return f"MT5 is on his own account {acc.login}, not Jarvis's"
         if not is_demo(mt5) and not lim["auto_live"]:
             return "real-money account and the autopilot is demo only"
         base = base_size(acc, lim)

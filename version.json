@@ -1,4 +1,4 @@
 {
- "version": "1.82.1",
- "notes": "The autopilot's and the test button's trades are kept apart from yours: they no longer count toward your tilt meter, trade warnings, journal, debriefs or the trading style the autopilot copies. Its own trades have their own reviews ('show my autopilot trades')."
+ "version": "1.83.0",
+ "notes": "Jarvis's own MT5 accounts: put their numbers in Settings > Trading (Jarvis's accounts). Your journal, reports, tilt meter and debriefs then show only your accounts; 'show your journal' shows Jarvis's (his accounts plus any autopilot or test trades). The autopilot only trades when MT5 is logged into one of his accounts."
 }

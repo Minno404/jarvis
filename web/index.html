@@ -769,6 +769,8 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
       <div class="keyrow"><span class="hint tsl">Max lots</span><input type="number" min="0" step="any" data-t="trade_max_lots"><span class="hint tsl">Max risk a trade</span><input type="number" min="0" step="any" data-t="trade_max_risk_pct"><span class="hint">%</span></div>
       <div class="keyrow"><span class="hint tsl">Autopilot trades a day</span><input type="number" min="0" step="1" data-t="auto_max_trades"><span class="hint tsl">Min reward:risk</span><input type="number" min="0" step="any" data-t="auto_min_rr"></div>
       <div class="keyrow"><span class="hint tsl">Autopilot symbols</span><input type="text" data-t="auto_symbols" placeholder="XAUUSD, EURUSD" style="flex:1"></div>
+      <div class="keyrow"><span class="hint tsl">Jarvis's accounts</span><input type="text" data-t="auto_accounts" placeholder="MT5 account numbers, e.g. 52012345" style="flex:1" inputmode="numeric"></div>
+      <p class="hint">Trades on Jarvis's accounts go in his journal ("show your journal"), not yours. The autopilot only trades when MT5 is logged into one of them.</p>
       <div class="keyrow" style="flex-wrap:wrap"><span class="hint tsl">Quiet hours</span><input type="time" data-t="auto_quiet_from"><span class="hint">to</span><input type="time" data-t="auto_quiet_to"><select data-t="auto_weekend_off"><option value="true">+ weekends off</option><option value="false">weekends on</option></select></div>
       <div class="keyrow"><span class="hint" id="tradeLive" style="flex:1"></span><button type="button" id="tradeTest">Test trade</button><button type="button" id="tradeSave">Save trading</button></div>
       <p class="hint">In quiet hours the autopilot doesn't look at charts or ask the brains (this PC's clock); weekends off runs from Saturday's start time to Monday's end time. Trades already open keep being managed. The equity floor blocks any trade that could take equity below it if every stop were hit; if equity reaches it, Jarvis closes his own trades and stops the autopilot. Real money is switched on by voice ("switch on live trading") and a click on the card that comes up.</p>
@@ -3082,7 +3084,7 @@ function fillTrading(L){if(!L)return;for(const el of tradeFields()){const v=L[el
   $('tradeLive').textContent=`Real money: your trades ${L.trade_live?'ON':'off'} · autopilot ${L.auto_live?'ON':'off'}`}
 async function loadTrading(){try{fillTrading(await (await fetch('/api/trading')).json())}catch(e){}}
 $('tradeTest').onclick=()=>{$('settingsModal').hidden=true;runTestTrade()};
-$('tradeSave').onclick=async()=>{const d={};for(const el of tradeFields())d[el.dataset.t]=el.dataset.t==='auto_symbols'?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.tagName==='SELECT'||el.type==='time'?el.value:(el.value===''?0:+el.value);
+$('tradeSave').onclick=async()=>{const d={};for(const el of tradeFields())d[el.dataset.t]=['auto_symbols','auto_accounts'].includes(el.dataset.t)?el.value.split(',').map(x=>x.trim()).filter(Boolean):el.tagName==='SELECT'||el.type==='time'?el.value:(el.value===''?0:+el.value);
   $('setMsg').textContent='';try{const r=await (await fetch('/api/prefs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trading:d})})).json();
     if(r.error)throw new Error(r.error);fillTrading(r.trading);$('setMsg').textContent='Trading settings saved.'}catch(e){$('setMsg').textContent=e.message||"Couldn't save."}};
 $('setX').onclick=()=>{$('settingsModal').hidden=true;capturing=false};
