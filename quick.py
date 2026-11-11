@@ -98,6 +98,17 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    if re.fullmatch(r"(?:test|backtest|trial|try out)(?: run)? (?:the |my )?(?:auto ?pilot|trading bot)(?: on (?:past|old) charts)?", t) \
+            and "test_autopilot" in R:
+        r = R["test_autopilot"]()
+        if r.get("error"):
+            return r["error"]
+        if r.get("running"):
+            return f"Still testing, {{TITLE}}: {r['done']} of {r['of']} moments checked."
+        return f"Testing the autopilot on {r['samples']} past moments, {{TITLE}}. About {r['samples']} minutes; I'll tell you the result."
+    if re.fullmatch(r"(?:show|bring up|open)(?: me)? (?:my |the )?auto ?pilot(?: s)? trades|how did the auto ?pilot do(?: this week)?", t) \
+            and "autopilot_trades" in R:
+        return R["autopilot_trades"]()["text"]
     if re.fullmatch(r"(?:what am i|what s on|whats on|what are my shifts|what do i have|when am i working|show(?: me)? my "
                     r"(?:work )?(?:shifts|roster)) (?:doing |on |for |working )?this week|my week|this week s shifts", t) \
             and "week_shifts" in R:

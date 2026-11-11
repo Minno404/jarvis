@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.76.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.77.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -626,9 +626,12 @@ import shifts     # work shifts from his roster (see shifts.py)
 import usage      # tokens each brain used and how much is left (see usage.py)
 import disk       # the disk doctor: what's filling the drive, and clearing what's safe (see disk.py)
 import mt5trade   # trades he confirms on the HUD, and the trading autopilot (see mt5trade.py)
+import autoreview  # the autopilot's trade reviews, weekly summary and test run (see autoreview.py)
+import alerts     # phone alerts through the ntfy app (see alerts.py)
+import dayplan    # shift reminders: sleep before night shifts, time to leave (see dayplan.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -1030,6 +1033,8 @@ def save_prefs(d):
         s["text_size"] = max(0.7, min(1.3, float(d["text_size"])))
     if "voice_speed" in d:
         s["voice_speed"] = max(0.7, min(1.4, float(d["voice_speed"])))
+    if "shift_commute_min" in d:  # Settings > Work: minutes to get to work (shift reminders)
+        s["shift_commute_min"] = max(0, min(240, int(float(d["shift_commute_min"]))))
     if "voice_emotion" in d:  # Settings > Voice > Emotion, 0 (flat) to 100 (very expressive)
         s["voice_emotion"] = max(0, min(100, int(float(d["voice_emotion"]))))
     if "voice_volume" in d:
@@ -2191,6 +2196,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json([e for e in EVENTS if e["seq"] > after])
         if self.path == "/api/roster_mail":  # Settings > Roster email (never the password itself)
             return self.send_json(roster_mail.public())
+        if self.path == "/api/phone_alerts":
+            return self.send_json({**alerts.settings_info(), "commute": features.settings().get("shift_commute_min", 30)})
         if self.path == "/api/incognito":  # a page opening mid-incognito shows the badge
             return self.send_json({"on": features.incognito()})
         if self.path == "/api/usage":  # the token usage panel's Refresh button
@@ -2368,6 +2375,10 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/phone_alerts":  # Settings > Phone alerts: on/off and the Test button
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            return self.send_json({**alerts.set_alerts(body.get("on"), bool(body.get("test"))),
+                                   "commute": features.settings().get("shift_commute_min", 30)})
         if self.path == "/api/shift_day":  # a tap on a day in the shift calendar panel (shifts.set_day)
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             allowed = {"date", "start", "end", "off", "note", "clear", "where"}
@@ -3284,6 +3295,7 @@ if __name__ == "__main__":
                         uid = roster_mail.check_new()
                         roster_mail.checked()
                         if uid:
+                            alerts.notify("A new roster came in. Loading your shifts now.", "Roster", tags="calendar")
                             ask_claude_and_say(
                                 "[Automatic weekly roster check, not typed by {USER}] A new roster email is in. Call "
                                 "get_roster, find his shifts, save them with save_shifts, then tell him in one short "
@@ -3351,6 +3363,9 @@ if __name__ == "__main__":
                             else f"Sir, your {r['text']} is done.", urgent=True)
                     if features.morning_due():
                         ask_claude_and_say(features.morning_prompt())
+                    dayplan.tick(lambda text: say(text, urgent=True))
+                    if autoreview.weekly_due():
+                        autoreview.weekly(say)
                 except Exception as e:
                     print(datetime.datetime.now(), "watcher:", repr(e))
                 try:

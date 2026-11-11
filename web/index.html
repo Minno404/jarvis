@@ -204,6 +204,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
 .pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
 .holo-panel.wide{width:min(520px,62vw)}
+.trv{border-top:1px solid rgba(var(--rgb),.2);padding:8px 0}.trv .h{display:flex;justify-content:space-between;gap:8px}.trv .up{color:#4ade80}.trv .dn{color:#ff5a6a}
+.trv .d{font-size:11px;color:var(--mute);margin:2px 0 4px}.trv .w{font-size:11px;color:var(--mute);margin-top:3px}.trs{width:100%;height:110px;color:var(--text);display:block}
 .scal-m{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--cyan);margin:8px 0 4px}
 .scal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.scal-g i{font-style:normal;font-size:9px;color:var(--mute);text-align:center}
 .scal-d{all:unset;box-sizing:border-box;min-height:44px;min-width:0;padding:3px 4px;border:1px solid rgba(var(--rgb),.14);font-size:11px;line-height:1.25;cursor:pointer;display:flex;flex-direction:column;gap:1px;overflow:hidden;position:relative}
@@ -729,6 +731,11 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
       <div class="keyrow"><span class="hint tsl">Your name on it</span><input type="text" id="rmName" placeholder="as the roster shows it" autocomplete="off" style="flex:1"></div>
       <div class="keyrow"><span class="hint tsl">Check on</span><select id="rmDay" style="flex:1"><option value="">Never (only when I say "get my roster")</option><option value="monday">Mondays</option><option value="tuesday">Tuesdays</option><option value="wednesday">Wednesdays</option><option value="thursday">Thursdays</option><option value="friday">Fridays</option><option value="saturday">Saturdays</option><option value="sunday">Sundays</option></select><button type="button" id="rmSave">Save</button></div>
       <p class="hint" id="rmSt">On that day (from 9 am) Jarvis looks for a roster email he hasn't loaded yet, and if there's one he loads your shifts and tells you. "Get my roster" does it any time. The app password only reads mail (Google account, 2-Step Verification on, then App passwords); it stays on this PC.</p>
+    </fieldset>
+    <fieldset id="alertSet"><legend>Phone alerts and shift reminders</legend>
+      <label><input type="checkbox" id="paOn"> Send alerts to my phone: autopilot trades, new rosters, shift reminders, the weekly trade review</label>
+      <p class="hint">Get the free <b>ntfy</b> app on your phone, tap +, and subscribe to this topic (keep it private): <b id="paTopic" style="user-select:all">...</b> <button type="button" id="paTest">Send a test</button></p>
+      <div class="keyrow"><span class="hint tsl">Trip to work</span><input type="number" id="commute" min="0" max="240" step="5" style="width:80px"><span class="hint">minutes. Jarvis tells you when to leave (plus 10 minutes spare) and, before night shifts, when to get some sleep.</span></div>
     </fieldset>
     <fieldset><legend>Features</legend>
       <label><input type="checkbox" data-feat="trading"> Day trading and markets (journal, alerts, trade warnings, market news, daily review)</label>
@@ -2579,6 +2586,11 @@ function showPanel(ev){
       if(it.sub){const sm=document.createElement('small');sm.textContent=it.sub;sp.append(sm)}if(it.done)li.className='done';if(it.status)li.className='st-'+it.status;li.append(sp);ul.append(li)}p.append(ul)}
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
   else if(ev.kind==='calendar')shiftCal(p,ev);
+  else if(ev.kind==='trades'){p.classList.add('wide');for(const t of ev.trades||[]){const d=document.createElement('div'),up=t.profit>=0;d.className='trv';
+    d.innerHTML=`<div class="h"><b>${esc(t.side.toUpperCase())} ${t.lots} ${esc(t.symbol)}</b><span class="${up?'up':'dn'}">${up?'+':'−'}$${Math.abs(t.profit).toFixed(2)} · ${t.r>=0?'+':''}${(+t.r).toFixed(1)}R</span></div>`
+      +`<div class="d">${esc((t.opened||'').slice(5,16).replace('T',' '))} · entry ${t.entry} · exit ${t.exit}</div>`+tradeSvg(t)
+      +(t.why||[]).map(w=>`<div class="w">${esc(w)}</div>`).join('');p.append(d)}
+    if(!(ev.trades||[]).length){const d=document.createElement('div');d.className='htext';d.textContent='No closed autopilot trades yet.';p.append(d)}}
   else if(ev.kind==='recipe'){const d=document.createElement('div'),miss=new Set((ev.missing||[]).map(m=>m.toLowerCase()));d.className='recipe';
     const need=i=>[...miss].some(m=>i.toLowerCase().includes(m));
     d.innerHTML=`<div class="rmeta">${[ev.minutes&&ev.minutes+' min',ev.serves&&'serves '+ev.serves].filter(Boolean).map(esc).join(' · ')}</div>`
@@ -2632,6 +2644,13 @@ function showPanel(ev){
   movable(p,null);
   if(ev.kind!=='countdown'&&!ev.stay)setTimeout(()=>{if(!p.classList.contains('free'))closePanel(p)},ev.kind==='image'?180000:60000);  // moved ones stay until closed
 }
+// One autopilot trade's candles, with its entry (cyan), stop (red) and target (green) lines.
+function tradeSvg(t){const b=t.bars||[];if(!b.length)return'';const W=480,H=110,lv=[t.entry,t.stop,t.target,t.exit].map(Number);
+  const hi=Math.max(...b.map(c=>c[1]),...lv),lo=Math.min(...b.map(c=>c[2]),...lv),y=v=>H-4-(v-lo)/((hi-lo)||1)*(H-8),w=W/b.length;
+  const line=(v,c)=>`<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-dasharray="4 3" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="trs">`+b.map((c,i)=>{const x=i*w+w/2,u=c[3]>=c[0];
+    return `<line x1="${x}" x2="${x}" y1="${y(c[1])}" y2="${y(c[2])}" stroke="currentColor" opacity=".5"/><rect x="${x-w*.35}" width="${w*.7}" y="${y(Math.max(c[0],c[3]))}" height="${Math.max(1,Math.abs(y(c[0])-y(c[3])))}" fill="${u?'currentColor':'none'}" stroke="currentColor" opacity=".8"/>`}).join('')
+    +line(t.entry,'var(--cyan)')+line(t.stop,'#ff5a6a')+line(t.target,'#4ade80')+'</svg>'}
 // Work shifts as a month calendar (or one week in a row): tap a day to give it a shift, mark it off, or add a note.
 function shiftCal(p,ev){
   const box=document.createElement('div'),ed=document.createElement('form'),days=ev.days||{};box.className='scal'+(ev.week?' week':'');ed.className='scal-ed';ed.hidden=true;
@@ -3128,6 +3147,11 @@ const rmFill=r=>{if(!r)return;$('rmDay').value=r.check_day||'';$('rmGmail').valu
 fetch('/api/roster_mail').then(r=>r.json()).then(rmFill).catch(()=>{});
 $('rmSave').onclick=async()=>{const r=await fetch('/api/roster_mail',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gmail:$('rmGmail').value,app_password:$('rmPass').value,sender:$('rmSender').value,name:$('rmName').value,check_day:$('rmDay').value})}).then(r=>r.json()).catch(()=>null);
   $('rmPass').value='';rmFill(r);$('rmSt').textContent=r?'Saved. Say "get my roster" to load the newest one.':'Couldn\'t save.'};
+const paFill=r=>{if(!r)return;$('paOn').checked=r.on;$('paTopic').textContent=r.topic;if(r.commute!=null)$('commute').value=r.commute};
+const paPost=b=>fetch('/api/phone_alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).then(paFill).catch(()=>{});
+fetch('/api/phone_alerts').then(r=>r.json()).then(paFill).catch(()=>{});
+$('paOn').onchange=()=>paPost({on:$('paOn').checked});$('paTest').onclick=()=>paPost({test:true});
+$('commute').onchange=()=>savePref({shift_commute_min:+$('commute').value||0});
 try{$('phoneSound').value=localStorage.getItem('jarvis-phone-sound')||'mix'}catch(e){}
 $('phoneSound').onchange=()=>{try{localStorage.setItem('jarvis-phone-sound',$('phoneSound').value)}catch(e){};try{audio();const v=voice();v.push('Like this, sir.');v.end()}catch(e){}};
 if(LOCAL||PIN)document.querySelectorAll('.phoneonly').forEach(e=>e.hidden=true);

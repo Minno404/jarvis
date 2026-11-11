@@ -416,8 +416,16 @@ def check_levels(side, entry, stop, target):
     return bad
 
 
-def _chart(mt5, s, tf="M15", bars=60):
-    rates = mt5.copy_rates_from_pos(s, getattr(mt5, "TIMEFRAME_" + tf), 0, bars)
+TF_SECONDS = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400}
+
+
+def _chart(mt5, s, tf="M15", bars=60, at=None):
+    """The last `bars` candles; at (MT5 server time in seconds, for the test run): only candles closed by then."""
+    if at is None:
+        rates = mt5.copy_rates_from_pos(s, getattr(mt5, "TIMEFRAME_" + tf), 0, bars)
+    else:
+        rates = mt5.copy_rates_from(s, getattr(mt5, "TIMEFRAME_" + tf), int(at), bars + 1)
+        rates = [c for c in (rates if rates is not None else []) if int(c["time"]) + TF_SECONDS[tf] <= at][-bars:]
     return [[round(float(c["open"]), 5), round(float(c["high"]), 5), round(float(c["low"]), 5), round(float(c["close"]), 5)]
             for c in (rates if rates is not None else [])]
 
@@ -705,6 +713,42 @@ def agree(a, b, side_entry, digits):
             "why": [str(a.get("reason", ""))[:200], str(b.get("reason", ""))[:200]]}
 
 
+def snapshot(mt5, s, info, bid, ask, acc, lim, at=None):
+    """What the brains see of one symbol: prices, spread, the lot size calculator and the M15, H1 and H4 candles."""
+    return {"bid": bid, "ask": ask, "spread": round(ask - bid, info.digits), "digits": info.digits,
+            "sizing": sizing(info, bid, acc, lim),
+            "M15": _chart(mt5, s, "M15", 48, at), "H1": _chart(mt5, s, "H1", 48, at), "H4": _chart(mt5, s, "H4", 30, at)}
+
+
+def build_prompt(market, acc, lim):
+    return (
+        "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
+        "there is a real setup, and say 'none' when there isn't.\n"
+        f"Trader's style: {his_style()}\n"
+        f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
+        + risk_rules(lim) +
+        f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance).\n"
+        "Candles are [open, high, low, close], oldest first, MT5 server time:\n"
+        + json.dumps(market) +
+        '\nReply with one JSON object only: {"action": "buy" | "sell" | "none", "symbol": "...", '
+        '"stop": price, "target": price, "confidence": 0-100, "reason": "one sentence"}')
+
+
+def ask_brains(prompt, show=print):
+    """ChatGPT screens; the second brain is only asked when the first sees a trade. -> (picks, names)"""
+    picks, names = [], []
+    for name, ask in brains():
+        if picks and str((picks[0] or {}).get("action")).lower() not in ("buy", "sell"):
+            break  # the first brain sees no trade (or didn't answer): the second isn't asked, saving its limit
+        try:
+            picks.append(_json_in(ask(prompt)))
+        except Exception as e:
+            picks.append(None)
+            show(f"{name} didn't answer: {str(e)[:80]}")
+        names.append(name)
+    return picks, names
+
+
 # ---------- The autopilot ----------
 def awake(on):
     """Keep Windows from sleeping (ES_CONTINUOUS | ES_SYSTEM_REQUIRED) while the autopilot's thread runs; the
@@ -804,8 +848,13 @@ class Autopilot:
                 time.sleep(1)
 
     def manage(self):
-        """Break-even at 1R for the autopilot's own trades."""
+        """Break-even at 1R for the autopilot's own trades; a review of each one that has closed."""
         mt5 = _mt5()
+        try:
+            import autoreview
+            autoreview.check_closed(mt5, self.say)
+        except Exception as e:
+            print("autopilot review:", repr(e)[:160])
         for p in mt5.positions_get() or []:
             if p.magic != MAGIC_AUTO or not p.sl:
                 continue
@@ -866,34 +915,11 @@ class Autopilot:
             info, tick = mt5.symbol_info(s), mt5.symbol_info_tick(s)
             if time.time() - tick.time > 600:
                 continue  # no fresh prices: market closed
-            spread = tick.ask - tick.bid
-            market[s] = {"bid": tick.bid, "ask": tick.ask, "spread": round(spread, info.digits), "digits": info.digits,
-                         "sizing": sizing(info, tick.bid, acc, lim),
-                         "M15": _chart(mt5, s, "M15", 48), "H1": _chart(mt5, s, "H1", 48), "H4": _chart(mt5, s, "H4", 30)}
+            market[s] = snapshot(mt5, s, info, tick.bid, tick.ask, acc, lim)
         if not market:
             self.show("Waiting: the market is closed")
             return
-        prompt = (
-            "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
-            "there is a real setup, and say 'none' when there isn't.\n"
-            f"Trader's style: {his_style()}\n"
-            f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
-            + risk_rules(lim) +
-            f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance).\n"
-            "Candles are [open, high, low, close], oldest first, MT5 server time:\n"
-            + json.dumps(market) +
-            '\nReply with one JSON object only: {"action": "buy" | "sell" | "none", "symbol": "...", '
-            '"stop": price, "target": price, "confidence": 0-100, "reason": "one sentence"}')
-        picks, names = [], []
-        for name, ask in brains():
-            if picks and str((picks[0] or {}).get("action")).lower() not in ("buy", "sell"):
-                break  # the first brain sees no trade (or didn't answer): the second isn't asked, saving its limit
-            try:
-                picks.append(_json_in(ask(prompt)))
-            except Exception as e:
-                picks.append(None)
-                self.show(f"{name} didn't answer: {str(e)[:80]}")
-            names.append(name)
+        picks, names = ask_brains(build_prompt(market, acc, lim), self.show)
         self.log({"at": datetime.datetime.now().isoformat(timespec="seconds"), "brains": dict(zip(names, picks))})
         if len(picks) == 1 and picks[0]:
             why = str(picks[0].get("reason", ""))[:110]
@@ -933,8 +959,11 @@ class Autopilot:
             st["trades"] += 1
             _save(AUTO_STATE, st)
             risk = loss_per_lot(info, entry, deal["stop"]) * lots
-            self.say(f"Autopilot: {deal['side']} {lots} {s}, stop {deal['stop']}, target {deal['target']}, "
-                     f"risking ${risk:,.0f}. Both brains agreed: {deal['why'][0]}")
+            line = (f"Autopilot: {deal['side']} {lots} {s}, stop {deal['stop']}, target {deal['target']}, "
+                    f"risking ${risk:,.0f}. Both brains agreed: {deal['why'][0]}")
+            self.say(line)
+            import alerts
+            alerts.notify(line, "Autopilot trade opened", tags="moneybag")
             self.show(f"Traded: {deal['side']} {lots} {s}")
         else:
             self.show("Trade refused: " + r.get("error", "?"))
