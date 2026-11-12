@@ -1,4 +1,4 @@
 {
- "version": "1.88.0",
- "notes": "Ventures: 'find me ways to make money online' (or 'with Roblox games') researches real options on the web, fitted to you, with realistic income, costs, time and sources, and shows them with Jarvis's pick and thoughts. 'Start this' makes a step-by-step plan and works through it: research and build steps run in the background; steps only you can do (accounts, money, publishing) wait for you ('done with that step'). 'Venture status' shows progress."
+ "version": "1.89.0",
+ "notes": "Night shift: 'work on <project> tonight: ...' codes on a copy from 00:30; in the morning you get a summary and the changed files to keep (old ones backed up) or throw away. Self-repair: every night at 03:30 (or 'check yourself') Jarvis reads his own errors, fixes the safe ones (stuck jobs, huge logs, old copies) and explains the rest. Camera eyes: 'look at this' opens the camera (the back one on your phone); while it's open, every question includes what it sees."
 }

@@ -1269,8 +1269,8 @@ async function ask(q){
   if(split&&/^(merge|merge back|unsplit)( (with|to|into) )?(claude|chat ?gpt)?$/.test(cmd)){add('you',q);
     return mergeSplit(/gpt/.test(cmd)?'gpt':/claude/.test(cmd)?'claude':$('brain').textContent==='ChatGPT'?'gpt':'claude')}
   if(split&&live&&q.trim()&&!busy)return debate(q);
-  if(/^(?:desk ?view|desk cam(?:era)?|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?)$/.test(cmd)){
-    add('you',q);if(await openDesk())add('j','Desk view is up, sir. Hold something up and ask "what am I holding?".');return}
+  if(/^(?:desk ?view|desk cam(?:era)?|camera eyes|look at this|(?:open|show|start|turn on)(?: me)?(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera|eyes)(?: view)?)$/.test(cmd)){
+    add('you',q);if(await openDesk())add('j','I can see now, sir. Ask me anything about what the camera sees.');return}
   if(DESK.stream&&/^(?:close|stop|hide|turn off|end)(?: the| my)? (?:desk ?view|desk cam(?:era)?|webcam|camera)(?: view)?$/.test(cmd)){add('you',q);closeDesk();add('j','Camera off, sir.');return}
   const bpPull=/^(?:(?:pull|take|break|tear|split) (?:it|this|that) (?:apart|open)|dissect (?:it|this|that)|explode (?:it|this|that)|(?:what'?s|what is|show me what'?s) inside(?: (?:it|this|that))?)$/.test(cmd);
   if(bpPull&&BP.panel&&BP.panel.isConnected){add('you',q);bpExplode(true);return}
@@ -1334,6 +1334,9 @@ async function ask(q){
     BIG.pending=Date.now();q=`Show me ${big[1]} as a panel on the HUD.`}  // nothing on screen by that name: ask for it, then enlarge it
   if(window.svOn&&/^(?:(?:close|exit|leave|hide|shut)(?: (?:the|this|that|my))?(?: (?:spending|spend))?(?: (?:report|breakdown|screen|it|this|that|down))?|(?:go )?back(?: to (?:normal|the hud|jarvis))?|done|that'?s all|finished)$/i.test(cmd)){  // leaving the spending report
     add('you',q);setSpendMode(false);const t='Back to normal, sir.';add('j',t);try{audio();const v=voice();v.push(t);v.end()}catch(e){}return}
+  if(DESK.stream&&!photo&&q.trim()&&!busy&&!/^(?:close|stop|hide|turn off|end)\b/.test(cmd)){  // camera eyes: every question sees what the camera sees now
+    const shot=await deskShot();if(shot){photo=shot;askNote+=`\n[A live frame from his camera is attached: answer about what it shows if the question is about something he's looking at.`
+      +(DESK.labels.length?` The object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}}
   const pic=photo;
   if((!q.trim()&&!pic)||busy)return;
   if(voiceOn)stopSpeaking();  // a new question takes over from whatever he was still saying
@@ -1800,8 +1803,9 @@ let askNote='';
 const DESK={stream:null,panel:null,video:null,labels:[],model:null};
 async function openDesk(){
   if(DESK.stream)return true;
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){add('j','Desk view works in the Jarvis window on the PC, sir.');return false}
-  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720}},audio:false})}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){add('j',window.isSecureContext?"This browser won't share its camera, sir.":'The camera needs the secure (https) Jarvis link, sir.');return false}
+  const phoneCam=typeof PHONE!=='undefined'&&PHONE;  /* on the phone: its back camera */
+  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},...(phoneCam?{facingMode:{ideal:'environment'}}:{})},audio:false})}
   catch(e){add('j',"I can't reach a camera, sir. "+(e.name==='NotAllowedError'?'Camera access was blocked: allow it and try again.':'Is one plugged in?'));return false}
   const p=document.createElement('div');p.className='holo-panel desk';
   p.innerHTML='<button type="button" class="holo-x" aria-label="Close desk view">&times;</button><h3>Desk view</h3><div class="deskbox"><video autoplay playsinline muted></video><canvas></canvas></div><div class="desklab">Loading object recognition…</div>';

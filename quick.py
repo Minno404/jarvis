@@ -107,6 +107,14 @@ def quick(text):
         return {"install": f"Installed, {{TITLE}}. {r.get('note', '')}", "discard": "Thrown away, {TITLE}.",
                 "retry": "Having another go at it, {TITLE}. I'll show you when it's ready.",
                 "remove": "Removed, {TITLE}. It's gone after the next restart."}[verb]
+    m = re.fullmatch(r"(keep|discard|throw away) (?:the )?(?:night shift|tonight s work|last night s work)(?: (.+))?", t)
+    if m and "keep_night_shift" in R:  # (the panel's buttons name the copy: its dashes arrive as spaces)
+        fn = R["keep_night_shift" if m.group(1) == "keep" else "discard_night_shift"]
+        r = fn(name=m.group(2).strip().replace(" ", "-")) if m.group(2) else fn()
+        if r.get("error"):
+            return r["error"]
+        return (f"Done, {{TITLE}}: {r['kept']} files are in your project" + (", with the old ones backed up." if r.get("backup") else ".")
+                if "kept" in r else "Thrown away, {TITLE}. Your project is as it was.")
     m = re.fullmatch(r"start venture find[- ](\d{8})[- ](\d{4}) ([a-z0-9 -]{1,40})", t)  # the money options' buttons
     if m and "start_venture" in R:
         r = R["start_venture"](search=f"find-{m.group(1)}-{m.group(2)}", option=m.group(3).strip().replace(" ", "-"))

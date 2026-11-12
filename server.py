@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.88.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.89.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -657,9 +657,11 @@ import prep       # market prep before his session: levels, trend, news, a brief
 import twin       # his trading twin: his best setups from his journal, and nudges when one forms (see twin.py)
 import crew       # crews: encrypted shared memory with friends' Jarvises, joined by code (see crew.py)
 import ventures   # researching ways to make money online, then working through the one he picks (see ventures.py)
+import nightshift  # coding on a copy of his project overnight, kept or thrown away in the morning (see nightshift.py)
+import selfcare   # the nightly check-up: his own errors, safe fixes, what the rest mean (see selfcare.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -3474,6 +3476,8 @@ if __name__ == "__main__":
                     if features.morning_due():
                         ask_claude_and_say(features.morning_prompt())
                     dayplan.tick(lambda text: say(text, urgent=True))
+                    if selfcare.due():  # the nightly check-up (spoken in the morning, only if worth it)
+                        threading.Thread(target=selfcare.nightly, args=(say,), daemon=True).start()
                     if prep.due():  # weekdays before his session (MT5 must be open; skipped quietly if not)
                         threading.Thread(target=lambda: (lambda r: r.get("brief") and say(r["brief"]))(prep.market_prep()),
                                          daemon=True).start()
@@ -3497,6 +3501,8 @@ if __name__ == "__main__":
                                 skills.after_job(j, text, say)
                             elif j.get("venture") or j.get("venture_find"):  # money research / a venture's next step
                                 ventures.after_job(j, text, say)
+                            elif j.get("night"):  # the night shift's work: the morning panel, keep or throw away
+                                nightshift.after_job(j, text, say)
                             else:
                                 say(text)
                         threading.Thread(target=run_job, args=(job,), daemon=True).start()

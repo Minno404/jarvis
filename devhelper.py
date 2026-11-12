@@ -92,7 +92,8 @@ DEV_PROMPT = ("You are helping {USER} with his project in this folder. Do what h
 def next_job():
     """Mark the oldest queued job as running and return it (or None)."""
     jobs = _load("dev_jobs.json", [])
-    job = next((j for j in jobs if j["status"] == "queued"), None)
+    now = datetime.datetime.now().isoformat(timespec="minutes")
+    job = next((j for j in jobs if j["status"] == "queued" and j.get("after", "") <= now), None)  # night shifts wait
     if job:
         job["status"] = "running"
         _save("dev_jobs.json", jobs)
