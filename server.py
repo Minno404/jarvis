@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.85.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.86.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -651,14 +651,28 @@ import autoreview  # the autopilot's trade reviews, weekly summary and test run 
 import alerts     # phone alerts through the ntfy app (see alerts.py)
 import dayplan    # shift reminders: sleep before night shifts, time to leave (see dayplan.py)
 import bond       # his personality growing with him, and conversations he starts (see bond.py)
+import council    # the AI council: every AI debates a big question, then a verdict (see council.py)
+import skills     # Jarvis teaching himself new skills as checked add-ons (see skills.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
     TOOLS += m.TOOLS
 FUNCS["set_brain"] = lambda brain: set_brain(brain)
+
+
+def register_module(m):
+    """A skill Jarvis just installed (skills.py): its tools work from the next message (fresh brain sessions)."""
+    global session
+    FUNCS.update(getattr(m, "FUNCS", {}))
+    TOOLS.extend(getattr(m, "TOOLS", []))
+    session, gpt_brain.thread["id"] = None, None
+    gemini_brain.history.clear()
+
+
+skills.REGISTER = register_module
 
 
 def voice_mute(on=True):
@@ -823,6 +837,7 @@ mt5trade.IS_OUT = lambda name: time.time() < OUT[name]["until"]
 gamecoach.CLAUDE = CLAUDE
 learn.CLAUDE = CLAUDE
 bond.CLAUDE = CLAUDE
+council.CLAUDE = CLAUDE
 
 
 def _args(tool):
@@ -3461,7 +3476,13 @@ if __name__ == "__main__":
                 try:
                     job = devhelper.next_job()
                     if job:  # a coding job: run it alongside, announce when finished
-                        threading.Thread(target=lambda j=job: say(devhelper.run_job(j, CLAUDE, brain_status()["using"].lower())), daemon=True).start()
+                        def run_job(j):
+                            text = devhelper.run_job(j, CLAUDE, brain_status()["using"].lower())
+                            if j.get("skill"):  # a skill he asked Jarvis to learn: check it and show it for his OK
+                                skills.after_job(j, text, say)
+                            else:
+                                say(text)
+                        threading.Thread(target=run_job, args=(job,), daemon=True).start()
                 except Exception as e:
                     print(datetime.datetime.now(), "dev job:", repr(e))
                 try:

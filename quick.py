@@ -98,6 +98,19 @@ def quick(text):
         import threading
         threading.Thread(target=R["disk_doctor"], daemon=True).start()  # about half a minute; the panel shows when done
         return "Running the disk doctor, {TITLE}. The results will be up in about half a minute."
+    m = re.fullmatch(r"(install|discard|retry|remove|uninstall) (?:the )?(?:new )?skill ([a-z0-9_ ]{2,40})", t)
+    if m and "install_skill" in R:
+        verb = {"uninstall": "remove"}.get(m.group(1), m.group(1))
+        r = R[f"{verb}_skill"](name=m.group(2).strip())
+        if r.get("error"):
+            return r["error"]
+        return {"install": f"Installed, {{TITLE}}. {r.get('note', '')}", "discard": "Thrown away, {TITLE}.",
+                "retry": "Having another go at it, {TITLE}. I'll show you when it's ready.",
+                "remove": "Removed, {TITLE}. It's gone after the next restart."}[verb]
+    m = re.fullmatch(r"(?:ask the council|council)[:,]? (.{5,})", t)
+    if m and "ask_council" in R:
+        r = R["ask_council"](question=m.group(1))
+        return r.get("error") or f"The council is sitting, {{TITLE}}: {', '.join(r['members'])}. Verdict in a minute or two."
     m = re.fullmatch(r"(?:how much (?:will|do|am) i (?:get(?:ting)? paid|earn(?:ing)?|make|making)|what s my pay|what will i get paid)"
                      r"(?: for)?(?: (this|next|last) (week|fortnight))?", t)
     if m and "pay_estimate" in R:

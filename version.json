@@ -1,4 +1,4 @@
 {
- "version": "1.85.1",
- "notes": "Autopilot: up to 30 AI questions a day (was 12), and a box for it in Settings > Trading (AI questions a day)."
+ "version": "1.86.0",
+ "notes": "The AI council: 'ask the council should I...' has Claude, ChatGPT, Gemini and the local AI each answer, read each other's answers and keep or change their stance, then a verdict, on a panel. Jarvis teaches himself skills: 'learn to check my car rego' writes a small add-on in the background, checks it (compiles, its self-test passes, risky code flagged) and shows it to you with Install and Discard."
 }

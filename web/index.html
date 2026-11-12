@@ -204,6 +204,13 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
 .pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
 .holo-panel.wide{width:min(520px,62vw)}
+.cnl-q{font-size:13px;margin:2px 0 8px}.cnl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.cnl-m{border:1px solid rgba(var(--rgb),.25);padding:7px;font-size:11px}.cnl-m b{font-size:12px;letter-spacing:.08em}.cnl-m em{float:right;color:var(--amber);font-style:normal;font-size:10px}
+.cnl-m.off{opacity:.5}.cnl-m.off span{display:block}.cnl-s{font-size:13px;margin:5px 0;color:var(--cyan)}.cnl-c{height:4px;background:rgba(var(--rgb),.15);margin:3px 0}.cnl-c i{display:block;height:100%;background:var(--cyan)}
+.cnl-m small{color:var(--mute)}.cnl-m ul,.cnl ul{margin:4px 0;padding-left:16px}.cnl-r{color:var(--mute);margin-top:3px}
+.cnl-h{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--mute);margin-top:8px}.cnl-v{margin-top:8px;font-size:13px;border-left:2px solid var(--cyan);padding-left:8px}
+.skl{font-size:12px}.skl .up{color:#4ade80}.skl .dn{color:#ff5a6a}.skl-k,.skl-t,.skl-w{margin:5px 0}.skl-w{color:var(--amber)}
+.skl pre{max-height:240px;overflow:auto;font-size:10px;white-space:pre-wrap;background:rgba(0,0,0,.35);padding:6px}.skl summary{cursor:pointer;color:var(--cyan);margin-top:4px}
 .trp-s{font-size:12px;margin:2px 0 6px}.trp-g{width:100%;height:150px;display:block;color:var(--text)}
 .trp-k{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin:6px 0}.trp-k .up,.trp-row .up{color:#4ade80}.trp-k .dn,.trp-row .dn{color:#ff5a6a}
 .trp-n{font-size:11px;color:var(--mute);margin-bottom:6px}.trp-b{font-size:11px;margin:4px 0 6px}
@@ -2648,6 +2655,22 @@ function showPanel(ev){
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
   else if(ev.kind==='calendar')shiftCal(p,ev);
   else if(ev.kind==='testreport')testReport(p,ev);
+  else if(ev.kind==='council'){p.classList.add('wide');const d=document.createElement('div');d.className='cnl';
+    const S=ev.summary||{},list=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+    d.innerHTML=`<div class="cnl-q">${esc(ev.question||'')}</div><div class="cnl-grid">`+(ev.members||[]).map(m=>m.error&&!m.stance?
+      `<div class="cnl-m off"><b>${esc(m.name)}</b><span>couldn't answer</span></div>`:
+      `<div class="cnl-m"><b>${esc(m.name)}</b>${m.changed?'<em>changed its mind</em>':''}<div class="cnl-s">${esc(m.stance||'')}</div>`
+      +`<div class="cnl-c"><i style="width:${Math.max(0,Math.min(100,+m.confidence||0))}%"></i></div><small>${+m.confidence||0}% sure</small>`
+      +`<ul>${list((m.reasons||m.round1?.reasons||[]).slice(0,3))}</ul>${m.risk||m.round1?.risk?`<div class="cnl-r">Risk: ${esc(m.risk||m.round1.risk)}</div>`:''}`
+      +(m.rebuttal?`<div class="cnl-r">“${esc(m.rebuttal)}”</div>`:'')+'</div>').join('')+'</div>'
+      +(S.agree?.length?`<div class="cnl-h">They agree</div><ul>${list(S.agree)}</ul>`:'')+(S.split?.length?`<div class="cnl-h">They split</div><ul>${list(S.split)}</ul>`:'')
+      +`<div class="cnl-v">${esc(S.verdict||'')}</div>`;p.append(d)}
+  else if(ev.kind==='skill'){p.classList.add('wide');const d=document.createElement('div');d.className='skl';
+    d.innerHTML=`<div>${esc(ev.summary||'')}</div>`+`<div class="skl-k ${ev.ok?'up':'dn'}">${ev.ok?'✓ Passed its checks':'✗ '+esc((ev.problems||[]).join(' '))}</div>`
+      +(ev.tools?.length?`<div class="skl-t">New tools: ${ev.tools.map(esc).join(', ')}</div>`:'')
+      +(ev.warnings?.length?`<div class="skl-w">Heads up, it ${ev.warnings.map(esc).join(', ')}.</div>`:'')
+      +`<details><summary>Code (${ev.lines||0} lines)</summary><pre>${esc(ev.code||'')}</pre></details>`
+      +(ev.test?`<details><summary>Self-test output</summary><pre>${esc(ev.test)}</pre></details>`:'');p.append(d)}
   else if(ev.kind==='trades'){p.classList.add('wide');for(const t of ev.trades||[]){const d=document.createElement('div'),up=t.profit>=0;d.className='trv';
     d.innerHTML=`<div class="h"><b>${esc(t.side.toUpperCase())} ${t.lots} ${esc(t.symbol)}</b><span class="${up?'up':'dn'}">${up?'+':'−'}$${Math.abs(t.profit).toFixed(2)} · ${t.r>=0?'+':''}${(+t.r).toFixed(1)}R</span></div>`
       +`<div class="d">${esc((t.opened||'').slice(5,16).replace('T',' '))} · entry ${t.entry} · exit ${t.exit}</div>`+tradeSvg(t)
