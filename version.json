@@ -1,4 +1,4 @@
 {
- "version": "1.94.0",
- "notes": "Team panel: 'show the team' (or 'how's the team going', no AI needed) shows what the planner, coder and critic are each doing on a team goal, with a rough completion bar each, one for the whole goal and the task list. It opens when a team starts and updates itself while open."
+ "version": "1.95.0",
+ "notes": "'Make a Roblox game with the team' or 'make that with the team': Jarvis hands the team what you've been talking about as its brief, and for something new he makes a project folder in Documents/Jarvis Projects (Roblox games are built as Rojo projects). Better understanding: a loosely worded question ('what's my spending like') gets the answer itself with the numbers, with the report or panel opened behind it and where to look, instead of just 'pulling up your report'."
 }

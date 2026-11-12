@@ -233,13 +233,16 @@ def spending_report(open=True):
         features._panel({"type": "mode", "mode": "spending" if open else ""})
     except OSError:
         return {"error": "The HUD isn't open."}
-    return {"shown": bool(open), "note": "It's on his screen; just say a few words."}
+    return {"shown": bool(open), "note": "It's on his screen. If he asked a question about his spending, answer it with the "
+            "figures from the `spending` tool and say where on the report he can see it; otherwise a few words."}
 
 
 FUNCS = {"spending_report": spending_report}
 TOOLS = [{"name": "spending_report", "description": "Switch his screen to the full spending report (Spend Breakdown "
           "inside Jarvis: categories, shops, transactions, insights, adding statements), when he asks to pull up / "
-          "show / open his spending report or breakdown. open=false switches back.",
+          "show / open his spending report or breakdown, or asks a question about his spending in general ('what's my "
+          "spending like'): then also call `spending` for the figures and answer the question itself, pointing to the "
+          "part of the report that shows it. open=false switches back.",
           "input_schema": {"type": "object", "properties": {"open": {"type": "boolean"}}}}]
 
 

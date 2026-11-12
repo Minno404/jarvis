@@ -1,5 +1,8 @@
 """A company of agents: one goal, a team that plans, builds and checks its own work, and reports at checkpoints.
 
+"Make a Roblox game with the team" / "make that with the team": the brain passes what was said in the conversation
+as the brief, and for something that doesn't exist yet (new=True) a project folder is made in Documents/Jarvis
+Projects and added to his projects.
 start_company("gun bros", "ship the Gun Bros demo") copies the project to drafts/ (his project isn't touched) and
 runs a chain of background jobs there:
 1. The planner reads the project and writes the plan: 3 to 6 tasks, each with what "done" means.
@@ -34,13 +37,38 @@ def _queue(c, role, request):
     devhelper._save("dev_jobs.json", jobs + [job])
 
 
-def start_company(project, goal, checkpoint_every=2):
-    """Put a team of agents on one goal for a project, working on a copy."""
+ROBLOX = ("This is a Roblox game: build it as a Rojo project (default.project.json; src/server, src/client and src/shared "
+          "with .luau scripts; a README.md saying how to sync it into Roblox Studio with Rojo). No .rbxl files.")
+
+
+def _new_project(name):
+    """A folder for something that doesn't exist yet, added to his projects. -> (key, path)"""
+    import devhelper
+    import re
+    name = re.sub(r"[^\w -]", "", name).strip()[:40] or "New project"
+    docs = Path.home() / "Documents"
+    folder = (docs if docs.is_dir() else Path.home()) / "Jarvis Projects" / name
+    folder.mkdir(parents=True, exist_ok=True)
+    devhelper.add_project(name, str(folder))
+    return name.lower(), str(folder)
+
+
+def start_company(project, goal, checkpoint_every=2, brief="", new=False):
+    """Put a team of agents on one goal for a project, working on a copy. brief: the details from the conversation."""
     import devhelper
     import nightshift
     key, path = devhelper._project(project)
+    if not key and new:
+        key, path = _new_project(project)
     if not key:
-        return {"error": f"No project called '{project}'", "projects": list(devhelper.list_projects())}
+        return {"error": f"No project called '{project}'. For something new, call again with new=true.",
+                "projects": list(devhelper.list_projects())}
+    if Path(path).resolve() == features.HERE.resolve():
+        return {"error": "Not Jarvis himself: changes to Jarvis are a dev_task with project 'jarvis'."}
+    empty = not any(Path(path).iterdir())
+    brief = (brief or "").strip()[:4000]
+    if "roblox" in f"{project} {goal} {brief}".lower():
+        brief = (brief + "\n" + ROBLOX).strip()
     cid = f"{key.replace(' ', '-')}-co-{datetime.datetime.now():%Y%m%d-%H%M}"
     draft = nightshift._drafts() / cid
     try:
@@ -48,11 +76,13 @@ def start_company(project, goal, checkpoint_every=2):
     except Exception as e:
         return {"error": str(e)}
     st = _state()
-    c = st[cid] = {"id": cid, "project": key, "original": path, "draft": str(draft), "goal": goal, "tasks": [], "task": 0,
+    c = st[cid] = {"id": cid, "project": key, "original": path, "draft": str(draft), "goal": goal, "brief": brief, "tasks": [], "task": 0,
                    "retries": 0, "status": "planning", "every": max(1, int(checkpoint_every)), "log": []}
     features._save(FILE, st)
     _queue(c, "planner", f"You are the planner of a small team working on this project for {{USER}}. The goal: {goal}\n"
-           "Read the project, then write COMPANY_PLAN.json in this folder: {\"tasks\": [{\"title\": \"...\", \"do\": "
+           + (f"What he said he wants (from the conversation):\n{brief}\n" if brief else "")
+           + ("The folder is empty: this is a brand new project, so the first task sets up its structure. " if empty else "")
+           + "Read the project, then write COMPANY_PLAN.json in this folder: {\"tasks\": [{\"title\": \"...\", \"do\": "
            "\"exactly what to change, with file names\", \"done_when\": \"how a reviewer can tell from the code\"}]}. "
            "3 to 6 tasks, in order, each small enough for one sitting. Change nothing else.")
     try:
@@ -65,7 +95,8 @@ def start_company(project, goal, checkpoint_every=2):
 def _code(c, extra=""):
     t = c["tasks"][c["task"]]
     _queue(c, "coder", f"You are the coder on a team working toward: {c['goal']}\nTask {c['task'] + 1} of {len(c['tasks'])}: "
-           f"{t['title']}\n{t['do']}\nDone when: {t.get('done_when', '')}\n{extra}Do this task only.")
+           f"{t['title']}\n{t['do']}\nDone when: {t.get('done_when', '')}\n"
+           + (f"What he asked for overall:\n{c['brief']}\n" if c.get("brief") else "") + f"{extra}Do this task only.")
 
 
 def after_job(job, summary, say):
@@ -202,9 +233,15 @@ S = {"type": "string"}
 TOOLS = [
     {"name": "start_company", "description": "Put a team of agents (planner, coder, critic) on one big goal for a "
      "project ('get the team to ship the Gun Bros demo'): they plan, build and check each other on a copy, report at "
-     "checkpoints, and he keeps or throws away the result. For big multi-step goals; one-off changes use dev_task.",
+     "checkpoints, and he keeps or throws away the result. Use it whenever he says 'with the team' or 'get the team "
+     "to' ('make a Roblox game with the team', 'make that with the team'). 'That' is what you've been talking about: "
+     "put everything relevant from the conversation in brief (the idea, features, style, decisions made, in full "
+     "sentences), since the team sees nothing else. project: one of his projects, or for something that doesn't "
+     "exist yet a short name for it with new=true (a folder is made in Documents/Jarvis Projects). If it's unclear "
+     "what he wants built, ask one question first. For big multi-step goals; one-off changes use dev_task.",
      "input_schema": {"type": "object", "required": ["project", "goal"],
-                      "properties": {"project": S, "goal": S, "checkpoint_every": {"type": "integer"}}}},
+                      "properties": {"project": S, "goal": S, "brief": S, "new": {"type": "boolean"},
+                                     "checkpoint_every": {"type": "integer"}}}},
     {"name": "company_status", "description": "Show the team panel ('show the team', 'how's the team going'): what "
      "the planner, coder and critic are each doing, with a rough completion bar each.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "stop_company", "description": "Stop the team.", "input_schema": {"type": "object", "properties": {}}},
@@ -257,4 +294,14 @@ if __name__ == "__main__":
     assert keep["actions"][0][1].startswith("keep night shift game-co-")
     b = board(_state()[j["company"]])
     assert b["overall"] == 100 and [m["pct"] for m in b["members"]] == [100, 100, 100] and "sent 1 back" in b["members"][2]["doing"]
+    assert start_company("space miner", "make it").get("error")  # unknown and not new
+    import pathlib
+    pathlib.Path.home = staticmethod(lambda: features.HERE)
+    added = {}
+    devhelper.add_project = lambda n, p: added.update({n.lower(): p})
+    devhelper.list_projects = lambda: {"game": str(proj), **added}
+    r = start_company("Space Miner", "make a Roblox mining game", brief="Top-down, pets, 4 players.", new=True)
+    assert r.get("company", "").startswith("space-miner-co-") and (features.HERE / "Jarvis Projects" / "Space Miner").is_dir()
+    q = last()["request"]
+    assert "pets, 4 players" in q and "Rojo project" in q and "brand new project" in q
     print("company self-test passed")

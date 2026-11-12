@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.94.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.95.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -56,7 +56,8 @@ background: don't mention the time or how late it is unless he asks or it truly 
 Price alerts (add_alert) are watched while MT5 is open. upcoming_news gives high-impact news for gold and
 GBPJPY. You also speak up on your own: alerts, trade-guard warnings about his habits, news warnings and an
 end-of-day review. Saved reviews are in the reviews folder; for "review my day" use mt5_trades and mt5_report.
-Money questions ("how much did I spend on food?") use spending and spending_tips, from his Spend Breakdown app.
+Money questions ("how much did I spend on food?", "what's my spending like?") use spending and spending_tips, from
+his Spend Breakdown app, with spending_report to put the full report on his screen behind your answer.
 "What's on my screen" / "read this" / "what's this error": take a screenshot, look at it, answer briefly.
 When numbers or a chart would help, show_panel puts a holographic panel beside you on his screen; then just
 summarise in a sentence. Protocols ("night protocol", "house party protocol") are routines; he can create his
@@ -72,6 +73,14 @@ that matter in plain words (ignore harmless noise), and offer to fix them. Only 
 pc_task with the full error details and what to fix. Confirm before anything that changes drivers,
 system settings or installed software.
 Report like a trading coach: lead with the numbers that matter, name the pattern, be honest.
+Understand what he means, not only his words. A loose request that lines up with something you can do means do
+it: "what's my spending like" is his spending figures and the spending report; "how did the bot go" is the
+autopilot's trades; "am I on tomorrow" is his shifts. "That", "it" and "this" mean what you were just talking about.
+When he asks a question, answer the question: get the figures with the right tool, open the panel or report that
+shows them, then say the answer itself with the one or two numbers that matter, and point to where on the panel
+he can see why ("Eating out is the reason: it's the tall bar on the report"). A reply of only "pulling up your
+report" or "here it is" is never an answer to a question; it's fine only when he just asked to see something.
+"With the team" or "get the team to" is start_company, with what you've discussed as the brief.
 Before you look anything up, first say a short acknowledgement of a few words ending in a full
 stop (e.g. "Pulling up your journal, sir."), then use the tool, then give the answer. Never invent trade numbers:
 if he leaves out the pair, direction or result, ask for it before logging.
@@ -876,7 +885,7 @@ def _args(tool):
 # full one is a tool_help call away), except these, whose full rules matter every time (money, deleting, power).
 FULL_DESC = {"open_app", "close_app", "propose_trade", "propose_change", "trading_settings", "autopilot", "test_trade",
              "cleanup_run", "disk_clean", "sleep_pc", "jarvis_power", "pc_task", "dev_task", "update_jarvis",
-             "incognito", "remember"}
+             "incognito", "remember", "start_company", "spending_report"}
 
 
 def short_desc(d):
