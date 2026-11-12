@@ -57,7 +57,7 @@ LIMITS = {  # his settings override these ("trade_" keys in settings.json)
     "auto_min_stop_atr": 1.0,       # the stop is at least this many M15 ATRs from the entry (tighter: widened)
     "auto_news_min": 30,            # no new trades this many minutes before and after high-impact news (0 = off)
     "auto_symbols": ["XAUUSD", "GBPJPY", "EURAUD"],  # what the autopilot watches
-    "auto_max_asks": 12,            # the most times a day the chart watcher asks the brains (each costs tokens)
+    "auto_max_asks": 30,            # the most times a day the chart watcher asks the brains (each costs tokens)
     "auto_max_open": 2,             # trades (or planned entries) open at once, at most one per pair
     "auto_accounts": [],            # Jarvis's own MT5 account numbers: his journal there, the autopilot trades there
     # Quiet hours (this PC's clock): the autopilot doesn't look at charts or ask the brains. Empty times: none.

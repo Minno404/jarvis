@@ -1,4 +1,4 @@
 {
- "version": "1.85.0",
- "notes": "Talk to Jarvis from your Apple Watch: tick it in Settings > Phone alerts, make the 'Jarvis' Shortcut shown there, and say 'Hey Siri, Jarvis' on the watch. Jarvis answers like a typed message and the answer comes back as an ntfy alert on your watch, from anywhere (no Tailscale needed)."
+ "version": "1.85.1",
+ "notes": "Autopilot: up to 30 AI questions a day (was 12), and a box for it in Settings > Trading (AI questions a day)."
 }
