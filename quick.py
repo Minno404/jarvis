@@ -107,6 +107,14 @@ def quick(text):
         return {"install": f"Installed, {{TITLE}}. {r.get('note', '')}", "discard": "Thrown away, {TITLE}.",
                 "retry": "Having another go at it, {TITLE}. I'll show you when it's ready.",
                 "remove": "Removed, {TITLE}. It's gone after the next restart."}[verb]
+    m = re.fullmatch(r"start venture find[- ](\d{8})[- ](\d{4}) ([a-z0-9 -]{1,40})", t)  # the money options' buttons
+    if m and "start_venture" in R:
+        r = R["start_venture"](search=f"find-{m.group(1)}-{m.group(2)}", option=m.group(3).strip().replace(" ", "-"))
+        return r.get("error") or "On it, {TITLE}. Planning it now; I'll show you the plan and start on my steps."
+    if re.fullmatch(r"(?:i m |i am |i ve |i have )?(?:done|finished)(?: with)? (?:that|my|the) (?:venture )?step|next venture step", t) \
+            and "venture_step_done" in R:
+        r = R["venture_step_done"]()
+        return r.get("error") or (f"Good work, {{TITLE}}. Next up: {r['next']}." if r["next"] != "finished" else "That was the last step, {TITLE}.")
     m = re.fullmatch(r"(?:ask the council|council)[:,]? (.{5,})", t)
     if m and "ask_council" in R:
         r = R["ask_council"](question=m.group(1))

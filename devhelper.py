@@ -127,6 +127,13 @@ PC_PROMPT = ("You are Jarvis's hands on {USER}'s Windows PC. He asked for the jo
              "or found, and anything left for him to do." + OUTCOME + "\n\nThe job: ")
 
 
+RESEARCH_PROMPT = ("You are Jarvis, researching for {USER} in this folder. Use the web properly: several searches, read "
+                   "the real pages, prefer recent and first-hand sources (official platform docs, earnings reports, "
+                   "data sites) over hype, and keep every source's link. Write your results into files in this folder "
+                   "exactly as asked. Be honest about what earns little or is risky. Finish with 2-3 plain sentences "
+                   "(no markdown) he can hear read aloud." + OUTCOME + "\n\nThe job: ")
+
+
 SELF_RULE = ("\n\nIMPORTANT: Jarvis's own program lives in {HERE}. Its core files (*.py, web/index.html, updater, "
              "README) are replaced by every update, so NEVER edit them. To change or add to Jarvis (new panels, "
              "stats, tools, looks), write files only in {HERE}\\custom, following {HERE}\\CUSTOM.md: read it first. "
@@ -185,7 +192,9 @@ def run_job(job, claude, brain="claude"):
     Dev jobs: in the project folder, read and edit only. PC jobs: anywhere, with the shell and the web; with Claude,
     under Claude Code's auto mode, where a safety check reviews every action and blocks risky ones."""
     import gpt_brain
-    prompt = features.personal(PC_PROMPT if job.get("kind") == "pc" else DEV_PROMPT) + _self_rule(job) + job["request"]
+    kind = job.get("kind")
+    prompt = features.personal(PC_PROMPT if kind == "pc" else RESEARCH_PROMPT if kind == "research" else DEV_PROMPT) \
+        + _self_rule(job) + job["request"]
     text, status = "", "error"
     import local_brain
     if brain not in ("chatgpt", "local") and claude:
@@ -197,8 +206,11 @@ def run_job(job, claude, brain="claude"):
         rea = _rea_config()
         if rea:
             base += ["--mcp-config", rea]
-        if job.get("kind") == "pc":
+        if kind == "pc":
             cmd = base + ["--permission-mode", "auto", "--permission-prompts", "none"]
+        elif kind == "research":  # the web plus files in its own folder; no shell
+            cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+                          "--disallowedTools", "Bash,PowerShell"]
         else:
             cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Edit,Write,Glob,Grep" + (",mcp__rea" if rea else ""),
                           "--disallowedTools", "Bash,PowerShell,WebFetch,WebSearch"]
@@ -223,7 +235,7 @@ def run_job(job, claude, brain="claude"):
         else:
             try:
                 text, ok = gpt_brain.run_task(prompt.replace(NO_COMMANDS, CODEX_DEV), job["path"], local=local,
-                                              pc=job.get("kind") == "pc")
+                                              pc=kind in ("pc", "research"))
                 status = "done" if ok else "error"
             except Exception as e:
                 text, status = f"It didn't work: {type(e).__name__}.", "error"

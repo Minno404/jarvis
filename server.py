@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.87.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.88.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -656,9 +656,10 @@ import skills     # Jarvis teaching himself new skills as checked add-ons (see s
 import prep       # market prep before his session: levels, trend, news, a brief (see prep.py)
 import twin       # his trading twin: his best setups from his journal, and nudges when one forms (see twin.py)
 import crew       # crews: encrypted shared memory with friends' Jarvises, joined by code (see crew.py)
+import ventures   # researching ways to make money online, then working through the one he picks (see ventures.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -3494,6 +3495,8 @@ if __name__ == "__main__":
                             text = devhelper.run_job(j, CLAUDE, brain_status()["using"].lower())
                             if j.get("skill"):  # a skill he asked Jarvis to learn: check it and show it for his OK
                                 skills.after_job(j, text, say)
+                            elif j.get("venture") or j.get("venture_find"):  # money research / a venture's next step
+                                ventures.after_job(j, text, say)
                             else:
                                 say(text)
                         threading.Thread(target=run_job, args=(job,), daemon=True).start()

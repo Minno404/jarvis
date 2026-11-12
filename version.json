@@ -1,4 +1,4 @@
 {
- "version": "1.87.0",
- "notes": "Market prep: weekdays at 10:00 (Settings 'prep_time') or 'prep me for the session': each pair's trend, key levels, overnight move and news, drawn on a panel, with a short spoken brief. Trading twin: 'learn my trading' finds which setups you win with from your own journal; Jarvis nudges you when one forms (no AI, every 5-minute close). Crews: encrypted shared memory with friends' Jarvises; 'make a crew called Friday D&D' gives a code, and only people with it can join, read or add notes."
+ "version": "1.88.0",
+ "notes": "Ventures: 'find me ways to make money online' (or 'with Roblox games') researches real options on the web, fitted to you, with realistic income, costs, time and sources, and shows them with Jarvis's pick and thoughts. 'Start this' makes a step-by-step plan and works through it: research and build steps run in the background; steps only you can do (accounts, money, publishing) wait for you ('done with that step'). 'Venture status' shows progress."
 }

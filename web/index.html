@@ -204,6 +204,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
 .pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
 .holo-panel.wide{width:min(520px,62vw)}
+.vnt-o{border-top:1px solid rgba(var(--rgb),.2);padding:6px 0;font-size:12px}.vnt-o summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.vnt-o summary span{color:var(--mute);font-size:11px;margin-left:auto}.vnt-o em{font-style:normal;color:#4ade80;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.vnt-o.pick{border-left:2px solid #4ade80;padding-left:6px}.vnt-o .w{color:var(--mute);font-size:11px;margin-top:3px}.vnt-o a{color:var(--cyan)}
+.vnt-k{display:flex;flex-wrap:wrap;gap:4px 12px;margin:5px 0;font-size:11px}.vnt-go{margin-top:6px;font-size:11px}
 .prp-b{font-size:13px;margin:2px 0 8px;border-left:2px solid var(--cyan);padding-left:8px}.prp-p{border-top:1px solid rgba(var(--rgb),.2);padding:6px 0}
 .prp-p .h{display:flex;gap:10px;align-items:baseline}.prp-p em{font-style:normal;font-size:11px;margin-left:auto}.t-up{color:#4ade80}.t-down{color:#ff5a6a}.t-range{color:var(--amber)}
 .prp-p .d,.prp-p .w{font-size:11px;color:var(--mute);margin-top:3px}.prp-p .up{color:#4ade80}.prp-p .dn{color:#ff5a6a}
@@ -2668,6 +2672,17 @@ function showPanel(ev){
       +(m.rebuttal?`<div class="cnl-r">“${esc(m.rebuttal)}”</div>`:'')+'</div>').join('')+'</div>'
       +(S.agree?.length?`<div class="cnl-h">They agree</div><ul>${list(S.agree)}</ul>`:'')+(S.split?.length?`<div class="cnl-h">They split</div><ul>${list(S.split)}</ul>`:'')
       +`<div class="cnl-v">${esc(S.verdict||'')}</div>`;p.append(d)}
+  else if(ev.kind==='ventures'){p.classList.add('wide');const d=document.createElement('div');d.className='vnt';
+    const $n=v=>v==null||v===''?'?':'$'+Number(v).toLocaleString();
+    d.innerHTML=`<div class="prp-b">${esc(ev.thoughts||'')}</div>`+(ev.options||[]).map(o=>{const m=o.monthly_aud||{};
+      return `<details class="vnt-o${o.id===ev.pick?' pick':''}"><summary><b>${esc(o.name)}</b>${o.id===ev.pick?'<em>Jarvis\'s pick</em>':''}<span>${$n(m.typical)}/month typical · score ${o.score??'?'}</span></summary>`
+        +`<div>${esc(o.what||'')}</div><div class="w">Why you: ${esc(o.why_him||'')}</div>`
+        +`<div class="vnt-k"><span>Start-up ${$n(o.startup_cost_aud)}</span><span>${o.hours_per_week??'?'} h/week</span><span>First $ ${esc(o.time_to_first_dollar||'?')}</span><span>${$n(m.low)} to ${$n(m.high)}/month</span></div>`
+        +((o.risks||[]).length?`<div class="w">Risks: ${o.risks.map(esc).join(' · ')}</div>`:'')
+        +`<div class="w">Jarvis does: ${(o.jarvis_can_do||[]).map(esc).join(', ')}</div><div class="w">You do: ${(o.he_must_do||[]).map(esc).join(', ')}</div>`
+        +(o.evidence||[]).slice(0,4).map(e=>`<div class="w">· ${esc(e.claim||'')} <a href="${esc(e.source||'#')}" target="_blank" rel="noopener">source</a></div>`).join('')
+        +`<button type="button" class="vnt-go" data-go="start venture ${esc(ev.search)} ${esc(o.id)}">Start this</button></details>`}).join('');
+    d.onclick=e=>{const b=e.target.closest('.vnt-go');if(b)ask(b.dataset.go)};p.append(d)}
   else if(ev.kind==='prep'){p.classList.add('wide');const d=document.createElement('div');d.className='prp';
     d.innerHTML=`<div class="prp-b">${esc(ev.brief||'')}</div>`+(ev.pairs||[]).map(x=>{const o=x.overnight||{},up=(o.change||0)>=0;
       return `<div class="prp-p"><div class="h"><b>${esc(x.symbol)}</b><span>${x.price}</span><em class="t-${esc(x.trend)}">${x.trend==='up'?'▲ uptrend':x.trend==='down'?'▼ downtrend':'◆ range'}</em></div>`
