@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.91.1** (shown at the bottom right of the HUD)
+**Version 1.92.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.92.0**: Live panels from a description: 'make a panel that shows gold's price and my open trades' writes itself in about half a minute and stays (sandboxed: read-only tools and public pages only). Hand control: 'hand control on' makes your index finger a pointer on the webcam; pinch to click or drag a panel, swipe an open hand to close a pop-up. Holo mode's life map: your shifts, pay, trades, agents, ventures and more orbit the core; tap, pinch or say one to open it ('life map off' hides it).
 - **1.91.1**: Self-improvements: remove or reword each proposed rule before approving ('remove improvement 2', 'change 1 to ...'), and give Jarvis your own rules ('new rule: ...').
 - **1.91.0**: Jarvis improves himself: weekly (or 'improve yourself') he writes rules from your corrections, losing autopilot trades and errors, tests them blind against his old self, and shows them to approve. The mirror: 'study how I decide', then 'what does my mirror say about ...' plays a decision forward from your own record. Experiments: 'test whether I trade better after 7 hours of sleep' gathers daily numbers and reports. A team of agents: 'get the team to ship my demo' runs a planner, coder and critic on a copy with checkpoints. Time capsule: your dated predictions, plans and promises are read back on their day.
 - **1.90.0**: Project agents: 'make a Gun Bros agent' gives a project its own Jarvis that reads the whole project into a second brain, keeps its own notes, and works in the background ('Gun Bros Jarvis, add a reload system') while you keep using Jarvis; every agent and Jarvis himself see what the others are doing. Instant project lookups: 'where's the damage code in Gun Bros?'. Dream mode: at 04:00 Jarvis thinks over your week and has three ideas waiting in the morning, each with a Do it button.

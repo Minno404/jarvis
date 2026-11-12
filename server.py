@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.91.1"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.92.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -666,9 +666,11 @@ import mirror     # a model of how he decides, to play decisions forward (see mi
 import experiments  # experiments on his life: a factor, an outcome, two weeks of data (see experiments.py)
 import company    # a team of agents (planner, coder, critic) on one goal, on a copy (see company.py)
 import capsule    # the time capsule: his predictions, plans and promises, replayed on their date (see capsule.py)
+import panelsmith  # live panels written from a description, run in a sandboxed frame (see panelsmith.py)
+import lifemap    # holo mode's life map: what's going on, in orbit around the core (see lifemap.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, evolve, mirror, experiments, company, capsule,
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, evolve, mirror, experiments, company, capsule, panelsmith,
           *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
@@ -2269,6 +2271,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(roster_mail.public())
         if self.path == "/api/personality":
             return self.send_json(bond.personality_info())
+        if self.path == "/api/lifemap":
+            return self.send_json({"nodes": lifemap.nodes()})
+        if self.path == "/api/live_panels":
+            return self.send_json(panelsmith.live_panels())
         if self.path == "/api/pay":
             return self.send_json(shifts.pay_settings())
         if self.path == "/api/voice_mute":
@@ -2454,6 +2460,10 @@ class Handler(SimpleHTTPRequestHandler):
             if body.get("what") == "roleplay":
                 features.ROLEPLAY_OPEN.write_text("1") if body.get("on") else features.ROLEPLAY_OPEN.unlink(missing_ok=True)
             return self.send_json({"focus": features.focus()})
+        if self.path == "/api/panel_call":  # a live panel's sandboxed frame asking for a read-only tool or a public page
+            b = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            return self.send_json(panelsmith.panel_call(str(b.get("panel")), b.get("kind"), str(b.get("name") or ""),
+                                                        b.get("args") if isinstance(b.get("args"), dict) else {}, str(b.get("url") or "")))
         if self.path == "/api/pay":  # Settings > Pay: his rates for the pay estimate
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             try:

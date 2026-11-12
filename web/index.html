@@ -211,6 +211,13 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .prp-b{font-size:13px;margin:2px 0 8px;border-left:2px solid var(--cyan);padding-left:8px}.prp-p{border-top:1px solid rgba(var(--rgb),.2);padding:6px 0}
 .prp-p .h{display:flex;gap:10px;align-items:baseline}.prp-p em{font-style:normal;font-size:11px;margin-left:auto}.t-up{color:#4ade80}.t-down{color:#ff5a6a}.t-range{color:var(--amber)}
 .prp-p .d,.prp-p .w{font-size:11px;color:var(--mute);margin-top:3px}.prp-p .up{color:#4ade80}.prp-p .dn{color:#ff5a6a}
+.livef{display:block;width:100%;height:60px;border:0;background:transparent;color-scheme:dark}
+#handDot{position:fixed;left:0;top:0;width:18px;height:18px;border-radius:50%;border:2px solid var(--cyan);box-shadow:0 0 10px var(--cyan);pointer-events:none;z-index:99999;transition:width .1s,height .1s}
+#handDot.down{background:var(--cyan)}
+#lifeMap{position:fixed;inset:0;pointer-events:none;z-index:5}
+.lm-n{all:unset;position:absolute;left:0;top:0;pointer-events:auto;cursor:pointer;text-align:center;padding:5px 9px;border:1px solid rgba(var(--rgb),.35);background:rgba(0,0,0,.45);backdrop-filter:blur(3px);font-size:11px;white-space:nowrap;will-change:transform}
+.lm-n b{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}.lm-n span{color:var(--text)}
+.lm-n.hot{border-color:var(--cyan);box-shadow:0 0 12px rgba(var(--rgb),.6)}.lm-n:hover{background:rgba(var(--rgb),.2)}
 .cnl-q{font-size:13px;margin:2px 0 8px}.cnl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .cnl-m{border:1px solid rgba(var(--rgb),.25);padding:7px;font-size:11px}.cnl-m b{font-size:12px;letter-spacing:.08em}.cnl-m em{float:right;color:var(--amber);font-style:normal;font-size:10px}
 .cnl-m.off{opacity:.5}.cnl-m.off span{display:block}.cnl-s{font-size:13px;margin:5px 0;color:var(--cyan)}.cnl-c{height:4px;background:rgba(var(--rgb),.15);margin:3px 0}.cnl-c i{display:block;height:100%;background:var(--cyan)}
@@ -1308,6 +1315,11 @@ async function ask(q){
     photo=shot;askNote=`\n[A live photo from his desk camera is attached: list what you can see, most interesting first, briefly.`
       +(DESK.labels.length?` The camera's object detector sees: ${DESK.labels.join(', ')}.`:'')+']'}
   if(/^(?:inventory mode|(?:turn on|start) inventory(?: mode)?)$/.test(cmd)){add('you',q);if(await openDesk())add('j',"Inventory mode, sir. While desk view is open I'll remember where I see things: ask \"where did I leave my phone?\".");return}
+  if(/^(?:hand control(?: on)?|air mouse|(?:turn on|start|enable) hand control)$/.test(cmd)){add('you',q);handControl(true);return}
+  if(/^(?:hand control off|(?:turn off|stop|disable) hand control)$/.test(cmd)){add('you',q);handControl(false);add('j','Hand control off, sir.');return}
+  if(/^(?:life map(?: on)?|(?:show|open)(?: me)?(?: the| my)? life map)$/.test(cmd)){add('you',q);if(HOLO){lifeMap(true);add('j','Your life map, sir.')}else location.href='/?holo=1';return}
+  if(HOLO&&/^(?:life map off|(?:hide|close)(?: the| my)? life map)$/.test(cmd)){add('you',q);lifeMap(false);try{localStorage.setItem('jarvis-lifemap','0')}catch(e){}add('j','Hidden, sir.');return}
+  if(LM.on){const n=LM.nodes.find(n=>[n.label.toLowerCase(),'open '+n.label.toLowerCase(),'show '+n.label.toLowerCase()].includes(cmd));if(n)q=n.say}  /* saying a life-map item's name opens it */
   if(/^(?:gesture(?:s| control)(?: on)?|(?:turn on|start|enable) gesture(?:s| control))$/.test(cmd)){add('you',q);gestures(true);return}
   if(/^(?:gesture(?:s| control) off|(?:turn off|stop|disable) gesture(?:s| control))$/.test(cmd)){add('you',q);gestures(false);add('j','Gestures off, sir.');return}
   const spot=cmd.match(/^(?:workout spotter|spot me|(?:spot|count|watch)(?: me| my)?(?: doing)?(?: some)? (squats?|push ?-?ups?|press ?-?ups?|(?:bicep )?curls?|jumping jacks?|star jumps?))$/);
@@ -1532,7 +1544,7 @@ async function events(){
   }catch(e){}
 }
 function dispatch(ev){if(ev.type==='panel'){if(!PIN)showPanel(ev)}else if(ev.type==='theme')setTheme(ev.color);else if(ev.type==='hud_panel'){if(!ev.to||ev.to===(LOCAL||PIN?'pc':'phone')){setPanel(ev.panel,ev.show);
-  const sp=ev.show&&!LOCAL&&document.querySelector(`.panel[data-id="${ev.panel}"]`);if(sp)setTimeout(()=>sp.scrollIntoView({behavior:'smooth',block:'start'}),150)}}/* phone: panels stack below the chat, so go to it */else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='incognito'){showIncognito(ev.on)}else if(ev.type==='muted'){showMuted(ev.on)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
+  const sp=ev.show&&!LOCAL&&document.querySelector(`.panel[data-id="${ev.panel}"]`);if(sp)setTimeout(()=>sp.scrollIntoView({behavior:'smooth',block:'start'}),150)}}/* phone: panels stack below the chat, so go to it */else if(ev.type==='brain')showBrain(ev.name);else if(ev.type==='persona')showPersona(ev);else if(ev.type==='prefs')showPrefs(ev);else if(ev.type==='status')activityTick();else if(ev.type==='pins'&&!PIN&&api())api().pinned().then(l=>{pinnedIds=new Set(l);showPins()});else if(ev.type==='background')setBackground(ev);else if(ev.type==='clear_timers'){[...document.querySelectorAll('.holo-panel')].filter(p=>/^timer/i.test(p.querySelector('h3')?.textContent||'')).forEach(closePanel);activityTick()}else if(ev.type==='workout_ctl'){if(wk)wk.ctl(ev.do)}else if(ev.type==='say'){if(HOLO)holoSay(ev.text)}else if(ev.type==='phone_say'){if(!LOCAL&&!PIN){add('j',ev.text);if(HOLO)holoSay(ev.text);try{const v=voice();v.push(ev.text);v.end()}catch(e){}}}else if(ev.type==='handoff'){if(!LOCAL&&!PIN)pickUp(true)}else if(ev.type==='model'){if(!PIN)wsLoad(ev.url,ev.ext,ev.name)}else if(ev.type==='blueprint'){if(!PIN)showBlueprint(ev)}else if(ev.type==='sim'){if(!PIN)showSim(ev)}else if(ev.type==='disk'){if(!PIN)showDisk(ev)}else if(ev.type==='usage'){if(!PIN)showUsage(ev)}else if(ev.type==='incognito'){showIncognito(ev.on)}else if(ev.type==='muted'){showMuted(ev.on)}else if(ev.type==='live_panel'){if(!PIN)livePanel(ev)}else if(ev.type==='trade_ticket'){if(!PIN&&LOCAL)showTicket(ev)}else if(ev.type==='autopilot'){if(!PIN)showAuto(ev)}else if(ev.type==='trade_test'){if(!PIN)showTradeTest(ev)}else if(ev.type==='disk_cleaned'){if(!PIN)diskCleaned(ev)}else if(ev.type==='research'){if(!PIN)showResearch(ev)}else if(ev.type==='mode'){setSpendMode(ev.mode==='spending')}else if(ev.type==='bootup'){if(!PIN&&(HOLO||LOCAL))bootUp(ev)}else if(ev.type==='clear')[...$('holo').children].forEach(closePanel)}
 // Phone: panels that come up stay up the next time the app opens, until closed with their x (the side panels
 // already remember being closed). The trading autopilot's panel is the exception: it's at the bottom when the
 // autopilot is running, and not there when it isn't.
@@ -1656,10 +1668,25 @@ function bootUp(ev){
 }
 // ---------- Holo mode: open on a phone (Systems > Holo mode) and it becomes a little desk hologram ----------
 const HOLO=new URLSearchParams(location.search).has('holo');
+// ---- The life map (holo mode): what's going on in his life, orbiting the core. Tap one, pinch it with hand control,
+// or say its name to open it. Hot ones (needing him, or live) glow. "Life map off" hides it. ----
+const LM={on:false,nodes:[],els:[],a:0};
+function lifeMap(on){LM.on=on;let box=$('lifeMap');if(!on){if(box)box.remove();return}
+  if(!box){box=document.createElement('div');box.id='lifeMap';document.body.append(box);
+    box.onclick=e=>{const b=e.target.closest('.lm-n');if(b)ask(b.dataset.say)};requestAnimationFrame(lmTick);lmLoad()}}
+async function lmLoad(){const box=$('lifeMap');if(!LM.on||!box)return;try{LM.nodes=(await (await fetch('/api/lifemap')).json()).nodes||[]}catch(e){}
+  box.innerHTML=LM.nodes.map(n=>`<button type="button" class="lm-n${n.hot?' hot':''}" data-say="${esc(n.say)}"><b>${esc(n.label)}</b><span>${esc(n.value)}</span></button>`).join('');
+  LM.els=[...box.children];setTimeout(lmLoad,60000)}
+function lmTick(){const box=$('lifeMap');if(!LM.on||!box)return;const c=$('coreWrap').getBoundingClientRect(),cx=c.left+c.width/2,cy=c.top+c.height/2,
+    rx=Math.min(innerWidth*.44,c.width*.8),ry=c.height*.3;if(!box.matches(':hover'))LM.a+=.0018;
+  LM.els.forEach((el,i)=>{const t=LM.a+i/LM.els.length*Math.PI*2,z=Math.sin(t),k=(z+1)/2;  /* z: in front of the core (1) or behind it (-1) */
+    el.style.transform=`translate(${cx+Math.cos(t)*rx}px,${cy+z*ry}px) translate(-50%,-50%) scale(${.72+.28*k})`;el.style.opacity=.35+.65*k;el.style.zIndex=z>0?3:1});
+  requestAnimationFrame(lmTick)}
 function holoSay(text){$('holoLine')&&($('holoLine').textContent=text);try{audio();const v=voice();v.push(text+' ');v.end()}catch(e){}}
 if(!PIN){$('holoRow').hidden=false;$('holoBtn').onclick=()=>location.href='/?holo=1'}
 if(HOLO){
   document.documentElement.classList.add('holo-mode');if(LOCAL)document.documentElement.classList.add('pc-holo');
+  let lmWant=true;try{lmWant=localStorage.getItem('jarvis-lifemap')!=='0'}catch(e){}if(lmWant)setTimeout(()=>lifeMap(true),1200);
   addEventListener('keydown',e=>{if(e.key==='Escape'&&document.activeElement!==$('q'))location.href='/'});
   const line=document.createElement('div');line.id='holoLine';$('state').after(line);
   const ex=document.createElement('button');ex.id='holoExit';ex.type='button';ex.textContent='\u00d7';ex.setAttribute('aria-label','Leave holo mode');ex.onclick=()=>location.href='/';document.body.append(ex);
@@ -1853,7 +1880,29 @@ async function mpTask(kind,model,opts){const {v,files}=await vision();  // the g
 function deskNote(t){const p=DESK.panel;if(!p)return;let n=p.querySelector('.desknote');if(!n){n=document.createElement('div');n.className='desknote';p.append(n)}n.textContent=t}
 // ---- Gesture control: open palm = play/pause, peace sign = next song, thumbs up/down = louder/quieter,
 // fist = stop talking, pointing up = "what am I holding?" (hold the gesture for half a second) ----
-const GEST={on:false,rec:null,last:'',since:0,cool:0};
+const GEST={on:false,rec:null,last:'',since:0,cool:0,mouse:false};
+// ---- Hand control ("hand control on"): your index finger moves a pointer; pinch thumb and finger on a panel's body to
+// drag it, a quick pinch clicks what's under the pointer, and an open hand swiped sideways closes the front pop-up ----
+const HC={dot:null,x:0,y:0,down:false,p:null,el:null,t0:0,sx:0,sy:0,dx:0,dy:0,hist:[],cool:0};
+function handCursor(lm,gname){
+  if(!HC.dot){HC.dot=document.createElement('div');HC.dot.id='handDot';document.body.append(HC.dot)}
+  if(!lm){HC.dot.hidden=true;HC.down=false;if(HC.p)HC.p.classList.remove('lifted');HC.p=null;return}
+  HC.dot.hidden=false;const tip=lm[8],th=lm[4],size=Math.hypot(lm[0].x-lm[9].x,lm[0].y-lm[9].y)||.1,now=performance.now();
+  const nx=Math.min(1,Math.max(0,((1-tip.x)-.15)/.7)),ny=Math.min(1,Math.max(0,(tip.y-.15)/.7));  /* mirrored; the middle 70% of the picture covers the screen */
+  HC.x=HC.x*.55+nx*innerWidth*.45;HC.y=HC.y*.55+ny*innerHeight*.45;HC.dot.style.transform=`translate(${HC.x-9}px,${HC.y-9}px)`;
+  const pinch=Math.hypot(tip.x-th.x,tip.y-th.y)/size<.32;HC.dot.classList.toggle('down',pinch);
+  if(pinch&&!HC.down){HC.down=true;HC.t0=now;HC.sx=HC.x;HC.sy=HC.y;HC.dot.style.display='none';HC.el=document.elementFromPoint(HC.x,HC.y);HC.dot.style.display='';
+    const p=HC.el&&!HC.el.closest('button,input,select,a,textarea,summary,.lm-n')&&HC.el.closest('.holo-panel,.panel[data-id]');
+    if(p&&!p.classList.contains('pinned')&&innerWidth>=1000){if(!p.classList.contains('free'))free(p);p.style.zIndex=++topZ;p.classList.add('lifted');
+      const r=p.getBoundingClientRect();HC.p=p;HC.dx=HC.x-r.left;HC.dy=HC.y-r.top}}
+  else if(pinch&&HC.p){const r=HC.p.getBoundingClientRect();HC.p.style.left=Math.max(0,Math.min(innerWidth-r.width,HC.x-HC.dx))+'px';HC.p.style.top=Math.max(0,Math.min(innerHeight-r.height,HC.y-HC.dy))+'px'}
+  else if(!pinch&&HC.down){HC.down=false;if(HC.p){HC.p.classList.remove('lifted');HC.p=null}
+    else if(now-HC.t0<700&&Math.hypot(HC.x-HC.sx,HC.y-HC.sy)<40&&HC.el){(HC.el.closest('button,a,.lm-n,summary,input,select')||HC.el).click();sfx('panel')}}
+  HC.hist=[...HC.hist.filter(h=>now-h[0]<350),[now,lm[0].x]];
+  if(gname==='Open_Palm'&&!pinch&&now>HC.cool&&Math.abs(HC.hist[0][1]-lm[0].x)>.28){HC.cool=now+1200;HC.hist=[];const top=$('holo').querySelector('.holo-panel:not(.desk):not(.out)');if(top)closePanel(top)}}
+async function handControl(on){if(!on){GEST.mouse=false;if(HC.dot)HC.dot.hidden=true;return}
+  if(!GEST.on)await gestures(true);if(!GEST.on)return;GEST.mouse=true;
+  add('j','Hand control on, sir. Point to move the pointer, pinch to click or to drag a panel, and swipe an open hand to close a pop-up. Say "hand control off" to stop.')}
 const GMAP={Open_Palm:['Play / pause','pause the music'],Victory:['Next song','next song'],Thumb_Up:['Louder','volume up'],
   Thumb_Down:['Quieter','volume down'],Closed_Fist:['Quiet',null],Pointing_Up:['What is it?','what am I holding?']};
 async function gestures(on){
@@ -1866,6 +1915,7 @@ function gestLoop(){
   if(!GEST.on)return;if(!DESK.stream){GEST.on=false;return}
   const v=DESK.video;if(v.readyState>=2){let g=null,res=null;try{res=GEST.rec.recognizeForVideo(v,performance.now());g=res.gestures?.[0]?.[0]}catch(e){}
     if(WS.panel){wsHand(res?.landmarks?.[0]);return setTimeout(gestLoop,60)}  // the workshop is open: your hand turns the model
+    if(GEST.mouse){handCursor(res?.landmarks?.[0],g&&g.score>.6?g.categoryName:'');return setTimeout(gestLoop,45)}  // hand control: your finger is the pointer
     const name=g&&g.score>.7&&GMAP[g.categoryName]?g.categoryName:'',now=performance.now();
     if(name!==GEST.last){GEST.last=name;GEST.since=now}
     else if(name&&now-GEST.since>500&&now>GEST.cool){GEST.cool=now+2500;GEST.since=now+1e9;const [label,cmd]=GMAP[name];
@@ -3243,6 +3293,26 @@ async function setAvatar(name,style){
 //   JarvisHUD.onStats(fn)   fn(stats) every 2 s with the PC stats (plus anything custom/*.py STATS() adds)
 //   JarvisHUD.panel(id)     an existing panel ('systems', 'time', 'mt5', ...) to add rows to
 //   JarvisHUD.row(label, id) a ready-made label/value row; JarvisHUD.esc(text) for safe text
+// ---- Live panels: built from a description (panelsmith.py). Each runs in a sandboxed frame that can't reach the HUD;
+// it asks for data through two helpers this page answers: jarvis.tool (read-only tools) and jarvis.get (public pages) ----
+const LIVE_P={};
+function livePanel(ev){
+  if(ev.remove){const p=document.querySelector(`.panel[data-id="${ev.id}"]`);if(p)p.remove();delete LIVE_P[ev.id];return}
+  const p=JarvisHUD.addPanel({id:ev.id,title:ev.title,side:'right',html:''});let f=p.querySelector('iframe');
+  if(!f){f=document.createElement('iframe');f.className='livef';f.setAttribute('sandbox','allow-scripts');f.title=ev.title;p.append(f)}
+  const cs=getComputedStyle(document.documentElement),v=n=>cs.getPropertyValue(n).trim();
+  f.srcdoc=`<!doctype html><meta charset="utf-8"><style>:root{--cyan:${v('--cyan')};--text:${v('--text')};--mute:${v('--mute')};--amber:${v('--amber')}}
+html,body{margin:0;background:transparent;color:var(--text);font:12px/1.45 ui-monospace,Menlo,Consolas,monospace}a{color:var(--cyan)}</style><script>
+(()=>{let n=0;const w={};addEventListener('message',e=>{const m=e.data||{},p=w[m.n];if(p){delete w[m.n];m.error?p[1](new Error(m.error)):p[0](m.result)}});
+const call=b=>new Promise((ok,no)=>{w[++n]=[ok,no];parent.postMessage({live:1,n,...b},'*')});
+window.jarvis={tool:(name,args)=>call({kind:'tool',name,args:args||{}}),get:url=>call({kind:'get',url})};
+addEventListener('load',()=>new ResizeObserver(()=>parent.postMessage({live:1,kind:'size',h:document.body.scrollHeight+4},'*')).observe(document.body))})();<\/script><body>${ev.html}`;
+  LIVE_P[ev.id]=f;if(ev.made&&p.classList.contains('closed')&&Date.now()-new Date(ev.made)<120000)setPanel(ev.id,true)}
+addEventListener('message',async e=>{const m=e.data;if(!m||!m.live)return;const id=Object.keys(LIVE_P).find(k=>LIVE_P[k].contentWindow===e.source);if(!id)return;
+  if(m.kind==='size'){LIVE_P[id].style.height=Math.min(600,Math.max(40,+m.h||40))+'px';return}
+  let r;try{r=await (await fetch('/api/panel_call',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({panel:id,kind:m.kind,name:m.name,args:m.args,url:m.url})})).json()}catch(x){r={error:String(x)}}
+  e.source.postMessage({n:m.n,...r},'*')});
+setTimeout(()=>{if(!PIN)fetch('/api/live_panels').then(r=>r.json()).then(r=>(r.panels||[]).forEach(livePanel)).catch(()=>{})},0);
 window.JarvisHUD={
   addPanel({id,title,side='right',html=''}){
     if(document.querySelector(`.panel[data-id="${id}"]`))return document.querySelector(`.panel[data-id="${id}"]`);
