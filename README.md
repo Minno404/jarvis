@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.86.0** (shown at the bottom right of the HUD)
+**Version 1.87.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.87.0**: Market prep: weekdays at 10:00 (Settings 'prep_time') or 'prep me for the session': each pair's trend, key levels, overnight move and news, drawn on a panel, with a short spoken brief. Trading twin: 'learn my trading' finds which setups you win with from your own journal; Jarvis nudges you when one forms (no AI, every 5-minute close). Crews: encrypted shared memory with friends' Jarvises; 'make a crew called Friday D&D' gives a code, and only people with it can join, read or add notes.
 - **1.86.0**: The AI council: 'ask the council should I...' has Claude, ChatGPT, Gemini and the local AI each answer, read each other's answers and keep or change their stance, then a verdict, on a panel. Jarvis teaches himself skills: 'learn to check my car rego' writes a small add-on in the background, checks it (compiles, its self-test passes, risky code flagged) and shows it to you with Install and Discard.
 - **1.85.1**: Autopilot: up to 30 AI questions a day (was 12), and a box for it in Settings > Trading (AI questions a day).
 - **1.85.0**: Talk to Jarvis from your Apple Watch: tick it in Settings > Phone alerts, make the 'Jarvis' Shortcut shown there, and say 'Hey Siri, Jarvis' on the watch. Jarvis answers like a typed message and the answer comes back as an ntfy alert on your watch, from anywhere (no Tailscale needed).

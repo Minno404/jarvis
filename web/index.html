@@ -204,6 +204,9 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .pics{display:grid;gap:6px}.pics.n2,.pics.n4{grid-template-columns:1fr 1fr}.pics.n3{grid-template-columns:1fr 1fr 1fr}
 .pics:not(.n1) .pic{max-height:170px;cursor:zoom-in;object-fit:cover;aspect-ratio:4/3}
 .holo-panel.wide{width:min(520px,62vw)}
+.prp-b{font-size:13px;margin:2px 0 8px;border-left:2px solid var(--cyan);padding-left:8px}.prp-p{border-top:1px solid rgba(var(--rgb),.2);padding:6px 0}
+.prp-p .h{display:flex;gap:10px;align-items:baseline}.prp-p em{font-style:normal;font-size:11px;margin-left:auto}.t-up{color:#4ade80}.t-down{color:#ff5a6a}.t-range{color:var(--amber)}
+.prp-p .d,.prp-p .w{font-size:11px;color:var(--mute);margin-top:3px}.prp-p .up{color:#4ade80}.prp-p .dn{color:#ff5a6a}
 .cnl-q{font-size:13px;margin:2px 0 8px}.cnl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .cnl-m{border:1px solid rgba(var(--rgb),.25);padding:7px;font-size:11px}.cnl-m b{font-size:12px;letter-spacing:.08em}.cnl-m em{float:right;color:var(--amber);font-style:normal;font-size:10px}
 .cnl-m.off{opacity:.5}.cnl-m.off span{display:block}.cnl-s{font-size:13px;margin:5px 0;color:var(--cyan)}.cnl-c{height:4px;background:rgba(var(--rgb),.15);margin:3px 0}.cnl-c i{display:block;height:100%;background:var(--cyan)}
@@ -2665,6 +2668,12 @@ function showPanel(ev){
       +(m.rebuttal?`<div class="cnl-r">“${esc(m.rebuttal)}”</div>`:'')+'</div>').join('')+'</div>'
       +(S.agree?.length?`<div class="cnl-h">They agree</div><ul>${list(S.agree)}</ul>`:'')+(S.split?.length?`<div class="cnl-h">They split</div><ul>${list(S.split)}</ul>`:'')
       +`<div class="cnl-v">${esc(S.verdict||'')}</div>`;p.append(d)}
+  else if(ev.kind==='prep'){p.classList.add('wide');const d=document.createElement('div');d.className='prp';
+    d.innerHTML=`<div class="prp-b">${esc(ev.brief||'')}</div>`+(ev.pairs||[]).map(x=>{const o=x.overnight||{},up=(o.change||0)>=0;
+      return `<div class="prp-p"><div class="h"><b>${esc(x.symbol)}</b><span>${x.price}</span><em class="t-${esc(x.trend)}">${x.trend==='up'?'▲ uptrend':x.trend==='down'?'▼ downtrend':'◆ range'}</em></div>`
+        +levelSvg(x.candles||[],x.levels||[],x.price)
+        +`<div class="d">Overnight ${o.low??'?'}–${o.high??'?'} <span class="${up?'up':'dn'}">${up?'+':''}${o.change??''}</span> · ATR ${x.atr_m15} · levels ${(x.levels||[]).join(', ')}</div>`
+        +(x.news?.length?`<div class="w">News: ${x.news.map(esc).join(' · ')}</div>`:'')+'</div>'}).join('');p.append(d)}
   else if(ev.kind==='skill'){p.classList.add('wide');const d=document.createElement('div');d.className='skl';
     d.innerHTML=`<div>${esc(ev.summary||'')}</div>`+`<div class="skl-k ${ev.ok?'up':'dn'}">${ev.ok?'✓ Passed its checks':'✗ '+esc((ev.problems||[]).join(' '))}</div>`
       +(ev.tools?.length?`<div class="skl-t">New tools: ${ev.tools.map(esc).join(', ')}</div>`:'')
@@ -2736,6 +2745,12 @@ function tradeSvg(t){const b=t.bars||[];if(!b.length)return'';const W=480,H=110,
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="trs">`+b.map((c,i)=>{const x=i*w+w/2,u=c[3]>=c[0];
     return `<line x1="${x}" x2="${x}" y1="${y(c[1])}" y2="${y(c[2])}" stroke="currentColor" opacity=".5"/><rect x="${x-w*.35}" width="${w*.7}" y="${y(Math.max(c[0],c[3]))}" height="${Math.max(1,Math.abs(y(c[0])-y(c[3])))}" fill="${u?'currentColor':'none'}" stroke="currentColor" opacity=".8"/>`}).join('')
     +line(t.entry,'var(--cyan)')+line(t.stop,'#ff5a6a')+line(t.target,'#4ade80')+'</svg>'}
+// Hourly candles with key levels (dashed) and the price (solid), for market prep.
+function levelSvg(b,lv,price){if(!b.length)return'';const W=480,H=120,all=[...b.flatMap(c=>[c[1],c[2]]),...lv];
+  const hi=Math.max(...all),lo=Math.min(...all),y=v=>H-4-(v-lo)/((hi-lo)||1)*(H-8),w=W/b.length;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="trs">`+lv.map(v=>`<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--amber)" stroke-dasharray="4 3" opacity=".7"/>`).join('')
+    +b.map((c,i)=>{const x=i*w+w/2,u=c[3]>=c[0];return `<line x1="${x}" x2="${x}" y1="${y(c[1])}" y2="${y(c[2])}" stroke="currentColor" opacity=".5"/><rect x="${x-w*.35}" width="${w*.7}" y="${y(Math.max(c[0],c[3]))}" height="${Math.max(1,Math.abs(y(c[0])-y(c[3])))}" fill="${u?'currentColor':'none'}" stroke="currentColor" opacity=".8"/>`}).join('')
+    +`<line x1="0" x2="${W}" y1="${y(price)}" y2="${y(price)}" stroke="var(--cyan)" stroke-width="1"/></svg>`}
 // The autopilot test's results: page 1 the graph (running total in R), page 2 the trades it took, one line each;
 // tap a trade for its chart and what the AIs said, Back for the list.
 function testReport(p,ev){

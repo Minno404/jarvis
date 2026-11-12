@@ -1,4 +1,4 @@
 {
- "version": "1.86.0",
- "notes": "The AI council: 'ask the council should I...' has Claude, ChatGPT, Gemini and the local AI each answer, read each other's answers and keep or change their stance, then a verdict, on a panel. Jarvis teaches himself skills: 'learn to check my car rego' writes a small add-on in the background, checks it (compiles, its self-test passes, risky code flagged) and shows it to you with Install and Discard."
+ "version": "1.87.0",
+ "notes": "Market prep: weekdays at 10:00 (Settings 'prep_time') or 'prep me for the session': each pair's trend, key levels, overnight move and news, drawn on a panel, with a short spoken brief. Trading twin: 'learn my trading' finds which setups you win with from your own journal; Jarvis nudges you when one forms (no AI, every 5-minute close). Crews: encrypted shared memory with friends' Jarvises; 'make a crew called Friday D&D' gives a code, and only people with it can join, read or add notes."
 }

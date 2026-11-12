@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.86.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.87.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -653,9 +653,12 @@ import dayplan    # shift reminders: sleep before night shifts, time to leave (s
 import bond       # his personality growing with him, and conversations he starts (see bond.py)
 import council    # the AI council: every AI debates a big question, then a verdict (see council.py)
 import skills     # Jarvis teaching himself new skills as checked add-ons (see skills.py)
+import prep       # market prep before his session: levels, trend, news, a brief (see prep.py)
+import twin       # his trading twin: his best setups from his journal, and nudges when one forms (see twin.py)
+import crew       # crews: encrypted shared memory with friends' Jarvises, joined by code (see crew.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -3402,6 +3405,7 @@ if __name__ == "__main__":
                     print(datetime.datetime.now(), "roster check:", repr(e)[:200])
         threading.Thread(target=roster_watch, daemon=True).start()
         alerts.start_inbox(chat)  # his Apple Watch (or anything) talking to Jarvis through ntfy (see alerts.py)
+        crew.start()  # keep any crews' shared notes in sync
 
         def watcher():
             """Every 10 s: reminders, the morning brief, price alerts, trade guard, news and the day's review."""
@@ -3469,6 +3473,16 @@ if __name__ == "__main__":
                     if features.morning_due():
                         ask_claude_and_say(features.morning_prompt())
                     dayplan.tick(lambda text: say(text, urgent=True))
+                    if prep.due():  # weekdays before his session (MT5 must be open; skipped quietly if not)
+                        threading.Thread(target=lambda: (lambda r: r.get("brief") and say(r["brief"]))(prep.market_prep()),
+                                         daemon=True).start()
+                    try:
+                        if not st.get("away"):
+                            twin.NUDGER.tick(say)  # one of his own strong setups forming (no AI)
+                        if twin.weekly_due() and mt5trade.mt5_pids():
+                            threading.Thread(target=twin.learn_twin, args=(False,), daemon=True).start()
+                    except RuntimeError:
+                        pass  # MT5 isn't open
                     if autoreview.weekly_due():
                         autoreview.weekly(say)
                 except Exception as e:
