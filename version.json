@@ -1,4 +1,4 @@
 {
- "version": "1.90.0",
- "notes": "Project agents: 'make a Gun Bros agent' gives a project its own Jarvis that reads the whole project into a second brain, keeps its own notes, and works in the background ('Gun Bros Jarvis, add a reload system') while you keep using Jarvis; every agent and Jarvis himself see what the others are doing. Instant project lookups: 'where's the damage code in Gun Bros?'. Dream mode: at 04:00 Jarvis thinks over your week and has three ideas waiting in the morning, each with a Do it button."
+ "version": "1.91.0",
+ "notes": "Jarvis improves himself: weekly (or 'improve yourself') he writes rules from your corrections, losing autopilot trades and errors, tests them blind against his old self, and shows them to approve. The mirror: 'study how I decide', then 'what does my mirror say about ...' plays a decision forward from your own record. Experiments: 'test whether I trade better after 7 hours of sleep' gathers daily numbers and reports. A team of agents: 'get the team to ship my demo' runs a planner, coder and critic on a copy with checkpoints. Time capsule: your dated predictions, plans and promises are read back on their day."
 }

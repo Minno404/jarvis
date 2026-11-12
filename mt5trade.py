@@ -786,6 +786,15 @@ def snapshot(mt5, s, info, bid, ask, acc, lim, at=None):
             "M15": m15, "H1": _chart(mt5, s, "H1", 48, at), "H4": _chart(mt5, s, "H4", 30, at)}
 
 
+def _lessons():
+    """The trading rules Jarvis taught himself from the autopilot's losing trades (evolve.py), once he approved them."""
+    try:
+        import evolve
+        return evolve.trading_prompt()
+    except Exception:
+        return ""
+
+
 def build_prompt(market, acc, lim, trig=None):
     return (
         "Decide whether to open ONE trade now, trading the way this trader does. Be selective: take a trade when "
@@ -795,7 +804,7 @@ def build_prompt(market, acc, lim, trig=None):
         +
         f"Trader's style: {his_style()}\n"
         f"Account: balance {acc.balance:.2f}, equity {acc.equity:.2f}.\n"
-        + risk_rules(lim) +
+        + risk_rules(lim) + _lessons() +
         f"Minimum reward:risk {lim['auto_min_rr']} (target distance / stop distance, measured from the entry).\n"
         f"Stop: at least {lim['auto_min_stop_atr']:g} x atr_m15 from the entry, beyond the level that proves the idea "
         "wrong; tighter stops get hit by normal noise (the system widens them). Trade with the H1/H4 trend unless "

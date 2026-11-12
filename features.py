@@ -149,6 +149,11 @@ def memory_prompt():
     except Exception as e:
         print("personality:", repr(e)[:120])
         grown = ""
+    try:  # the rules he has taught himself and {USER} approved (evolve.py)
+        import evolve
+        grown += evolve.prompt()
+    except Exception as e:
+        print("self-taught rules:", repr(e)[:120])
     try:  # what his project agents are doing (agents.py)
         import agents
         grown += agents.prompt()

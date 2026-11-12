@@ -78,6 +78,13 @@ def learn_now():
         bond.reflect(convo)
     except Exception as e:
         print("personality reflection:", repr(e)[:200])
+    try:  # dated predictions, plans and promises go in his time capsule (capsule.py)
+        import capsule
+        import council
+        council.CLAUDE = CLAUDE
+        capsule.extract(convo)
+    except Exception as e:
+        print("time capsule:", repr(e)[:200])
     state = _load("state.json", {})
     state["learned_lines"] = {**state.get("learned_lines", {}), **marks}
     _save("state.json", state)

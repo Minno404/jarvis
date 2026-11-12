@@ -31,9 +31,9 @@ council question). No generic advice, nothing already done. Reply with JSON only
 {{"ideas": [{{"title": "short", "why": "one sentence: what you noticed", "do": "the exact request to give you to start it, in his words, e.g. 'research cheap CLA45 exhaust options under 1500'"}}]}}"""
 
 
-def _convo(limit=150):
+def _convo(limit=150, days=7):
     d = features.HERE / "conversations"
-    since = (datetime.date.today() - datetime.timedelta(days=7)).isoformat()
+    since = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
     rows = []
     for f in sorted(d.glob("*.jsonl")) if d.exists() else []:
         if f.stem < since:

@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.90.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.91.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -661,9 +661,15 @@ import nightshift  # coding on a copy of his project overnight, kept or thrown a
 import selfcare   # the nightly check-up: his own errors, safe fixes, what the rest mean (see selfcare.py)
 import agents     # a Jarvis per project: own memory, a shared board, background work (see agents.py)
 import dream      # overnight: three things Jarvis could do for him tomorrow (see dream.py)
+import evolve     # weekly self-improvement: rules from his own mistakes, trialled, approved by him (see evolve.py)
+import mirror     # a model of how he decides, to play decisions forward (see mirror.py)
+import experiments  # experiments on his life: a factor, an outcome, two weeks of data (see experiments.py)
+import company    # a team of agents (planner, coder, critic) on one goal, on a copy (see company.py)
+import capsule    # the time capsule: his predictions, plans and promises, replayed on their date (see capsule.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, evolve, mirror, experiments, company, capsule,
+          *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -3478,6 +3484,13 @@ if __name__ == "__main__":
                     if features.morning_due():
                         ask_claude_and_say(features.morning_prompt())
                     dayplan.tick(lambda text: say(text, urgent=True))
+                    if evolve.due():  # Sundays: study his own mistakes, propose and trial new rules
+                        threading.Thread(target=evolve.improve, args=(say,), daemon=True).start()
+                    if mirror.weekly_due():
+                        threading.Thread(target=mirror.build_mirror, daemon=True).start()
+                    if not st["away"]:
+                        experiments.tick(say)  # a daily question for a running experiment, or its result
+                        capsule.tick(say)  # predictions, plans and promises that fall due today
                     if dream.due():  # overnight: three ideas for tomorrow
                         threading.Thread(target=dream.dream, daemon=True).start()
                     if not st["away"] and datetime.datetime.now().hour >= 6:
@@ -3509,6 +3522,8 @@ if __name__ == "__main__":
                                 ventures.after_job(j, text, say)
                             elif j.get("night"):  # the night shift's work: the morning panel, keep or throw away
                                 nightshift.after_job(j, text, say)
+                            elif j.get("company"):  # the team's next move: coder, critic, checkpoint or the result
+                                company.after_job(j, text, say)
                             elif j.get("agent"):  # a project agent's answer, in its own name
                                 agents.after_job(j, text, say)
                             else:

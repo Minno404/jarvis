@@ -112,6 +112,10 @@ def quick(text):
         said = re.search(r"\b(?:jarvis|agent)\b[\s,:]*(?:to\s+)?(.+)$", text, re.I | re.S)  # his words, as he typed them
         r = R["ask_agent"](agent=m.group(1), request=said.group(1).strip() if said else m.group(2))
         return r.get("error") or f"{r['agent']} is on it, {{TITLE}}. I'll tell you when it answers."
+    m = re.fullmatch(r"(approve|reject) (?:your|the|those|these) (?:self )?improvements", t)
+    if m and "approve_improvements" in R:
+        r = R[f"{m.group(1)}_improvements"]()
+        return r.get("error") or ("Rules adopted, {TITLE}. I'll be better for it." if m.group(1) == "approve" else "Dropped, {TITLE}. I stay as I was.")
     m = re.fullmatch(r"(keep|discard|throw away) (?:the )?(?:night shift|tonight s work|last night s work)(?: (.+))?", t)
     if m and "keep_night_shift" in R:  # (the panel's buttons name the copy: its dashes arrive as spaces)
         fn = R["keep_night_shift" if m.group(1) == "keep" else "discard_night_shift"]
