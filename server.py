@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.92.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.93.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1081,7 +1081,7 @@ def save_prefs(d):
         threading.Thread(target=move, daemon=True).start()
     if d.get("stt_quality") in ("fast", "accurate", "best"):
         s["stt_quality"] = d["stt_quality"]  # takes effect next time Jarvis starts
-    for k in ("ambient", "ambient_music", "bootup", "close_to_tray"):
+    for k in ("ambient", "ambient_music", "bootup", "close_to_tray", "seat_cam"):
         if k in d:
             s[k] = bool(d[k])
     if "text_size" in d:
@@ -1106,7 +1106,7 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
-                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "close_to_tray", "features", "stt_quality",
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "seat_cam", "close_to_tray", "features", "stt_quality",
                                                             "local_voice", "local_on", "incognito_model", "claude_route", "voice_emotion", "split_claude_voice",
                                                             "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}
@@ -2550,6 +2550,11 @@ class Handler(SimpleHTTPRequestHandler):
             if text:
                 LIVE["spoken"] = (text, time.time())  # the brain is told it was spoken, so may be misheard
             return self.send_json({"text": text, "sure": sure})
+        if self.path == "/api/seen":  # the HUD's webcam saw his face at the PC (Settings > seat_cam; awareness.Presence)
+            if not self.local():
+                return self.send_error(403)
+            LIVE["seen_at"] = time.time()
+            return self.send_json({"ok": True})
         if self.path == "/api/inventory":  # desk view: what the camera sees now (inventory.py)
             d = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             return self.send_json(inventory.seen(d.get("items") or [], d.get("photo")))
@@ -3441,7 +3446,8 @@ if __name__ == "__main__":
                             print(datetime.datetime.now(), "the phone's done: back to sleep")
                             power.sleep_pc()
                         LIVE["quiet_wake"] = WAKER.quiet(sit["idle_s"])
-                    change = presence.update(sit["idle_s"]) if sit else None
+                    seen = time.time() - LIVE["seen_at"] if features.settings().get("seat_cam") and LIVE.get("seen_at") else None
+                    change = presence.update(sit["idle_s"], seen_s=seen) if sit else None
                     if sit:
                         leftoff.tick(sit["idle_s"])
                     if change == "away":

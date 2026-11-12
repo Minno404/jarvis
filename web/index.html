@@ -813,6 +813,7 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
       <label><input type="checkbox" id="ambOn"> Ambient light: the edges of the HUD glow with the time of day and the weather, and pulse red as a timer runs out</label>
       <label><input type="checkbox" id="ambMusic"> …and pulse to whatever's playing on the PC</label>
       <label><input type="checkbox" id="bootOn"> Iron Man boot-up when you're back after 3+ hours away</label>
+      <label><input type="checkbox" id="seatCam"> Camera sees when you're at the PC: Jarvis knows you're back as you sit down, and doesn't think you've gone while you watch something (face check on this PC; no pictures are saved or sent)</label>
       <div class="keyrow"><button type="button" id="bootTest">Play the boot-up</button></div>
     </fieldset>
     <fieldset><legend>Background</legend>
@@ -1877,6 +1878,24 @@ async function vision(){if(!VIS){const v=await import(MP+'/vision_bundle.mjs');V
 async function mpTask(kind,model,opts){const {v,files}=await vision();  // the graphics card if it can, else the processor
   try{return await v[kind].createFromOptions(files,{...opts,baseOptions:{modelAssetPath:MPM+model,delegate:'GPU'}})}
   catch(e){return await v[kind].createFromOptions(files,{...opts,baseOptions:{modelAssetPath:MPM+model,delegate:'CPU'}})}}
+// ---- At the PC? (Settings > "Camera sees when you're at the PC"): a small webcam picture checked for a face every
+// second with MediaPipe's face detector, on this PC. Each sighting tells the server (awareness.Presence); nothing else leaves ----
+const SEAT={on:false,stream:null,video:null,det:null,sent:0};
+async function seatWatch(on){
+  if(!on){SEAT.on=false;if(SEAT.stream)SEAT.stream.getTracks().forEach(t=>t.stop());if(SEAT.video)SEAT.video.remove();Object.assign(SEAT,{stream:null,video:null});return}
+  if(SEAT.on)return;SEAT.on=true;
+  try{SEAT.det=SEAT.det||await mpTask('FaceDetector','face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',{runningMode:'VIDEO',minDetectionConfidence:.6});
+    SEAT.stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240}},audio:false})}
+  catch(e){SEAT.on=false;console.log('seat camera:',e);return}
+  if(!SEAT.on)return seatWatch(false);  // switched off while loading
+  const v=document.createElement('video');v.muted=true;v.playsInline=true;v.autoplay=true;v.srcObject=SEAT.stream;
+  v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.append(v);SEAT.video=v;
+  const tick=()=>{if(!SEAT.on)return;
+    if(v.readyState>=2){let n=0;try{n=SEAT.det.detectForVideo(v,performance.now()).detections.length}catch(e){}
+      if(n&&Date.now()-SEAT.sent>3000){SEAT.sent=Date.now();fetch('/api/seen',{method:'POST'}).catch(()=>{})}}
+    setTimeout(tick,1000)};
+  tick()}
+$('seatCam').onchange=()=>savePref({seat_cam:$('seatCam').checked});
 function deskNote(t){const p=DESK.panel;if(!p)return;let n=p.querySelector('.desknote');if(!n){n=document.createElement('div');n.className='desknote';p.append(n)}n.textContent=t}
 // ---- Gesture control: open palm = play/pause, peace sign = next song, thumbs up/down = louder/quieter,
 // fist = stop talking, pointing up = "what am I holding?" (hold the gesture for half a second) ----
@@ -2961,7 +2980,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,voice_emotion:info.voice_emotion,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,seat_cam:info.seat_cam,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,voice_emotion:info.voice_emotion,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -3163,7 +3182,7 @@ function showPrefs(p){
   document.querySelectorAll('input[name=stq]').forEach(r=>r.checked=r.value===(prefs.stt_quality||'accurate'));
   if(prefs.brain_setting)document.querySelectorAll('input[name=br]').forEach(r=>r.checked=r.value===prefs.brain_setting);
   $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
-  $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;
+  $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;$('seatCam').checked=!!prefs.seat_cam;seatWatch(!!prefs.seat_cam&&LOCAL&&!PIN);
   setAmbient(!!prefs.ambient&&!PIN);
   if(prefs.panel_alpha!=null){document.documentElement.style.setProperty('--pa',prefs.panel_alpha);$('panelAlpha').value=prefs.panel_alpha}
 }

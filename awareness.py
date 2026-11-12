@@ -1,5 +1,6 @@
 """What's going on around Jarvis: which app you're in, whether you're in a game, how long since you
-last touched the keyboard or mouse, and the time of day. No camera: "away" means no input for a while.
+last touched the keyboard or mouse, and the time of day. "Away" means no input for a while; with Settings >
+"Camera sees when you're at the PC" on, the HUD's webcam face check counts too (sitting there watching counts as here).
 """
 import datetime
 import os
@@ -85,12 +86,16 @@ class Presence:
     def __init__(self):
         self.away_since, self.last_gone = None, 0  # last_gone: how long the last time away lasted (seconds)
 
-    def update(self, idle_s, now=None):
+    def update(self, idle_s, now=None, seen_s=None):
+        """seen_s: seconds since the camera last saw his face (None: camera check off)."""
         now = now or datetime.datetime.now()
+        here = idle_s < 5 or (seen_s is not None and seen_s < 15)  # 15 s: the watcher ticks every 10 s
+        if seen_s is not None:
+            idle_s = min(idle_s, seen_s)
         if self.away_since is None and idle_s >= AWAY_AFTER_S:
             self.away_since = now - datetime.timedelta(seconds=idle_s)
             return "away"
-        if self.away_since is not None and idle_s < 5:
+        if self.away_since is not None and here:
             gone = (now - self.away_since).total_seconds()
             self.away_since, self.last_gone = None, gone
             return "back" if gone >= AWAY_AFTER_S else None
@@ -190,6 +195,8 @@ def selftest():
     assert p.update(900, t) is None and p.update(2, t) == "back" and not p.away
     p.update(700, t)
     assert p.update(1, t + datetime.timedelta(seconds=1)) == "back"
+    assert p.update(900, t, seen_s=20) is None and not p.away  # no keys for 15 min, but the camera sees him
+    assert p.update(900, t, seen_s=700) == "away" and p.update(900, t, seen_s=3) == "back"  # sat down: back
     s = {"now": datetime.datetime(2026, 11, 5, 2, 30), "idle_s": 10, "game": None}
     state = {}
     assert late_night_due(s, state) and not late_night_due(s, state)
