@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.84.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.85.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -2442,7 +2442,7 @@ class Handler(SimpleHTTPRequestHandler):
                                                        body.get("traits"), body.get("forget_opinion")))
         if self.path == "/api/phone_alerts":  # Settings > Phone alerts: on/off and the Test button
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            return self.send_json({**alerts.set_alerts(body.get("on"), bool(body.get("test"))),
+            return self.send_json({**alerts.set_alerts(body.get("on"), bool(body.get("test")), body.get("watch")),
                                    "commute": features.settings().get("shift_commute_min", 30)})
         if self.path == "/api/shift_day":  # a tap on a day in the shift calendar panel (shifts.set_day)
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -3386,6 +3386,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     print(datetime.datetime.now(), "roster check:", repr(e)[:200])
         threading.Thread(target=roster_watch, daemon=True).start()
+        alerts.start_inbox(chat)  # his Apple Watch (or anything) talking to Jarvis through ntfy (see alerts.py)
 
         def watcher():
             """Every 10 s: reminders, the morning brief, price alerts, trade guard, news and the day's review."""

@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.84.0** (shown at the bottom right of the HUD)
+**Version 1.85.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.85.0**: Talk to Jarvis from your Apple Watch: tick it in Settings > Phone alerts, make the 'Jarvis' Shortcut shown there, and say 'Hey Siri, Jarvis' on the watch. Jarvis answers like a typed message and the answer comes back as an ntfy alert on your watch, from anywhere (no Tailscale needed).
 - **1.84.0**: When an autopilot test finishes, the other panels close and a results panel opens: a graph of the running total, then 'Trades' for a compact win/loss list; tap a trade for its chart (entry, stop, target), what the watcher spotted and what each AI said, and Back to return. 'Show the test results' opens it again.
 - **1.83.0**: Jarvis's own MT5 accounts: put their numbers in Settings > Trading (Jarvis's accounts). Your journal, reports, tilt meter and debriefs then show only your accounts; 'show your journal' shows Jarvis's (his accounts plus any autopilot or test trades). The autopilot only trades when MT5 is logged into one of his accounts.
 - **1.82.1**: The autopilot's and the test button's trades are kept apart from yours: they no longer count toward your tilt meter, trade warnings, journal, debriefs or the trading style the autopilot copies. Its own trades have their own reviews ('show my autopilot trades').

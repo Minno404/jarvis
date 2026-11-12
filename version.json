@@ -1,4 +1,4 @@
 {
- "version": "1.84.0",
- "notes": "When an autopilot test finishes, the other panels close and a results panel opens: a graph of the running total, then 'Trades' for a compact win/loss list; tap a trade for its chart (entry, stop, target), what the watcher spotted and what each AI said, and Back to return. 'Show the test results' opens it again."
+ "version": "1.85.0",
+ "notes": "Talk to Jarvis from your Apple Watch: tick it in Settings > Phone alerts, make the 'Jarvis' Shortcut shown there, and say 'Hey Siri, Jarvis' on the watch. Jarvis answers like a typed message and the answer comes back as an ntfy alert on your watch, from anywhere (no Tailscale needed)."
 }

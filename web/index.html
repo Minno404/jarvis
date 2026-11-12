@@ -757,6 +757,8 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
     <fieldset id="alertSet"><legend>Phone alerts and shift reminders</legend>
       <label><input type="checkbox" id="paOn"> Send alerts to my phone: autopilot trades, new rosters, shift reminders, the weekly trade review</label>
       <p class="hint">Get the free <b>ntfy</b> app on your phone, tap +, and subscribe to this topic (keep it private): <b id="paTopic" style="user-select:all">...</b> <button type="button" id="paTest">Send a test</button></p>
+      <label><input type="checkbox" id="paWatch"> Talk to Jarvis from my Apple Watch: a Shortcut sends what you say, and his answer comes back as an alert</label>
+      <p class="hint" id="paWatchHow" hidden>In the Shortcuts app on your iPhone, make a shortcut called <b>Jarvis</b>: <b>Dictate Text</b>, then <b>Get Contents of URL</b> with this address, Method <b>POST</b>, Request Body <b>File</b> set to Dictated Text. In the shortcut's details, turn on <b>Show on Apple Watch</b>. Then raise your wrist and say "Hey Siri, Jarvis". Keep this address private, it works like a password:<br><b id="paInbox" style="user-select:all;word-break:break-all">...</b></p>
       <div class="keyrow"><span class="hint tsl">Trip to work</span><input type="number" id="commute" min="0" max="240" step="5" style="width:80px"><span class="hint">minutes. Jarvis tells you when to leave (plus 10 minutes spare) and, before night shifts, when to get some sleep.</span></div>
     </fieldset>
     <fieldset><legend>Features</legend>
@@ -3244,10 +3246,11 @@ const persPost=b=>fetch('/api/personality',{method:'POST',headers:{'Content-Type
 fetch('/api/personality').then(r=>r.json()).then(persFill).catch(()=>{});
 $('chatStarts').onchange=()=>persPost({chat_starts:+$('chatStarts').value});
 $('persReset').onclick=()=>{if(confirm('Reset his personality traits to the start? (Memories, opinions and inside jokes stay.)'))persPost({reset:true})};
-const paFill=r=>{if(!r)return;$('paOn').checked=r.on;$('paTopic').textContent=r.topic;if(r.commute!=null)$('commute').value=r.commute};
+const paFill=r=>{if(!r)return;$('paOn').checked=r.on;$('paTopic').textContent=r.topic;
+  $('paWatch').checked=!!r.watch;$('paWatchHow').hidden=!r.watch;if(r.inbox)$('paInbox').textContent=(r.server||'https://ntfy.sh').replace(/\/$/,'')+'/'+r.inbox;if(r.commute!=null)$('commute').value=r.commute};
 const paPost=b=>fetch('/api/phone_alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).then(paFill).catch(()=>{});
 fetch('/api/phone_alerts').then(r=>r.json()).then(paFill).catch(()=>{});
-$('paOn').onchange=()=>paPost({on:$('paOn').checked});$('paTest').onclick=()=>paPost({test:true});
+$('paOn').onchange=()=>paPost({on:$('paOn').checked});$('paWatch').onchange=()=>paPost({watch:$('paWatch').checked});$('paTest').onclick=()=>paPost({test:true});
 $('commute').onchange=()=>savePref({shift_commute_min:+$('commute').value||0});
 try{$('phoneSound').value=localStorage.getItem('jarvis-phone-sound')||'mix'}catch(e){}
 $('phoneSound').onchange=()=>{try{localStorage.setItem('jarvis-phone-sound',$('phoneSound').value)}catch(e){};try{audio();const v=voice();v.push('Like this, sir.');v.end()}catch(e){}};
