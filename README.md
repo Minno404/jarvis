@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.89.0** (shown at the bottom right of the HUD)
+**Version 1.90.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.90.0**: Project agents: 'make a Gun Bros agent' gives a project its own Jarvis that reads the whole project into a second brain, keeps its own notes, and works in the background ('Gun Bros Jarvis, add a reload system') while you keep using Jarvis; every agent and Jarvis himself see what the others are doing. Instant project lookups: 'where's the damage code in Gun Bros?'. Dream mode: at 04:00 Jarvis thinks over your week and has three ideas waiting in the morning, each with a Do it button.
 - **1.89.0**: Night shift: 'work on <project> tonight: ...' codes on a copy from 00:30; in the morning you get a summary and the changed files to keep (old ones backed up) or throw away. Self-repair: every night at 03:30 (or 'check yourself') Jarvis reads his own errors, fixes the safe ones (stuck jobs, huge logs, old copies) and explains the rest. Camera eyes: 'look at this' opens the camera (the back one on your phone); while it's open, every question includes what it sees.
 - **1.88.0**: Ventures: 'find me ways to make money online' (or 'with Roblox games') researches real options on the web, fitted to you, with realistic income, costs, time and sources, and shows them with Jarvis's pick and thoughts. 'Start this' makes a step-by-step plan and works through it: research and build steps run in the background; steps only you can do (accounts, money, publishing) wait for you ('done with that step'). 'Venture status' shows progress.
 - **1.87.0**: Market prep: weekdays at 10:00 (Settings 'prep_time') or 'prep me for the session': each pair's trend, key levels, overnight move and news, drawn on a panel, with a short spoken brief. Trading twin: 'learn my trading' finds which setups you win with from your own journal; Jarvis nudges you when one forms (no AI, every 5-minute close). Crews: encrypted shared memory with friends' Jarvises; 'make a crew called Friday D&D' gives a code, and only people with it can join, read or add notes.

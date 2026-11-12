@@ -149,6 +149,11 @@ def memory_prompt():
     except Exception as e:
         print("personality:", repr(e)[:120])
         grown = ""
+    try:  # what his project agents are doing (agents.py)
+        import agents
+        grown += agents.prompt()
+    except Exception as e:
+        print("agents board:", repr(e)[:120])
     mem = memories()
     if not mem:
         return grown

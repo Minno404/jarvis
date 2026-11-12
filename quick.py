@@ -107,6 +107,11 @@ def quick(text):
         return {"install": f"Installed, {{TITLE}}. {r.get('note', '')}", "discard": "Thrown away, {TITLE}.",
                 "retry": "Having another go at it, {TITLE}. I'll show you when it's ready.",
                 "remove": "Removed, {TITLE}. It's gone after the next restart."}[verb]
+    m = re.fullmatch(r"(?:ask )?(?:the |my )?([a-z0-9 ]{2,30}?) (?:jarvis|agent)(?: to)? (.{4,})", t)
+    if m and "find_agent" in R and R["find_agent"](m.group(1)):
+        said = re.search(r"\b(?:jarvis|agent)\b[\s,:]*(?:to\s+)?(.+)$", text, re.I | re.S)  # his words, as he typed them
+        r = R["ask_agent"](agent=m.group(1), request=said.group(1).strip() if said else m.group(2))
+        return r.get("error") or f"{r['agent']} is on it, {{TITLE}}. I'll tell you when it answers."
     m = re.fullmatch(r"(keep|discard|throw away) (?:the )?(?:night shift|tonight s work|last night s work)(?: (.+))?", t)
     if m and "keep_night_shift" in R:  # (the panel's buttons name the copy: its dashes arrive as spaces)
         fn = R["keep_night_shift" if m.group(1) == "keep" else "discard_night_shift"]

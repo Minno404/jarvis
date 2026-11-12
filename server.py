@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.89.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.90.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -659,9 +659,11 @@ import crew       # crews: encrypted shared memory with friends' Jarvises, joine
 import ventures   # researching ways to make money online, then working through the one he picks (see ventures.py)
 import nightshift  # coding on a copy of his project overnight, kept or thrown away in the morning (see nightshift.py)
 import selfcare   # the nightly check-up: his own errors, safe fixes, what the rest mean (see selfcare.py)
+import agents     # a Jarvis per project: own memory, a shared board, background work (see agents.py)
+import dream      # overnight: three things Jarvis could do for him tomorrow (see dream.py)
 import server_bridge
 for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
-          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, *custom_loader.load()):
+          web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
         continue
     FUNCS.update(m.FUNCS)
@@ -3476,6 +3478,10 @@ if __name__ == "__main__":
                     if features.morning_due():
                         ask_claude_and_say(features.morning_prompt())
                     dayplan.tick(lambda text: say(text, urgent=True))
+                    if dream.due():  # overnight: three ideas for tomorrow
+                        threading.Thread(target=dream.dream, daemon=True).start()
+                    if not st["away"] and datetime.datetime.now().hour >= 6:
+                        dream.morning(say)  # the night's ideas, once, when he's first around
                     if selfcare.due():  # the nightly check-up (spoken in the morning, only if worth it)
                         threading.Thread(target=selfcare.nightly, args=(say,), daemon=True).start()
                     if prep.due():  # weekdays before his session (MT5 must be open; skipped quietly if not)
@@ -3503,6 +3509,8 @@ if __name__ == "__main__":
                                 ventures.after_job(j, text, say)
                             elif j.get("night"):  # the night shift's work: the morning panel, keep or throw away
                                 nightshift.after_job(j, text, say)
+                            elif j.get("agent"):  # a project agent's answer, in its own name
+                                agents.after_job(j, text, say)
                             else:
                                 say(text)
                         threading.Thread(target=run_job, args=(job,), daemon=True).start()
