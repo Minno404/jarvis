@@ -139,11 +139,12 @@ def show_proposal():
         return {"error": "No self-improvement waiting for approval."}
     s = p.get("score")
     features._panel({"type": "panel", "kind": "list", "title": "Jarvis: proposed self-improvements", "stay": True,
-                     "items": [{"text": f"{'TRADING' if l.get('area') == 'trading' else 'CHAT'}: {l['rule']}", "sub": l.get("why", "")}
-                               for l in p["lessons"]] + [{"text": "DROP: " + d, "sub": ""} for d in p["drop"]],
+                     "items": [{"text": f"{i}. {'TRADING' if l.get('area') == 'trading' else 'CHAT'}: {l['rule']}", "sub": l.get("why", "")}
+                               for i, l in enumerate(p["lessons"], 1)] + [{"text": "DROP: " + d, "sub": ""} for d in p["drop"]],
                      "note": (f"Blind test on your corrected requests: new rules won {s['new']}, old won {s['old']}, {s['tie']} ties."
                               if s else "No chat test (the evidence was trading or errors only)."),
-                     "actions": [["Approve", "approve your improvements"], ["Reject", "reject your improvements"]]})
+                     "actions": [["Approve all", "approve your improvements"], ["Reject all", "reject your improvements"]]
+                     + [[f"Remove {i}", f"remove improvement {i}"] for i in range(1, len(p["lessons"]) + 1)]})
     return p
 
 
@@ -155,6 +156,29 @@ def approve_improvements():
     st["active"] = ([r for r in st["active"] if r["rule"] not in p["drop"]] + p["lessons"])[-25:]
     st["history"] = (st["history"] + [{**p, "approved": True}])[-20:]
     st["proposal"] = None
+    features._save(FILE, st)
+    return {"active_rules": len(st["active"])}
+
+
+def change_proposal(number, rule=None):
+    """His say on one proposed rule before approving: rule=None removes it, else its new wording."""
+    st = _state()
+    p = st["proposal"]
+    if not p or not 1 <= int(number) <= len(p["lessons"]):
+        return {"error": "No proposed rule with that number."}
+    if rule:
+        p["lessons"][int(number) - 1].update(rule=str(rule)[:300], why="reworded by him")
+    else:
+        p["lessons"].pop(int(number) - 1)
+    features._save(FILE, st)
+    show_proposal()
+    return {"left": [l["rule"] for l in p["lessons"]]}
+
+
+def add_rule(rule, area="chat"):
+    """A rule he gives Jarvis himself: active straight away (he said it, so no approval step)."""
+    st = _state()
+    st["active"] = (st["active"] + [{"rule": str(rule)[:300], "why": "his own rule", "area": "trading" if area == "trading" else "chat"}])[-25:]
     features._save(FILE, st)
     return {"active_rules": len(st["active"])}
 
@@ -188,7 +212,8 @@ def due(now=None):
 
 
 FUNCS = {"improve_yourself": lambda: improve(), "approve_improvements": approve_improvements,
-         "reject_improvements": reject_improvements, "my_rules": my_rules, "show_improvements": show_proposal}
+         "reject_improvements": reject_improvements, "my_rules": my_rules, "show_improvements": show_proposal,
+         "change_improvement": change_proposal, "add_my_rule": add_rule}
 O = {"type": "object", "properties": {}}
 TOOLS = [
     {"name": "improve_yourself", "description": "Study your own mistakes now (his corrections, losing autopilot trades, "
@@ -197,6 +222,12 @@ TOOLS = [
     {"name": "approve_improvements", "description": "He approved your proposed self-improvements (only when he says).", "input_schema": O},
     {"name": "reject_improvements", "description": "He rejected your proposed self-improvements.", "input_schema": O},
     {"name": "show_improvements", "description": "Show the self-improvements waiting for his approval.", "input_schema": O},
+    {"name": "change_improvement", "description": "His input on one proposed self-improvement before he approves: "
+     "number (as on the panel); rule: its new wording ('change 2 to ...'), or leave out to remove it.",
+     "input_schema": {"type": "object", "required": ["number"], "properties": {"number": {"type": "integer"}, "rule": {"type": "string"}}}},
+    {"name": "add_my_rule", "description": "A rule he gives you himself ('new rule: never ...', 'from now on always ...'): "
+     "active at once. area chat or trading (the autopilot).",
+     "input_schema": {"type": "object", "required": ["rule"], "properties": {"rule": {"type": "string"}, "area": {"type": "string"}}}},
     {"name": "my_rules", "description": "The rules you've taught yourself ('what have you learned about yourself'); "
      "forget: exact text of one to remove when he asks.", "input_schema": {"type": "object", "properties": {"forget": {"type": "string"}}}},
 ]
@@ -229,8 +260,10 @@ if __name__ == "__main__":
     shown, said = [], []
     features._panel = shown.append
     p = improve(said.append)
-    assert p["score"] == {"new": 1, "old": 0, "tie": 0} and "won 1 of 1" in said[0] and shown[-1]["actions"][0][0] == "Approve"
+    assert p["score"] == {"new": 1, "old": 0, "tie": 0} and "won 1 of 1" in said[0] and shown[-1]["actions"][0][0] == "Approve all"
+    assert change_proposal(2, "Skip buys under the H1 EMA50.")["left"][1].startswith("Skip buys") and shown[-1]["actions"][2] == ["Remove 1", "remove improvement 1"]
     assert prompt() == "" and approve_improvements()["active_rules"] == 2
+    assert add_rule("Call me boss")["active_rules"] == 3 and "Call me boss" in prompt() and my_rules(forget="Call me boss")
     assert "one item" in prompt() and "EMA50" in trading_prompt() and "EMA50" not in prompt()
     assert my_rules(forget="Skip buys under the H1 EMA50.")["rules"].__len__() == 1 and trading_prompt() == ""
     assert due(datetime.datetime(2026, 11, 15, 5, 1)) and not due(datetime.datetime(2026, 11, 15, 6))

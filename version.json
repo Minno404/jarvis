@@ -1,4 +1,4 @@
 {
- "version": "1.91.0",
- "notes": "Jarvis improves himself: weekly (or 'improve yourself') he writes rules from your corrections, losing autopilot trades and errors, tests them blind against his old self, and shows them to approve. The mirror: 'study how I decide', then 'what does my mirror say about ...' plays a decision forward from your own record. Experiments: 'test whether I trade better after 7 hours of sleep' gathers daily numbers and reports. A team of agents: 'get the team to ship my demo' runs a planner, coder and critic on a copy with checkpoints. Time capsule: your dated predictions, plans and promises are read back on their day."
+ "version": "1.91.1",
+ "notes": "Self-improvements: remove or reword each proposed rule before approving ('remove improvement 2', 'change 1 to ...'), and give Jarvis your own rules ('new rule: ...')."
 }

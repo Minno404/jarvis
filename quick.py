@@ -112,7 +112,11 @@ def quick(text):
         said = re.search(r"\b(?:jarvis|agent)\b[\s,:]*(?:to\s+)?(.+)$", text, re.I | re.S)  # his words, as he typed them
         r = R["ask_agent"](agent=m.group(1), request=said.group(1).strip() if said else m.group(2))
         return r.get("error") or f"{r['agent']} is on it, {{TITLE}}. I'll tell you when it answers."
-    m = re.fullmatch(r"(approve|reject) (?:your|the|those|these) (?:self )?improvements", t)
+    m = re.fullmatch(r"(?:remove|drop|delete) improvement (\d)", t)
+    if m and "change_improvement" in R:
+        r = R["change_improvement"](number=int(m.group(1)))
+        return r.get("error") or f"Removed, {{TITLE}}. {len(r['left'])} left to approve."
+    m = re.fullmatch(r"(approve|reject) (?:your|the|those|these|all)(?: the)? (?:self )?improvements", t)
     if m and "approve_improvements" in R:
         r = R[f"{m.group(1)}_improvements"]()
         return r.get("error") or ("Rules adopted, {TITLE}. I'll be better for it." if m.group(1) == "approve" else "Dropped, {TITLE}. I stay as I was.")
