@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.93.0** (shown at the bottom right of the HUD)
+**Version 1.94.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.94.0**: Team panel: 'show the team' (or 'how's the team going', no AI needed) shows what the planner, coder and critic are each doing on a team goal, with a rough completion bar each, one for the whole goal and the task list. It opens when a team starts and updates itself while open.
 - **1.93.0**: Camera presence: Settings > Ambient & boot-up > 'Camera sees when you're at the PC'. The webcam checks for your face once a second on this PC, so Jarvis knows you're back the moment you sit down (welcome back, held messages) and doesn't mark you away while you watch something without touching the keyboard. No pictures are saved or sent.
 - **1.92.0**: Live panels from a description: 'make a panel that shows gold's price and my open trades' writes itself in about half a minute and stays (sandboxed: read-only tools and public pages only). Hand control: 'hand control on' makes your index finger a pointer on the webcam; pinch to click or drag a panel, swipe an open hand to close a pop-up. Holo mode's life map: your shifts, pay, trades, agents, ventures and more orbit the core; tap, pinch or say one to open it ('life map off' hides it).
 - **1.91.1**: Self-improvements: remove or reword each proposed rule before approving ('remove improvement 2', 'change 1 to ...'), and give Jarvis your own rules ('new rule: ...').

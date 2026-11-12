@@ -120,6 +120,10 @@ def quick(text):
     if m and "approve_improvements" in R:
         r = R[f"{m.group(1)}_improvements"]()
         return r.get("error") or ("Rules adopted, {TITLE}. I'll be better for it." if m.group(1) == "approve" else "Dropped, {TITLE}. I stay as I was.")
+    if re.fullmatch(r"(?:show|open)(?: me)? (?:the |my )?team(?: panel)?|how s the team (?:going|doing)|team status", t) \
+            and "company_status" in R:  # the team panel: no AI needed
+        r = R["company_status"]()
+        return r.get("error") or f"The team's {r['overall_pct']}% of the way, {{TITLE}}."
     m = re.fullmatch(r"(keep|discard|throw away) (?:the )?(?:night shift|tonight s work|last night s work)(?: (.+))?", t)
     if m and "keep_night_shift" in R:  # (the panel's buttons name the copy: its dashes arrive as spaces)
         fn = R["keep_night_shift" if m.group(1) == "keep" else "discard_night_shift"]

@@ -6,7 +6,9 @@ runs a chain of background jobs there:
 2. For each task, the coder does it; then the critic reviews the coder's changes against the task and either
    approves or sends back a list of problems. One round of fixes per task, then it moves on with the problems noted.
 3. Every `checkpoint_every` tasks (default 2) Jarvis tells him where it's up to. He can say "stop the company".
-4. At the end he gets the night-shift style panel: a summary and the changed files, to keep (old files backed up)
+4. The team panel ("show the team") shows what the planner, coder and critic are each doing, with a rough completion
+   bar each and one for the whole goal. It updates itself while open, as jobs start and finish.
+5. At the end he gets the night-shift style panel: a summary and the changed files, to keep (old files backed up)
    or throw away.
 The agents read and write code but can't run it, so the critic checks by reading. The PC must stay on.
 """
@@ -53,6 +55,10 @@ def start_company(project, goal, checkpoint_every=2):
            "Read the project, then write COMPANY_PLAN.json in this folder: {\"tasks\": [{\"title\": \"...\", \"do\": "
            "\"exactly what to change, with file names\", \"done_when\": \"how a reviewer can tell from the code\"}]}. "
            "3 to 6 tasks, in order, each small enough for one sitting. Change nothing else.")
+    try:
+        features._panel(board(c))  # the team panel, which keeps itself up to date while open
+    except Exception:
+        pass
     return {"company": cid, "note": "The planner is on it; you'll hear at each checkpoint and get the result to keep or throw away."}
 
 
@@ -63,6 +69,13 @@ def _code(c, extra=""):
 
 
 def after_job(job, summary, say):
+    try:
+        _after(job, summary, say)
+    finally:
+        refresh(job.get("company"))
+
+
+def _after(job, summary, say):
     import nightshift
     st = _state()
     c = st.get(job["company"])
@@ -119,16 +132,60 @@ def after_job(job, summary, say):
     _code(c)
 
 
+def board(c):
+    """The team panel: each member's current work and a rough completion bar (from tasks done and who's on now)."""
+    import devhelper
+    jobs = [j for j in devhelper._load("dev_jobs.json", []) if j.get("company") == c["id"]]
+    cur = jobs[-1] if jobs and jobs[-1]["status"] in ("queued", "running") else {}
+    role, on = cur.get("role"), cur.get("status") == "running"
+    n, k, tasks = len(c["tasks"]), c["task"], c["tasks"]
+    done, title = c["status"] == "done", tasks[k]["title"] if k < n else ""
+    wait = "" if on else " (queued)"
+    if c["status"] == "planning":
+        plan = ("Reading the project and writing the plan" + wait, 50 if on else 10)
+    else:
+        plan = (f"Planned {n} tasks" if n else "Couldn't make a plan", 100 if n else 0)
+    if not n:
+        code = crit = ("Waiting for the plan", 0)
+    elif done:
+        sent = sum(x["fixed_once"] for x in c["log"])
+        code, crit = (f"Finished all {n} tasks", 100), (f"Reviewed all {n}, sent {sent} back", 100)
+    else:
+        part = {"coder": .5 if on else 0, "critic": .9}.get(role, 0)
+        code = (f"Task {k + 1}/{n}: {title}" + (" (fixing the critic's notes)" if c["retries"] else "") + wait
+                if role == "coder" else f"Waiting on the review of task {k + 1}" if role == "critic" else "Idle",
+                (k + part) / n * 100)
+        crit = (f"Reviewing task {k + 1}: {title}" + wait if role == "critic" else
+                f"Waiting for the coder ({k} approved)", (k + (.5 if role == "critic" and on else 0)) / n * 100)
+    steps = 1 + 2 * n
+    fin = 100 if done else 5 if not n else (1 + 2 * k + (role == "critic")) / steps * 100
+    return {"type": "panel", "kind": "team", "id": c["id"], "title": f"Team: {c['project']}", "goal": c["goal"],
+            "status": c["status"], "overall": round(fin), "stay": True,
+            "members": [{"name": name, "doing": d, "pct": round(pc), "active": role == r and on}
+                        for name, r, (d, pc) in (("Planner", "planner", plan), ("Coder", "coder", code), ("Critic", "critic", crit))],
+            "tasks": [{"title": t["title"], "state": "done" if i < k or done else "now" if i == k else "todo"}
+                      for i, t in enumerate(tasks)]}
+
+
+def refresh(cid):
+    """Update the team panel if it's open (the HUD ignores it otherwise)."""
+    c = _state().get(cid) if cid else None
+    if c:
+        try:
+            features._panel({**board(c), "update": True})
+        except Exception:
+            pass  # Jarvis isn't running (self-test) or the HUD is closed
+
+
 def company_status():
     st = _state()
     if not st:
         return {"error": "No team has been started."}
-    c = st[sorted(st)[-1]]
-    features._panel({"type": "panel", "kind": "list", "title": f"Team: {c['goal'][:40]}", "stay": True,
-                     "items": [{"text": f"{'✓' if i < c['task'] else '▶' if i == c['task'] else '·'} {t['title']}",
-                                "sub": t.get("done_when", "")[:120]} for i, t in enumerate(c["tasks"])] or [{"text": "Planning...", "sub": ""}],
-                     "note": c["status"]})
-    return {"goal": c["goal"], "status": c["status"], "task": c["task"], "of": len(c["tasks"])}
+    c = st[sorted(st, key=lambda k: st[k]["id"].rsplit("-co-", 1)[-1])[-1]]
+    b = board(c)
+    features._panel(b)
+    return {"goal": c["goal"], "status": c["status"], "task": c["task"], "of": len(c["tasks"]), "overall_pct": b["overall"],
+            "members": [f"{m['name']}: {m['doing']} ({m['pct']}%)" for m in b["members"]]}
 
 
 def stop_company():
@@ -148,10 +205,11 @@ TOOLS = [
      "checkpoints, and he keeps or throws away the result. For big multi-step goals; one-off changes use dev_task.",
      "input_schema": {"type": "object", "required": ["project", "goal"],
                       "properties": {"project": S, "goal": S, "checkpoint_every": {"type": "integer"}}}},
-    {"name": "company_status", "description": "Where the team is up to.", "input_schema": {"type": "object", "properties": {}}},
+    {"name": "company_status", "description": "Show the team panel ('show the team', 'how's the team going'): what "
+     "the planner, coder and critic are each doing, with a rough completion bar each.", "input_schema": {"type": "object", "properties": {}}},
     {"name": "stop_company", "description": "Stop the team.", "input_schema": {"type": "object", "properties": {}}},
 ]
-COMMANDS = {"Projects": ["Get the team to ship my demo", "How's the team going?"]}
+COMMANDS = {"Projects": ["Get the team to ship my demo", "Show the team"]}
 
 
 if __name__ == "__main__":
@@ -173,11 +231,18 @@ if __name__ == "__main__":
     assert j["role"] == "planner"
     (draft / "COMPANY_PLAN.json").write_text(json.dumps({"tasks": [{"title": "Add menu", "do": "a", "done_when": "b"},
                                                                     {"title": "Add sound", "do": "c", "done_when": "d"}]}))
+    b = board(_state()[j["company"]])
+    assert b["members"][0]["pct"] == 10 and b["members"][1]["doing"] == "Waiting for the plan" and b["overall"] == 5
     after_job(j, "planned", said.append)
+    b = board(_state()[j["company"]])
+    assert b["members"][0]["pct"] == 100 and b["members"][1]["doing"] == "Task 1/2: Add menu (queued)" and b["overall"] == 20
+    assert shown[-1]["update"] and shown[-1]["kind"] == "team"  # the open panel was refreshed
     assert last()["role"] == "coder" and "Add menu" in last()["request"] and not (draft / "COMPANY_PLAN.json").exists()
     (draft / "menu.lua").write_text("menu\n")
     after_job(last(), "added menu", said.append)
     assert last()["role"] == "critic" and "menu.lua" in last()["request"]
+    b = board(_state()[j["company"]])
+    assert b["members"][1]["pct"] == 45 and b["members"][2]["doing"].startswith("Reviewing task 1") and b["overall"] == 40
     (draft / "COMPANY_REVIEW.json").write_text(json.dumps({"verdict": "fix", "problems": ["no back button"]}))
     after_job(last(), "reviewed", said.append)
     assert last()["role"] == "coder" and "no back button" in last()["request"]
@@ -188,5 +253,8 @@ if __name__ == "__main__":
     after_job(last(), "sound", said.append)
     after_job(last(), "no review file", said.append)  # critic wrote nothing: approved
     assert _state()[j["company"]]["status"] == "done" and "1 sent back" in said[-1] and "1 files changed" in said[-1]
-    assert shown[-1]["actions"][0][1].startswith("keep night shift game-co-")
+    keep = [e for e in shown if e.get("actions")][-1]
+    assert keep["actions"][0][1].startswith("keep night shift game-co-")
+    b = board(_state()[j["company"]])
+    assert b["overall"] == 100 and [m["pct"] for m in b["members"]] == [100, 100, 100] and "sent 1 back" in b["members"][2]["doing"]
     print("company self-test passed")

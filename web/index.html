@@ -221,6 +221,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .cnl-q{font-size:13px;margin:2px 0 8px}.cnl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .cnl-m{border:1px solid rgba(var(--rgb),.25);padding:7px;font-size:11px}.cnl-m b{font-size:12px;letter-spacing:.08em}.cnl-m em{float:right;color:var(--amber);font-style:normal;font-size:10px}
 .cnl-m.off{opacity:.5}.cnl-m.off span{display:block}.cnl-s{font-size:13px;margin:5px 0;color:var(--cyan)}.cnl-c{height:4px;background:rgba(var(--rgb),.15);margin:3px 0}.cnl-c i{display:block;height:100%;background:var(--cyan)}
+.team .tm-g{color:var(--cyan);margin-bottom:6px}.tm-m{margin-top:8px}.tm-m small{color:var(--mute);display:block;margin:2px 0}.tm-m.on b{color:var(--cyan)}
+.team .bar.live i{animation:tmPulse 1.6s ease-in-out infinite}@keyframes tmPulse{50%{opacity:.45}}
 .cnl-m small{color:var(--mute)}.cnl-m ul,.cnl ul{margin:4px 0;padding-left:16px}.cnl-r{color:var(--mute);margin-top:3px}
 .cnl-h{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--mute);margin-top:8px}.cnl-v{margin-top:8px;font-size:13px;border-left:2px solid var(--cyan);padding-left:8px}
 .skl{font-size:12px}.skl .up{color:#4ade80}.skl .dn{color:#ff5a6a}.skl-k,.skl-t,.skl-w{margin:5px 0}.skl-w{color:var(--amber)}
@@ -2712,7 +2714,15 @@ new MutationObserver(()=>{  // a panel Jarvis just opened for an "enlarge" reque
   if(BIG.el&&!$('bigView').contains(BIG.el))exitBig()}).observe($('holo'),{childList:true});
 new MutationObserver(()=>{if(BIG.el&&(BIG.el.classList.contains('out')||!BIG.el.isConnected))setTimeout(()=>exitBig(),450)}).observe($('bigView'),{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 function closePanel(p){if(p.classList.contains('out'))return;forget(p);sfx('close');p.classList.add('out');setTimeout(()=>p.remove(),500)}
+// The team panel (company.py): each member's work with a rough completion bar, the whole goal's bar, and the tasks
+function teamBody(p,ev){p.querySelector('h3').textContent=ev.title;let d=p.querySelector('.team');if(!d){d=document.createElement('div');d.className='team';p.append(d)}
+  const bar=(pc,on)=>`<div class="bar${on?' live':''}"><i style="width:${Math.max(0,Math.min(100,pc))}%"></i></div>`;
+  d.innerHTML=`<div class="tm-g">${esc(ev.goal||'')}</div><div class="row"><span>Overall</span><span>${ev.overall}% · ${esc(ev.status)}</span></div>${bar(ev.overall)}`
+    +(ev.members||[]).map(m=>`<div class="tm-m${m.active?' on':''}"><div class="row"><b>${esc(m.name)}</b><span>${m.pct}%</span></div><small>${esc(m.doing)}</small>${bar(m.pct,m.active)}</div>`).join('')
+    +((ev.tasks||[]).length?'<ul class="hlist">'+ev.tasks.map(t=>`<li class="${t.state==='done'?'done':''}"><span>${t.state==='done'?'✓':t.state==='now'?'▶':'·'} ${esc(t.title)}</span></li>`).join('')+'</ul>':'')}
 function showPanel(ev){
+  if(ev.kind==='team'){const old=[...$('holo').querySelectorAll('.holo-panel[data-team]')].find(q=>q.dataset.team===ev.id&&!q.classList.contains('out'));
+    if(old)return teamBody(old,ev);if(ev.update)return}  /* updates refresh the open team panel in place */
   if(ev.clear_first)[...$('holo').children].forEach(closePanel);  /* e.g. a finished test run: just its results */
   const p=document.createElement('div'),h=document.createElement('h3'),x=document.createElement('button');
   sfx('panel');p.className='holo-panel';h.textContent=ev.title;x.className='holo-x';x.type='button';x.textContent='\u00d7';x.setAttribute('aria-label','Close panel');x.onclick=()=>closePanel(p);
@@ -2735,6 +2745,7 @@ function showPanel(ev){
   else if(ev.kind==='text'){const d=document.createElement('div');d.className='htext';d.textContent=ev.text;p.append(d)}
   else if(ev.kind==='calendar')shiftCal(p,ev);
   else if(ev.kind==='testreport')testReport(p,ev);
+  else if(ev.kind==='team'){p.dataset.team=ev.id;teamBody(p,ev)}
   else if(ev.kind==='council'){p.classList.add('wide');const d=document.createElement('div');d.className='cnl';
     const S=ev.summary||{},list=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join('');
     d.innerHTML=`<div class="cnl-q">${esc(ev.question||'')}</div><div class="cnl-grid">`+(ev.members||[]).map(m=>m.error&&!m.stance?

@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.93.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.94.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -3531,6 +3531,8 @@ if __name__ == "__main__":
                     job = devhelper.next_job()
                     if job:  # a coding job: run it alongside, announce when finished
                         def run_job(j):
+                            if j.get("company"):
+                                company.refresh(j["company"])  # the team panel: this member is on it now
                             text = devhelper.run_job(j, CLAUDE, brain_status()["using"].lower())
                             if j.get("skill"):  # a skill he asked Jarvis to learn: check it and show it for his OK
                                 skills.after_job(j, text, say)

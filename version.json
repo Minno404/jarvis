@@ -1,4 +1,4 @@
 {
- "version": "1.93.0",
- "notes": "Camera presence: Settings > Ambient & boot-up > 'Camera sees when you're at the PC'. The webcam checks for your face once a second on this PC, so Jarvis knows you're back the moment you sit down (welcome back, held messages) and doesn't mark you away while you watch something without touching the keyboard. No pictures are saved or sent."
+ "version": "1.94.0",
+ "notes": "Team panel: 'show the team' (or 'how's the team going', no AI needed) shows what the planner, coder and critic are each doing on a team goal, with a rough completion bar each, one for the whole goal and the task list. It opens when a team starts and updates itself while open."
 }
