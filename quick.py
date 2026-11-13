@@ -120,6 +120,13 @@ def quick(text):
     if m and "approve_improvements" in R:
         r = R[f"{m.group(1)}_improvements"]()
         return r.get("error") or ("Rules adopted, {TITLE}. I'll be better for it." if m.group(1) == "approve" else "Dropped, {TITLE}. I stay as I was.")
+    if re.fullmatch(r"(?:monitor|watch) (?:my pc|for lag|my pc for lag|for spikes)(?: while i (?:game|play))?", t) and "lag_watch" in R:
+        r = R["lag_watch"](True)
+        return r.get("error") or ("Already watching, {TITLE}." if r.get("note", "").startswith("Already") else
+                                  "Watching every second, {TITLE}. I'll report the spikes when your game closes.")
+    if re.fullmatch(r"stop (?:monitoring|the lag watch|watching for lag)(?: my pc)?", t) and "lag_watch" in R:
+        r = R["lag_watch"](False)
+        return r.get("error") or r["say"]
     if re.fullmatch(r"(?:show|open)(?: me)? (?:the |my )?team(?: panel)?|how s the team (?:going|doing)|team status", t) \
             and "company_status" in R:  # the team panel: no AI needed
         r = R["company_status"]()

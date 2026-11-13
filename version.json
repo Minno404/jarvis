@@ -1,4 +1,4 @@
 {
- "version": "1.95.0",
- "notes": "'Make a Roblox game with the team' or 'make that with the team': Jarvis hands the team what you've been talking about as its brief, and for something new he makes a project folder in Documents/Jarvis Projects (Roblox games are built as Rojo projects). Better understanding: a loosely worded question ('what's my spending like') gets the answer itself with the numbers, with the report or panel opened behind it and where to look, instead of just 'pulling up your report'."
+ "version": "1.96.0",
+ "notes": "Lag watch: 'monitor my PC while I game' logs CPU (and the busiest core), RAM, GPU load and temperature, disk, the busiest app, and router and internet ping every second. When the game closes (or 'stop monitoring') a panel lists each spike with what caused it, and Jarvis says the main cause: Wi-Fi, your internet or the game's servers, CPU, GPU, RAM or disk. No AI used."
 }

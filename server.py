@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.95.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.96.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -638,6 +638,7 @@ import undo       # "undo that": a short history of what Jarvis changed (see und
 import life       # recipes, bills, habits, PC clean-up, game mode, finding files (see life.py)
 import dnd        # Jarvis as Dungeon Master: adventures with real dice on the HUD (see dnd.py)
 import commands   # "what can you do?": every command as a searchable panel (see commands.py)
+import lagwatch  # "monitor my PC while I game": per-second spikes and their cause (see lagwatch.py)
 import gamecoach  # watches his gameplay: live tips and a review of his mistakes (see gamecoach.py)
 import power      # "sleep the PC", and the quiet wake when his phone wakes it (see power.py)
 import spendview  # the full-screen spending report: Spend Breakdown inside Jarvis (see spendview.py)
@@ -678,7 +679,7 @@ import capsule    # the time capsule: his predictions, plans and promises, repla
 import panelsmith  # live panels written from a description, run in a sandboxed frame (see panelsmith.py)
 import lifemap    # holo mode's life map: what's going on, in orbit around the core (see lifemap.py)
 import server_bridge
-for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, power, spendview,
+for m in (features, trading, spending, devhelper, learn, tv, hud, coach, personas, undo, life, dnd, commands, gamecoach, lagwatch, power, spendview,
           web, inventory, leftoff, workshop, blueprint, simulate, research, disk, mt5trade, usage, shifts, roster_mail, autoreview, bond, council, skills, prep, twin, crew, ventures, nightshift, selfcare, agents, dream, evolve, mirror, experiments, company, capsule, panelsmith,
           *custom_loader.load()):
     if not hasattr(m, "FUNCS"):
@@ -3569,6 +3570,10 @@ if __name__ == "__main__":
                     gamecoach.tick(st["game"], say)  # coaching his gameplay, if he asked
                 except Exception as e:
                     print(datetime.datetime.now(), "game coach:", repr(e))
+                try:
+                    lagwatch.tick(st["game"], say)  # the lag report when the monitored game closes
+                except Exception as e:
+                    print(datetime.datetime.now(), "lag watch:", repr(e))
                 try:
                     for line in life.tick(st["game"]):  # game mode, and bills coming up
                         say(persona(line))
