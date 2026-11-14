@@ -1,4 +1,4 @@
 {
- "version": "1.97.0",
- "notes": "Settings > 'PC jobs get full access': Claude does PC jobs without its safety check, so steps like deleting or installing aren't refused. Off by default (risky steps are checked)."
+ "version": "1.97.1",
+ "notes": "Fix: ChatGPT kept opening Discord and Steam. The note on each message about which apps are running read like a request to open them; it's now worded as background only."
 }

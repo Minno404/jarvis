@@ -74,10 +74,12 @@ def describe(s):
     if s.get("game"):
         bits.append(f"playing {s['game']}: keep it very short")
     if s.get("open"):
-        bits.append("open: " + ", ".join(s["open"]))
+        bits.append("with these apps already running: " + ", ".join(s["open"]))
     if 1 <= s["now"].hour < 5:
         bits.append("it's the middle of the night")
-    return "Right now he's " + "; ".join(b for b in bits if b) if any(bits) else ""
+    # Worded as background: "open: Discord" read like a request to open Discord, and ChatGPT kept opening it
+    return ("(Background only, not part of his request: right now he's " + "; ".join(b for b in bits if b) + ".)"
+            if any(bits) else "")
 
 
 class Presence:
@@ -204,7 +206,7 @@ def selftest():
     assert not late_night_due(dict(s, now=datetime.datetime(2026, 11, 5, 23, 0)), {})
     d = describe({"now": t, "idle_s": 1, "app": "leagueclientux.exe", "title": "League of Legends",
                   "game": "League of Legends (in a game)", "open": ["Discord", "MT5"]})
-    assert "playing League of Legends" in d and "open: Discord, MT5" in d
+    assert "playing League of Legends" in d and "already running: Discord, MT5" in d and d.startswith("(Background only")
     assert greeting(t, 2).endswith("You have 2 reminders today.")
     small = datetime.datetime(2026, 11, 5, 2, 0)
     assert greeting(small) in GREETINGS["small_hours"]
