@@ -207,7 +207,9 @@ def run_job(job, claude, brain="claude"):
         rea = _rea_config()
         if rea:
             base += ["--mcp-config", rea]
-        if kind == "pc":
+        if kind == "pc" and features.settings().get("pc_full_access"):  # Settings: no safety check at all
+            cmd = base + ["--dangerously-skip-permissions"]
+        elif kind == "pc":
             cmd = base + ["--permission-mode", "auto", "--permission-prompts", "none"]
         elif kind == "research":  # the web plus files in its own folder; no shell
             cmd = base + ["--permission-mode", "acceptEdits", "--allowedTools", "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",

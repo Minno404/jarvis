@@ -1,4 +1,4 @@
 {
- "version": "1.96.0",
- "notes": "Lag watch: 'monitor my PC while I game' logs CPU (and the busiest core), RAM, GPU load and temperature, disk, the busiest app, and router and internet ping every second. When the game closes (or 'stop monitoring') a panel lists each spike with what caused it, and Jarvis says the main cause: Wi-Fi, your internet or the game's servers, CPU, GPU, RAM or disk. No AI used."
+ "version": "1.97.0",
+ "notes": "Settings > 'PC jobs get full access': Claude does PC jobs without its safety check, so steps like deleting or installing aren't refused. Off by default (risky steps are checked)."
 }

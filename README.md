@@ -1,6 +1,6 @@
 # J.A.R.V.I.S.
 
-**Version 1.96.0** (shown at the bottom right of the HUD)
+**Version 1.97.0** (shown at the bottom right of the HUD)
 
 An Iron Man-style assistant for your Windows PC and phone: a holographic HUD, voice control, a trading
 journal and coach for MetaTrader 5, PC control, reminders, a floating mini core over your games, and more.
@@ -193,6 +193,7 @@ the PC is up. Setup is at the top of the file.
 
 ## Version history
 
+- **1.97.0**: Settings > 'PC jobs get full access': Claude does PC jobs without its safety check, so steps like deleting or installing aren't refused. Off by default (risky steps are checked).
 - **1.96.0**: Lag watch: 'monitor my PC while I game' logs CPU (and the busiest core), RAM, GPU load and temperature, disk, the busiest app, and router and internet ping every second. When the game closes (or 'stop monitoring') a panel lists each spike with what caused it, and Jarvis says the main cause: Wi-Fi, your internet or the game's servers, CPU, GPU, RAM or disk. No AI used.
 - **1.95.0**: 'Make a Roblox game with the team' or 'make that with the team': Jarvis hands the team what you've been talking about as its brief, and for something new he makes a project folder in Documents/Jarvis Projects (Roblox games are built as Rojo projects). Better understanding: a loosely worded question ('what's my spending like') gets the answer itself with the numbers, with the report or panel opened behind it and where to look, instead of just 'pulling up your report'.
 - **1.94.0**: Team panel: 'show the team' (or 'how's the team going', no AI needed) shows what the planner, coder and critic are each doing on a team goal, with a rough completion bar each, one for the whole goal and the task list. It opens when a team starts and updates itself while open.

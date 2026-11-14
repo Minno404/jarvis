@@ -19,7 +19,7 @@ import webbrowser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-VERSION = "1.96.0"  # shown at the bottom of the HUD; bump it with every update
+VERSION = "1.97.0"  # shown at the bottom of the HUD; bump it with every update
 HERE = Path(__file__).parent
 STARTED = time.time()  # for the "online after N s" line in jarvis.log
 if sys.stdout is None:  # started windowless with pythonw: send output to a log file instead
@@ -1091,7 +1091,7 @@ def save_prefs(d):
         threading.Thread(target=move, daemon=True).start()
     if d.get("stt_quality") in ("fast", "accurate", "best"):
         s["stt_quality"] = d["stt_quality"]  # takes effect next time Jarvis starts
-    for k in ("ambient", "ambient_music", "bootup", "close_to_tray", "seat_cam"):
+    for k in ("ambient", "ambient_music", "bootup", "close_to_tray", "seat_cam", "pc_full_access"):
         if k in d:
             s[k] = bool(d[k])
     if "text_size" in d:
@@ -1116,7 +1116,7 @@ def save_prefs(d):
     apply_prefs()
     push_event({"type": "prefs", **{k: s.get(k) for k in ("listen_mode", "ptt_key", "avatar", "avatar_style",
                                                             "voice_engine", "kokoro_voice", "voice_speed", "voice_volume",
-                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "seat_cam", "close_to_tray", "features", "stt_quality",
+                                                            "panel_alpha", "text_size", "ambient", "ambient_music", "bootup", "seat_cam", "pc_full_access", "close_to_tray", "features", "stt_quality",
                                                             "local_voice", "local_on", "incognito_model", "claude_route", "voice_emotion", "split_claude_voice",
                                                             "split_gpt_voice", "depth_mode")}, "autostart": autostart_on()})
     return {**s, "voice": speech.status, "autostart": autostart_on()}

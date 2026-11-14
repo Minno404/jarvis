@@ -809,6 +809,7 @@ html:not(.incognito) .panel[data-id=roleplay]{display:none!important}  /* rolepl
     </fieldset>
     <fieldset><legend>Startup &amp; closing</legend>
       <label><input type="checkbox" id="autoStart"> Start Jarvis when Windows starts (he waits in the tray by the clock if the option below is on)</label>
+      <label><input type="checkbox" id="pcFull"> PC jobs get full access: Claude does them without its safety check, so nothing it tries is blocked (deleting, installing, system changes). Off: risky steps are checked and may be refused. ChatGPT jobs already have full access</label>
       <label><input type="checkbox" id="closeTray"> Closing the window keeps Jarvis running in the system tray (bottom right, by the clock); Quit from his tray icon to close him fully</label>
     </fieldset>
     <fieldset><legend>Ambient &amp; boot-up</legend>
@@ -1652,6 +1653,7 @@ document.querySelectorAll('[data-feat]').forEach(c=>c.onchange=()=>{const f={};
 const TRADING_PANELS=['mt5','journal','report'];
 function applyFeatures(f,changed){if(f&&f.trading===false)TRADING_PANELS.forEach(id=>setPanel(id,false));
   else if(changed&&f&&f.trading)TRADING_PANELS.filter(id=>id!=='mt5').forEach(id=>setPanel(id,true))}
+$('pcFull').onchange=()=>savePref({pc_full_access:$('pcFull').checked});
 $('closeTray').onchange=()=>savePref({close_to_tray:$('closeTray').checked});
 $('ambMusic').onchange=()=>savePref({ambient_music:$('ambMusic').checked});
 $('bootOn').onchange=()=>savePref({bootup:$('bootOn').checked});
@@ -2991,7 +2993,7 @@ async function bootSequence(){
   if(info.brain)showBrain(info.brain.using);
   if(info.persona)showPersona(info.persona);
   if(info.background)setBackground(info.background);
-  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,seat_cam:info.seat_cam,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,voice_emotion:info.voice_emotion,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
+  showPrefs({voice_volume:info.voice_volume,local_voice:info.local_voice,local_on:info.local_on,brain_setting:(info.brain&&info.brain.setting)||'auto',stt_quality:info.stt_quality,features:info.features,autostart:info.autostart,close_to_tray:info.close_to_tray,ambient:info.ambient,ambient_music:info.ambient_music,bootup:info.bootup,seat_cam:info.seat_cam,pc_full_access:info.pc_full_access,text_size:info.text_size,panel_alpha:info.panel_alpha,listen_mode:info.listen_mode,ptt_key:info.ptt_key,avatar:info.avatar,avatar_style:info.avatar_style,voice_engine:info.voice_engine,kokoro_voice:info.kokoro_voice,voice_speed:info.voice_speed,voice_emotion:info.voice_emotion,split_claude_voice:info.split_claude_voice,split_gpt_voice:info.split_gpt_voice});
   if(info.version)$('version').textContent='J.A.R.V.I.S. v'+info.version;
   if(info.version&&['127.0.0.1','localhost'].includes(location.hostname)){checkUpdate();setInterval(checkUpdate,30*60*1000);$('version').onclick=()=>checkUpdate(true);$('version').title='Click to check for updates'}
   if(info.name){$('sub').textContent='Personal assistant · Online for '+info.name;userLabel=info.name.toUpperCase()}
@@ -3192,7 +3194,7 @@ function showPrefs(p){
   if(prefs.features)document.querySelectorAll('[data-feat]').forEach(c=>c.checked=prefs.features[c.dataset.feat]!==false);
   document.querySelectorAll('input[name=stq]').forEach(r=>r.checked=r.value===(prefs.stt_quality||'accurate'));
   if(prefs.brain_setting)document.querySelectorAll('input[name=br]').forEach(r=>r.checked=r.value===prefs.brain_setting);
-  $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;
+  $('autoStart').checked=!!prefs.autostart;$('closeTray').checked=!!prefs.close_to_tray;$('pcFull').checked=!!prefs.pc_full_access;
   $('ambOn').checked=!!prefs.ambient;$('ambMusic').checked=prefs.ambient_music!==false;$('ambMusic').disabled=!prefs.ambient;$('bootOn').checked=prefs.bootup!==false;$('seatCam').checked=!!prefs.seat_cam;seatWatch(!!prefs.seat_cam&&LOCAL&&!PIN);
   setAmbient(!!prefs.ambient&&!PIN);
   if(prefs.panel_alpha!=null){document.documentElement.style.setProperty('--pa',prefs.panel_alpha);$('panelAlpha').value=prefs.panel_alpha}
